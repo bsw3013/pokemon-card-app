@@ -182,7 +182,86 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
       return sortable;
   }, [rawDbData, rawSortConfig]);
 
+  // --- 깃허브 직접 연동 로직 ---
+  const GH_TOKEN  = import.meta.env.VITE_GITHUB_TOKEN;
+  const GH_OWNER  = import.meta.env.VITE_GITHUB_OWNER;
+  const GH_REPO   = import.meta.env.VITE_GITHUB_REPO;
+  const GH_PATH   = import.meta.env.VITE_GITHUB_BACKUP_PATH || 'database_backups/main_dataset.csv';
+  const GH_API    = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}`;
+
+  const [ghStatus, setGhStatus] = useState('');
+
+  const handleGithubBackup = async () => {
+      if (!window.confirm('🚀 파이어베이스의 현재 전체 데이터를 깃허브에 CSV로 백업하시겠습니까?')) return;
+      setGhStatus('⏳ 업로드 중...');
+      try {
+          // 1. DB 전체 읽기
+          const snapshot = await getDocs(collection(db, 'pokemon_cards'));
+          const allData = snapshot.docs.map(d => ({ raw_database_id: d.id, ...d.data() }));
+          
+          // 2. CSV 변환 (papaparse)
+          const csvStr = Papa.unparse(allData, { header: true });
+          const bom = '\uFEFF';
+          const encoded = btoa(unescape(encodeURIComponent(bom + csvStr)));
+
+          // 3. 기존 파일 SHA 조회 (덮어씌우려면 필요)
+          let sha = null;
+          try {
+              const res = await fetch(GH_API, { headers: { Authorization: `token ${GH_TOKEN}`, 'User-Agent': 'pokedex-app' } });
+              if (res.ok) { const json = await res.json(); sha = json.sha; }
+          } catch(_) {}
+
+          // 4. 깃허브 PUT
+          const now = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+          const body = { message: `🔒 DB 백업: ${now} (총 ${allData.length}건)`, content: encoded, ...(sha ? { sha } : {}) };
+          const putRes = await fetch(GH_API, {
+              method: 'PUT',
+              headers: { Authorization: `token ${GH_TOKEN}`, 'User-Agent': 'pokedex-app', 'Content-Type': 'application/json' },
+              body: JSON.stringify(body)
+          });
+          if (!putRes.ok) throw new Error(await putRes.text());
+          setGhStatus(`✅ 깃허브 백업 완료! (${allData.length}건 저장됨)`);
+      } catch (err) {
+          console.error(err);
+          setGhStatus('❌ 백업 실패: ' + err.message);
+      }
+  };
+
+  const handleGithubRestore = async () => {
+      if (!window.confirm('⚠️ 깃허브에 저장된 CSV로 현재 파이어베이스 DB를 교체하시겠습니까?\n기존 데이터는 유지되며, CSV에 있는 데이터가 추가/덮어씌워집니다.')) return;
+      setGhStatus('⏳ 깃허브에서 불러오는 중...');
+      try {
+          // 1. 깃허브 파일 읽기
+          const res = await fetch(GH_API, { headers: { Authorization: `token ${GH_TOKEN}`, 'User-Agent': 'pokedex-app' } });
+          if (!res.ok) throw new Error('깃허브에 백업 파일이 없습니다. 먼저 백업을 실행하세요.');
+          const json = await res.json();
+          const csvStr = decodeURIComponent(escape(atob(json.content)));
+
+          // 2. CSV 파싱
+          const parsed = Papa.parse(csvStr, { header: true, skipEmptyLines: true });
+          const rows = parsed.data;
+
+          // 3. Firestore에 upsert (raw_database_id가 있으면 해당 문서 update, 없으면 add)
+          let count = 0;
+          for (const row of rows) {
+              const { raw_database_id, ...data } = row;
+              if (data.price) data.price = parseInt(data.price) || 0;
+              if (raw_database_id && raw_database_id.length > 5) {
+                  await updateDoc(doc(db, 'pokemon_cards', raw_database_id), data);
+              } else {
+                  await addDoc(collection(db, 'pokemon_cards'), data);
+              }
+              count++;
+          }
+          setGhStatus(`✅ 깃허브에서 불러오기 완료! (${count}건 반영됨)`);
+      } catch (err) {
+          console.error(err);
+          setGhStatus('❌ 불러오기 실패: ' + err.message);
+      }
+  };
+
   // --- 엑셀(CSV) 연동 로직 ---
+
   const downloadCsv = (csvStr, filename) => {
      // 한글 인코딩 깨짐 방지 BOM 추가
      const bom = "\uFEFF";
@@ -466,8 +545,41 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
           </div>
        </div>
 
+       {/* 깃허브 연동 섹션 */}
+       <div className="admin-section full-width" style={{ marginTop: '2rem', border: '1px solid #7c3aed' }}>
+          <h3>🐙 깃허브 클라우드 백업 & 복원 (GitHub)</h3>
+          <p className="help-text">
+             파이어베이스 DB 전체 데이터를 <strong style={{ color: '#7c3aed' }}>github.com/bsw3013/pokemon-card-app</strong> 에 원터치로 저장하거나 불러옵니다.<br/>
+             백업 시 기존 파일을 덮어씌우며, 깃허브가 자동으로 버전 히스토리를 관리합니다.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginTop: '1.5rem' }}>
+             <div style={{ background: 'rgba(124,58,237,0.1)', padding: '1.5rem', borderRadius: '8px', border: '1px solid rgba(124,58,237,0.3)' }}>
+                <h4 style={{ color: '#7c3aed', marginBottom: '0.5rem' }}>🚀 깃허브로 백업 (DB → GitHub)</h4>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>현재 DB의 모든 카드를 <code>database_backups/main_dataset.csv</code> 로 저장합니다.</p>
+                <button className="btn" style={{ background: '#7c3aed', color: 'white', width: '100%', padding: '0.8rem' }} onClick={handleGithubBackup}>
+                   ⬆️ 지금 즉시 깃허브에 백업
+                </button>
+             </div>
+             <div style={{ background: 'rgba(124,58,237,0.1)', padding: '1.5rem', borderRadius: '8px', border: '1px solid rgba(124,58,237,0.3)' }}>
+                <h4 style={{ color: '#a78bfa', marginBottom: '0.5rem' }}>📥 깃허브에서 복원 (GitHub → DB)</h4>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>깃허브에 저장된 <code>main_dataset.csv</code>를 읽어 파이어베이스에 반영합니다.</p>
+                <button className="btn" style={{ border: '1px solid #7c3aed', color: '#a78bfa', width: '100%', padding: '0.8rem', background: 'transparent' }} onClick={handleGithubRestore}>
+                   ⬇️ 깃허브에서 DB로 불러오기
+                </button>
+             </div>
+          </div>
+
+          {ghStatus && (
+             <div style={{ marginTop: '1rem', padding: '0.8rem 1rem', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', color: ghStatus.startsWith('✅') ? '#10b981' : ghStatus.startsWith('❌') ? '#ef4444' : '#facc15', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                {ghStatus}
+             </div>
+          )}
+       </div>
+
        {/* 데이터베이스 연동 섹션 추가 */}
        <div className="admin-section full-width" style={{ marginTop: '2rem', border: '1px solid #10b981' }}>
+
           <h3>💾 글로벌 데이터 클라우드 관리 (엑셀 연동)</h3>
           <p className="help-text">
              화면 표시 설정과 무관하게, 서버에 저장된 100% 원본 표 데이터베이스를 엑셀과 연동합니다.<br/>
