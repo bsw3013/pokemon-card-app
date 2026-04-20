@@ -40,6 +40,57 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
     }
   };
 
+  // --- 헤더-설정 동기화 유틸리티 ---
+  const syncHeadersWithConfig = async (headers) => {
+    if (!headers || headers.length === 0) return;
+    
+    // 1. 시스템 내부용 필드 및 이미지 주소 제외
+    const excluded = ['raw_database_id', 'imageUrl'];
+    const csvFields = headers.filter(h => h && !excluded.includes(h));
+
+    const updatedFields = [...config.displayFields];
+    let changed = false;
+
+    // A. 추가 로직: CSV에는 있는데 설정에는 없는 필드 추가
+    csvFields.forEach(header => {
+      if (!updatedFields.find(f => f.id === header)) {
+        updatedFields.push({
+          id: header,
+          label: header, 
+          visible: true,
+          order: updatedFields.length + 1
+        });
+        changed = true;
+      }
+    });
+
+    // B. 삭제 로직: 설정에는 있는데 CSV에는 없고, 코어 필드도 아닌 것 제거
+    const finalFields = updatedFields.filter(field => {
+      const isCore = coreFields.includes(field.id);
+      const inCsv = csvFields.includes(field.id);
+      if (!inCsv && !isCore) {
+        changed = true;
+        return false;
+      }
+      return true;
+    });
+
+    if (changed) {
+      // 순서 재정렬
+      finalFields.forEach((f, i) => f.order = i + 1);
+      const newConfig = { ...config, displayFields: finalFields };
+      setConfig(newConfig);
+      // 서버에도 즉시 저장
+      try {
+        await updateDoc(doc(db, "settings", "appConfig"), newConfig);
+        setAppConfig(newConfig);
+        console.log("✅ CSV 헤더에 맞춰 마스터 표시 항목이 자동 갱신되었습니다.");
+      } catch (err) {
+        console.error("설정 자동 동기화 실패:", err);
+      }
+    }
+  };
+
   const fetchRawDb = async () => {
      if (showRawDb) {
         setShowRawDb(false);
@@ -63,25 +114,25 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
   const [rawDbSaving, setRawDbSaving] = useState({});
 
   const handleRawEditChange = (id, key, value) => {
-     // 실시간 로컬 State 업데이트
-     setRawDbData(prev => prev.map(row => row.raw_database_id === id ? { ...row, [key]: value } : row));
+      // 실시간 로컬 State 업데이트
+      setRawDbData(prev => prev.map(row => row.raw_database_id === id ? { ...row, [key]: value } : row));
 
-     // 디바운스 서버 저장
-     if (rawSaveTimeoutRef.current[id + key]) clearTimeout(rawSaveTimeoutRef.current[id + key]);
-     
-     rawSaveTimeoutRef.current[id + key] = setTimeout(async () => {
-        setRawDbSaving(prev => ({ ...prev, [id]: true }));
-        try {
-           const ref = doc(db, "pokemon_cards", id);
-           let finalValue = value;
-           if (key === 'price') finalValue = parseInt(value) || 0;
-           await updateDoc(ref, { [key]: finalValue });
-        } catch (err) {
-           console.error("DB 원격 저장 오류:", err);
-        } finally {
-           setRawDbSaving(prev => ({ ...prev, [id]: false }));
-        }
-     }, 800);
+      // 디바운스 서버 저장
+      if (rawSaveTimeoutRef.current[id + key]) clearTimeout(rawSaveTimeoutRef.current[id + key]);
+      
+      rawSaveTimeoutRef.current[id + key] = setTimeout(async () => {
+         setRawDbSaving(prev => ({ ...prev, [id]: true }));
+         try {
+            const ref = doc(db, "pokemon_cards", id);
+            let finalValue = value;
+            if (key === 'price') finalValue = parseInt(value) || 0;
+            await updateDoc(ref, { [key]: finalValue });
+         } catch (err) {
+            console.error("DB 원격 저장 오류:", err);
+         } finally {
+            setRawDbSaving(prev => ({ ...prev, [id]: false }));
+         }
+      }, 800);
   };
 
   const handleRawDeleteRow = async (id) => {
@@ -186,14 +237,12 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
   const GH_TOKEN  = import.meta.env.VITE_GITHUB_TOKEN;
   const GH_OWNER  = import.meta.env.VITE_GITHUB_OWNER;
   const GH_REPO   = import.meta.env.VITE_GITHUB_REPO;
-  const GH_PATH   = import.meta.env.VITE_GITHUB_BACKUP_PATH || 'database_backups/main_dataset.csv';
-  const GH_API    = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}`;
 
   const [ghStatus, setGhStatus] = useState('');
 
   const handleGithubBackup = async () => {
-      if (!window.confirm('🚀 파이어베이스의 현재 전체 데이터를 깃허브에 CSV로 백업하시겠습니까?')) return;
-      setGhStatus('⏳ 업로드 중...');
+      if (!window.confirm('🚀 파이어베이스 데이터를 깃허브에 누적 백업하시겠습니까? (기존 파일은 유지됨)')) return;
+      setGhStatus('⏳ 깃허브 업로드 중...');
       try {
           // 1. DB 전체 읽기
           const snapshot = await getDocs(collection(db, 'pokemon_cards'));
@@ -204,23 +253,22 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
           const bom = '\uFEFF';
           const encoded = btoa(unescape(encodeURIComponent(bom + csvStr)));
 
-          // 3. 기존 파일 SHA 조회 (덮어씌우려면 필요)
-          let sha = null;
-          try {
-              const res = await fetch(GH_API, { headers: { Authorization: `token ${GH_TOKEN}`, 'User-Agent': 'pokedex-app' } });
-              if (res.ok) { const json = await res.json(); sha = json.sha; }
-          } catch(_) {}
+          // 3. 타임스탬프를 포함한 백업 파일명 생성
+          const now = new Date();
+          const timestamp = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}-${String(now.getMinutes()).padStart(2,'0')}-${String(now.getSeconds()).padStart(2,'0')}`;
+          const filePath = `database_backups/backup_${timestamp}.csv`;
+          const backupUrl = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${filePath}`;
 
-          // 4. 깃허브 PUT
-          const now = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
-          const body = { message: `🔒 DB 백업: ${now} (총 ${allData.length}건)`, content: encoded, ...(sha ? { sha } : {}) };
-          const putRes = await fetch(GH_API, {
+          // 4. 깃허브 PUT (신규 생성이므로 SHA 불필요)
+          const body = { message: `🔒 누적 백업: ${timestamp} (총 ${allData.length}건)`, content: encoded };
+          const putRes = await fetch(backupUrl, {
               method: 'PUT',
               headers: { Authorization: `token ${GH_TOKEN}`, 'User-Agent': 'pokedex-app', 'Content-Type': 'application/json' },
               body: JSON.stringify(body)
           });
+          
           if (!putRes.ok) throw new Error(await putRes.text());
-          setGhStatus(`✅ 깃허브 백업 완료! (${allData.length}건 저장됨)`);
+          setGhStatus(`✅ 깃허브 누적 백업 완료! (${allData.length}건 저장됨 / ${filePath})`);
       } catch (err) {
           console.error(err);
           setGhStatus('❌ 백업 실패: ' + err.message);
@@ -228,24 +276,49 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
   };
 
   const handleGithubRestore = async () => {
-      if (!window.confirm('⚠️ 깃허브에 저장된 CSV로 현재 파이어베이스 DB를 교체하시겠습니까?\n기존 데이터는 유지되며, CSV에 있는 데이터가 추가/덮어씌워집니다.')) return;
-      setGhStatus('⏳ 깃허브에서 불러오는 중...');
+      if (!window.confirm('⚠️ 깃허브의 [가장 최근 백업 파일]을 찾아 현재 데이터와 마스터 설정을 동기화하시겠습니까?')) return;
+      setGhStatus('⏳ 최신 백업 파일 찾는 중...');
       try {
-          // 1. 깃허브 파일 읽기
-          const res = await fetch(GH_API, { headers: { Authorization: `token ${GH_TOKEN}`, 'User-Agent': 'pokedex-app' } });
-          if (!res.ok) throw new Error('깃허브에 백업 파일이 없습니다. 먼저 백업을 실행하세요.');
-          const json = await res.json();
-          const csvStr = decodeURIComponent(escape(atob(json.content)));
+          // 1. 깃허브 백업 폴더 목록 가져오기
+          const listRes = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/database_backups`, {
+              headers: { Authorization: `token ${GH_TOKEN}`, 'User-Agent': 'pokedex-app' }
+          });
+          if (!listRes.ok) throw new Error('백업 폴더가 없거나 목록을 가져올 수 없습니다.');
+          
+          const files = await listRes.json();
+          // backup_ 으로 시작하는 CSV 파일만 필터링 후 이름순 정렬 (최신이 마지막)
+          const backupFiles = files
+            .filter(f => f.name.startsWith('backup_') && f.name.endsWith('.csv'))
+            .sort((a,b) => a.name.localeCompare(b.name));
 
-          // 2. CSV 파싱
+          if (backupFiles.length === 0) throw new Error('불러올 백업 파일이 없습니다.');
+          
+          const latestFile = backupFiles[backupFiles.length - 1];
+          setGhStatus(`⏳ 최신 파일(${latestFile.name}) 정보를 불러오는 중...`);
+
+          // 2. 파일 내용 읽기
+          const contentRes = await fetch(latestFile.url, {
+              headers: { Authorization: `token ${GH_TOKEN}`, 'User-Agent': 'pokedex-app' }
+          });
+          const json = await contentRes.json();
+          const cleanBase64 = json.content.replace(/\n/g, '');
+          const bytes = Uint8Array.from(atob(cleanBase64), c => c.charCodeAt(0));
+          const csvStr = new TextDecoder('utf-8').decode(bytes);
+
+          // 3. CSV 파싱
           const parsed = Papa.parse(csvStr, { header: true, skipEmptyLines: true });
           const rows = parsed.data;
+          const headers = parsed.meta.fields;
 
-          // 3. Firestore에 upsert (raw_database_id가 있으면 해당 문서 update, 없으면 add)
+          // 4. 헤더 동기화 (화면 표시 항목 자동 조정)
+          if (headers) await syncHeadersWithConfig(headers);
+
+          // 5. Firestore 반영
           let count = 0;
           for (const row of rows) {
               const { raw_database_id, ...data } = row;
               if (data.price) data.price = parseInt(data.price) || 0;
+              
               if (raw_database_id && raw_database_id.length > 5) {
                   await updateDoc(doc(db, 'pokemon_cards', raw_database_id), data);
               } else {
@@ -253,7 +326,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
               }
               count++;
           }
-          setGhStatus(`✅ 깃허브에서 불러오기 완료! (${count}건 반영됨)`);
+          setGhStatus(`✅ 복원 완료! 최신 파일(${latestFile.name})에서 ${count}건 반영됨`);
       } catch (err) {
           console.error(err);
           setGhStatus('❌ 불러오기 실패: ' + err.message);
@@ -316,34 +389,36 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
         skipEmptyLines: true,
         complete: async (results) => {
            const data = results.data;
+           const headers = results.meta.fields;
+
            if (!data || data.length === 0) return alert("데이터가 없거나 형식이 잘못되었습니다.");
-           if (!window.confirm(`총 ${data.length}개의 카드를 데이터베이스에 일괄 등록하시겠습니까? (복구 불가)`)) {
-               e.target.value = null; // reset input
+           if (!window.confirm(`총 ${data.length}개의 카드를 등록하고 화면 설정을 동기화하시겠습니까?`)) {
+               e.target.value = null;
                return;
            }
 
            setSaving(true);
            try {
+              // 헤더 동기화
+              if (headers) await syncHeadersWithConfig(headers);
+
               let addedCount = 0;
               const cardsCol = collection(db, "pokemon_cards");
               
               for (const row of data) {
                  const payload = {};
                  for (const [k, v] of Object.entries(row)) {
-                     // 엑셀에서 내려받은 내부 id값은 업로드시 제외 (새로운 카드로 등록)
                      if (k === 'raw_database_id') continue;
-                     
                      if (k === 'price') payload[k] = parseInt(v) || 0;
                      else payload[k] = v || '';
                  }
-                 // 필드 부족해도 무조건 생성
                  await addDoc(cardsCol, payload);
                  addedCount++;
               }
-              alert(`✅ 총 ${addedCount}장의 카드가 데이터베이스에 성공적으로 등록되었습니다!\n페이지를 새로고침(나의 도감)하여 확인하세요.`);
+              alert(`✅ 총 ${addedCount}장의 카드가 등록되었습니다.`);
            } catch(err) {
               console.error(err);
-              alert("데이터 등록 중 일부 오류가 발생했습니다.");
+              alert("데이터 등록 중 오류가 발생했습니다.");
            } finally {
               setSaving(false);
               e.target.value = null;
@@ -489,8 +564,8 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
        </div>
 
        <div className="admin-section full-width">
-          <h3>👁️ 카드 정보 표시 (화면 UI 조립)</h3>
-          <p className="help-text">마우스로 항목을 가리키고 상/하 화살표를 눌러 우선순위(순서)를 바꾸거나 토글 버튼으로 숨길 수 있습니다. 여기서 숨겨도 기존 카드의 데이터는 데이터베이스에 영구 보존됩니다.</p>
+          <h3>👁️ 카드 정보 표시 & 화면 UI 자동 동기화</h3>
+          <p className="help-text">엑셀이나 깃허브에서 데이터를 불러올 때, 엑셀의 헤더 구성에 따라 아래 항목들이 자동으로 생기거나 없어지도록 연동되었습니다.</p>
           
           <div className="display-fields-list">
              {config.displayFields.map((field, idx) => (
@@ -547,25 +622,25 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
 
        {/* 깃허브 연동 섹션 */}
        <div className="admin-section full-width" style={{ marginTop: '2rem', border: '1px solid #7c3aed' }}>
-          <h3>🐙 깃허브 클라우드 백업 & 복원 (GitHub)</h3>
+          <h3>🐙 깃허브 누적 클라우드 백업 (GitHub)</h3>
           <p className="help-text">
-             파이어베이스 DB 전체 데이터를 <strong style={{ color: '#7c3aed' }}>github.com/bsw3013/pokemon-card-app</strong> 에 원터치로 저장하거나 불러옵니다.<br/>
-             백업 시 기존 파일을 덮어씌우며, 깃허브가 자동으로 버전 히스토리를 관리합니다.
+             기존 파일을 덮어씌우지 않고 백업 파일을 계속 생성하여 안전하게 보관합니다.<br/>
+             복원 시에는 가장 최근에 백업된 파일을 자동으로 찾아 화면 구성까지 일치시켜줍니다.
           </p>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginTop: '1.5rem' }}>
              <div style={{ background: 'rgba(124,58,237,0.1)', padding: '1.5rem', borderRadius: '8px', border: '1px solid rgba(124,58,237,0.3)' }}>
-                <h4 style={{ color: '#7c3aed', marginBottom: '0.5rem' }}>🚀 깃허브로 백업 (DB → GitHub)</h4>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>현재 DB의 모든 카드를 <code>database_backups/main_dataset.csv</code> 로 저장합니다.</p>
+                <h4 style={{ color: '#7c3aed', marginBottom: '0.5rem' }}>🚀 깃허브 누적 백업 (DB → GitHub)</h4>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>현재 데이터를 <code>backup_날짜_시간.csv</code> 로 안전하게 저장합니다.</p>
                 <button className="btn" style={{ background: '#7c3aed', color: 'white', width: '100%', padding: '0.8rem' }} onClick={handleGithubBackup}>
-                   ⬆️ 지금 즉시 깃허브에 백업
+                   ⬆️ 지금 즉시 누적 백업 생성
                 </button>
              </div>
              <div style={{ background: 'rgba(124,58,237,0.1)', padding: '1.5rem', borderRadius: '8px', border: '1px solid rgba(124,58,237,0.3)' }}>
-                <h4 style={{ color: '#a78bfa', marginBottom: '0.5rem' }}>📥 깃허브에서 복원 (GitHub → DB)</h4>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>깃허브에 저장된 <code>main_dataset.csv</code>를 읽어 파이어베이스에 반영합니다.</p>
+                <h4 style={{ color: '#a78bfa', marginBottom: '0.5rem' }}>📥 최신 백업 자동 복원 (GitHub → DB)</h4>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>백업 리스트 중 가장 최근 파일을 찾아 데이터와 UI 설정을 복구합니다.</p>
                 <button className="btn" style={{ border: '1px solid #7c3aed', color: '#a78bfa', width: '100%', padding: '0.8rem', background: 'transparent' }} onClick={handleGithubRestore}>
-                   ⬇️ 깃허브에서 DB로 불러오기
+                   ⬇️ 최신 백업 자동 복원
                 </button>
              </div>
           </div>
@@ -582,14 +657,13 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
 
           <h3>💾 글로벌 데이터 클라우드 관리 (엑셀 연동)</h3>
           <p className="help-text">
-             화면 표시 설정과 무관하게, 서버에 저장된 100% 원본 표 데이터베이스를 엑셀과 연동합니다.<br/>
-             방대한 양의 카드 데이터를 한 번에 넣거나 백업할 때 사용하세요.
+             방대한 양의 카드 데이터를 엑셀로 한 번에 넣거나 백업할 수 있습니다.
           </p>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginTop: '1.5rem' }}>
              <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '8px' }}>
-                <h4 style={{ color: '#3b82f6', marginBottom: '1rem' }}>📥 대량 데이터 밀어넣기 (Import)</h4>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>미리 작성된 엑셀(.csv) 파일을 올려 수천 장의 카드를 단번에 등록합니다.</p>
+                <h4 style={{ color: '#3b82f6', marginBottom: '1rem' }}>📥 대량 데이터 업로드 (Import)</h4>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>엑셀(.csv) 파일을 올려 수천 장의 카드를 등록하고 항목 설정까지 자동 동기화합니다.</p>
                 <input 
                    type="file" 
                    accept=".csv" 
@@ -602,17 +676,16 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
                 </label>
                 <div style={{ marginTop: '1rem', textAlign: 'center' }}>
                    <button className="btn" style={{ fontSize: '0.8rem', padding: '0.3rem 0.6rem', border: '1px solid rgba(255,255,255,0.2)' }} onClick={handleExportTemplate}>
-                      📄 빈 엑셀 템플릿(양식) 다운로드
+                      📄 빈 엑셀 템플릿 다운로드
                    </button>
                 </div>
              </div>
 
               <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '8px' }}>
                 <h4 style={{ color: '#10b981', marginBottom: '1rem' }}>📤 전체 데이터 풀 백업 & 열람</h4>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>DB에 쌓인 모든 카드의 숨은 항목 데이터를 엑셀로 추출하거나 웹에서 봅니다.</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
                    <button className="btn" style={{ background: '#10b981', color: 'white', width: '100%', padding: '0.8rem' }} onClick={handleExportDatabase}>
-                      ⬇️ 클라우드 전체 데이터 엑셀(CSV) 다운로드
+                      ⬇️ 클라우드 데이터 엑셀(CSV) 다운로드
                    </button>
                    <button className="btn" style={{ border: '1px solid #10b981', color: '#10b981', width: '100%', padding: '0.8rem', background: 'transparent' }} onClick={fetchRawDb}>
                       {loadingRaw ? '불러오는 중...' : showRawDb ? '📋 원격 데이터 뷰어 닫기' : '📋 웹에서 원시 표 즉시 펼치기'}
@@ -626,11 +699,10 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                    <h4 style={{ color: 'var(--primary-color)', margin: 0 }}>
                        🔎 실시간 원본 데이터베이스 뷰어 (총 {rawDbData.length}건)
-                       {isGlobalProcessing && <span style={{ color: '#ef4444', marginLeft: '1rem', fontSize: '0.8rem' }}>대규모 전역 동기화 처리 중...</span>}
                    </h4>
                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                       <button className="btn btn-secondary" disabled={isGlobalProcessing} onClick={handleRawAddRow}>➕ 최상단 빈 카드 1장 추가</button>
-                       <button className="btn btn-primary" disabled={isGlobalProcessing} onClick={handleRawAddColumn}>➕ 새로운 열(항목) 전체 추가</button>
+                       <button className="btn btn-secondary" disabled={isGlobalProcessing} onClick={handleRawAddRow}>➕ 최상단 빈 카드 추가</button>
+                       <button className="btn btn-primary" disabled={isGlobalProcessing} onClick={handleRawAddColumn}>➕ 새로운 열(항목) 추가</button>
                    </div>
                 </div>
                 <table className="admin-table" style={{ fontSize: '0.8rem' }}>
@@ -639,9 +711,9 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
                          <th style={{ padding: '0.5rem', width: '60px' }}>삭제</th>
                          {[...new Set(rawDbData.flatMap(Object.keys))].map(k => (
                              <th 
-                               key={k} 
-                               onClick={() => handleRawSort(k)}
-                               style={{ padding: '0.5rem', color: '#3b82f6', minWidth: '80px', cursor: 'pointer', userSelect: 'none' }}
+                                key={k} 
+                                onClick={() => handleRawSort(k)}
+                                style={{ padding: '0.5rem', color: '#3b82f6', minWidth: '80px', cursor: 'pointer', userSelect: 'none' }}
                              >
                                  <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'4px' }}>
                                     {k}
@@ -656,7 +728,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
                    </thead>
                    <tbody>
                       {sortedRawData.map((row, i) => (
-                         <tr key={row.raw_database_id || i} className={rawDbSaving[row.raw_database_id] ? 'row-draft' : ''}>
+                         <tr key={row.raw_database_id || i}>
                             <td style={{ padding: '0.2rem 0.5rem', textAlign: 'center' }}>
                                 <button className="btn btn-danger" style={{ padding: '2px 8px' }} onClick={() => handleRawDeleteRow(row.raw_database_id)}>✕</button>
                             </td>
@@ -674,13 +746,13 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
                                             width: '100%', 
                                             padding: '0.5rem', 
                                             outline: 'none', 
-                                            color: rawDbSaving[row.raw_database_id] ? '#10b981' : 'white' 
+                                            color: 'white' 
                                          }} 
                                          value={typeof row[k] === 'object' ? JSON.stringify(row[k]) : (row[k] || '')} 
                                          onChange={(e) => handleRawEditChange(row.raw_database_id, k, e.target.value)} 
                                       />
                                   )}
-                               </td>
+                                </td>
                             ))}
                          </tr>
                       ))}
