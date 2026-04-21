@@ -14,12 +14,27 @@ function App() {
   useEffect(() => {
     async function fetchConfig() {
        try {
+         // 타임아웃 설정 (3초 이상 걸리면 기본값 사용)
+         const timeoutPromise = new Promise((_, reject) =>
+           setTimeout(() => reject(new Error('Firebase timeout')), 3000)
+         );
+         
          const docRef = doc(db, 'settings', 'appConfig');
-         const snap = await getDoc(docRef);
-         if (snap.exists()) {
-           setAppConfig(snap.data());
-         } else {
-           await setDoc(docRef, defaultConfig);
+         
+         try {
+           const snap = await Promise.race([getDoc(docRef), timeoutPromise]);
+           if (snap.exists()) {
+             setAppConfig(snap.data());
+           } else {
+             // 문서가 없으면 기본값으로 진행 (백그라운드에서 생성)
+             setAppConfig(defaultConfig);
+             // 백그라운드에서 설정 저장 (기다리지 않음)
+             setDoc(docRef, defaultConfig).catch(err => 
+               console.warn("Config save failed (will retry): ", err)
+             );
+           }
+         } catch (timeoutErr) {
+           console.warn("Firebase config load timeout - using default config", timeoutErr);
            setAppConfig(defaultConfig);
          }
        } catch (err) {

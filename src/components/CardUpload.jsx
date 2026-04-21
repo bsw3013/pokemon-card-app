@@ -1,8 +1,5 @@
 import React, { useState, useRef } from 'react';
 import { analyzePokemonCard } from '../gemini';
-import { db, storage } from '../firebase';
-import { collection, addDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export default function CardUpload() {
   const [imagePreview, setImagePreview] = useState(null);
@@ -38,49 +35,7 @@ export default function CardUpload() {
   const handleSaveToFirebase = async (e) => {
     e.preventDefault();
     if (!cardData || !imageFile) return;
-
-    setSaving(true);
-    setError('');
-
-    try {
-      // 1. Firebase Storage에 이미지 파일 업로드
-      const timestamp = Date.now();
-      const storageRef = ref(storage, `cards/${timestamp}_${imageFile.name}`);
-      await uploadBytes(storageRef, imageFile);
-      
-      // 2. 업로드된 이미지의 다운로드 URL 가져오기
-      const downloadURL = await getDownloadURL(storageRef);
-
-      // 3. 폼에 사용자가 최종 수정한 데이터 가져오기
-      const fd = new FormData(formRef.current);
-      
-      const finalData = {
-        cardName: fd.get('cardName') || '',
-        series: fd.get('series') || '',
-        cardNumber: fd.get('cardNumber') || '',
-        pokedexNumber: fd.get('pokedexNumber') || '',
-        rarity: fd.get('rarity') || '',
-        type: fd.get('type') || '',
-        price: parseInt(fd.get('price')) || 0,
-        status: fd.get('status') || '수집 완료 (소장중)',
-        imageUrl: downloadURL,
-        createdAt: new Date().toISOString(),
-      };
-
-      // 4. Firestore DB에 문서로 저장
-      await addDoc(collection(db, "pokemon_cards"), finalData);
-      
-      // 5. 성공 처리 및 초기화
-      setSuccess(true);
-      setCardData(null);
-      setImagePreview(null);
-      setImageFile(null);
-    } catch (err) {
-      console.error(err);
-      setError("Firebase 저장 중 에러가 발생했습니다: " + err.message);
-    } finally {
-      setSaving(false);
-    }
+    setError('직접 저장이 비활성화되었습니다. GitHub 기준 DB CSV를 먼저 수정한 뒤 관리자 화면에서 기준 DB 파일 복원을 실행해주세요.');
   };
 
   return (

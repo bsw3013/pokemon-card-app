@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useDeferredValue } from 'react';
 import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
@@ -12,7 +12,8 @@ export default function CardList({ appConfig }) {
   
   // 필터 및 정렬 상태
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('newest');
+  const deferredSearchTerm = useDeferredValue(searchTerm);
+  const [sortBy, setSortBy] = useState('backup_order');
 
   // 첫 번째 메인 수정 모달창 상태
   const [selectedCard, setSelectedCard] = useState(null);
@@ -37,6 +38,13 @@ export default function CardList({ appConfig }) {
   const [isRowSaving, setIsRowSaving] = useState({});
   const itemsPerPage = 50;
 
+   const visibleDisplayFields = useMemo(() => {
+      return appConfig.displayFields
+         .filter(f => f.visible)
+         .slice()
+         .sort((a, b) => a.order - b.order);
+   }, [appConfig.displayFields]);
+
   useEffect(() => {
     async function fetchCards() {
       try {
@@ -57,8 +65,8 @@ export default function CardList({ appConfig }) {
 
   const filteredAndSortedCards = useMemo(() => {
     let result = [...cards];
-    if (searchTerm) {
-      const lowerWord = searchTerm.toLowerCase();
+      if (deferredSearchTerm) {
+         const lowerWord = deferredSearchTerm.toLowerCase();
       result = result.filter(card => 
         (card.cardName || '').toLowerCase().includes(lowerWord) ||
         (card.series || '').toLowerCase().includes(lowerWord) ||
@@ -67,7 +75,14 @@ export default function CardList({ appConfig }) {
       );
     }
     result.sort((a, b) => {
-      if (sortBy === 'newest') {
+         if (sortBy === 'backup_order') {
+            const orderA = Number(a.displayOrder) || Number.MAX_SAFE_INTEGER;
+            const orderB = Number(b.displayOrder) || Number.MAX_SAFE_INTEGER;
+            if (orderA !== orderB) return orderA - orderB;
+            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return dateA - dateB;
+         } else if (sortBy === 'newest') {
         const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return dateB - dateA;
@@ -81,13 +96,45 @@ export default function CardList({ appConfig }) {
       return 0;
     });
     return result;
-  }, [cards, searchTerm, sortBy]);
+   }, [cards, deferredSearchTerm, sortBy]);
   
   const totalPages = Math.ceil(filteredAndSortedCards.length / itemsPerPage);
   const currentPageCards = viewMode === 'table' ? filteredAndSortedCards.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredAndSortedCards;
   
   // 검색이나 정렬이 변경되면 페이지를 1로 리셋합니다.
-  useEffect(() => { setCurrentPage(1); }, [searchTerm, sortBy]);
+  useEffect(() => { setCurrentPage(1); }, [deferredSearchTerm, sortBy]);
+
+  const commitTableCell = async (id, field, rawValue) => {
+     const currentCard = cards.find(card => card.id === id);
+     if (!currentCard) return;
+
+     const nextValue = field === 'price' ? (parseInt(rawValue) || 0) : rawValue;
+     const currentValue = field === 'price' ? (Number(currentCard[field]) || 0) : (currentCard[field] ?? '');
+     const normalizedNext = field === 'price' ? Number(nextValue || 0) : String(nextValue ?? '');
+     const normalizedCurrent = field === 'price' ? Number(currentValue || 0) : String(currentValue ?? '');
+
+     if (normalizedNext === normalizedCurrent) return;
+
+     setIsRowSaving(prev => ({ ...prev, [id]: true }));
+     try {
+        const cardRef = doc(db, "pokemon_cards", id);
+        await updateDoc(cardRef, { [field]: nextValue });
+        setCards(prev => prev.map(card => card.id === id ? { ...card, [field]: nextValue } : card));
+        setTableDrafts(prev => {
+           const nextDrafts = { ...prev };
+           if (nextDrafts[id]) {
+              const { [field]: removed, ...rest } = nextDrafts[id];
+              if (Object.keys(rest).length === 0) delete nextDrafts[id];
+              else nextDrafts[id] = rest;
+           }
+           return nextDrafts;
+        });
+     } catch(err) {
+        console.error("자동저장 실패:", err);
+     } finally {
+        setIsRowSaving(prev => ({ ...prev, [id]: false }));
+     }
+  };
 
   // 메인 모달
   const openModal = (card) => {
@@ -152,32 +199,33 @@ export default function CardList({ appConfig }) {
     }
   };
 
-  // --- 테이블 뷰 인라인 편집기 (자동저장) ---
-  const saveTimeoutRef = React.useRef({});
-
+  // --- 테이블 뷰 인라인 편집기 ---
   const handleTableEditChange = (id, field, value) => {
-     // 즉시 UI 업데이트
-     setCards(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
-     
-     // 800ms 디바운싱: 타이핑 중에는 네트워크 요청 보류, 타이핑 멈추면 전송
-     if (saveTimeoutRef.current[id + field]) {
-        clearTimeout(saveTimeoutRef.current[id + field]);
-     }
-     
-     saveTimeoutRef.current[id + field] = setTimeout(async () => {
-        setIsRowSaving(prev => ({ ...prev, [id]: true }));
-        try {
-           const cardRef = doc(db, "pokemon_cards", id);
-           let finalValue = value;
-           if (field === 'price') finalValue = parseInt(value) || 0;
-           await updateDoc(cardRef, { [field]: finalValue });
-           // 동적 필드 지원을 위해 [field]: finalValue 사용
-        } catch(err) {
-           console.error("자동저장 실패:", err);
-        } finally {
-           setIsRowSaving(prev => ({ ...prev, [id]: false }));
+     setTableDrafts(prev => ({
+        ...prev,
+        [id]: {
+          ...(prev[id] || {}),
+          [field]: value
         }
-     }, 800);
+     }));
+     setCards(prev => prev.map(card => card.id === id ? { ...card, [field]: field === 'price' ? (parseInt(value) || 0) : value } : card));
+  };
+
+  const handleTableEditBlur = (id, field) => {
+     const draftValue = tableDrafts[id]?.[field];
+     if (draftValue === undefined) return;
+     commitTableCell(id, field, draftValue);
+  };
+
+  const handleTableSelectChange = (id, field, value) => {
+     setTableDrafts(prev => ({
+        ...prev,
+        [id]: {
+          ...(prev[id] || {}),
+          [field]: value
+        }
+     }));
+     commitTableCell(id, field, value);
   };
 
   // --- 거대 픽커 모달 관련 ---
@@ -305,6 +353,7 @@ export default function CardList({ appConfig }) {
           <div className="gallery-controls">
              <input type="text" className="search-input" placeholder="🔍 이름, 일련번호, 도감번호 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
              <select className="sort-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                <option value="backup_order">백업 순서</option>
                 <option value="newest">최신 등록순</option>
                 <option value="pokedex_asc">도감 번호순</option>
                 <option value="price_high">높은 시세순</option>
@@ -323,7 +372,7 @@ export default function CardList({ appConfig }) {
                  <thead>
                     <tr>
                        <th>사진</th>
-                       {appConfig.displayFields.filter(f => f.visible).sort((a,b)=>a.order-b.order).map(f => (
+                        {visibleDisplayFields.map(f => (
                            <th key={f.id}>{f.label}</th>
                        ))}
                     </tr>
@@ -332,16 +381,17 @@ export default function CardList({ appConfig }) {
                     {currentPageCards.map(card => {
                         const data = card;
                         const isSavingRef = isRowSaving[card.id];
+                        const rowDrafts = tableDrafts[card.id] || {};
 
                         const cellInputs = {
-                            cardName: <input type="text" className="table-input" value={data.cardName || ''} onChange={(e) => handleTableEditChange(card.id, 'cardName', e.target.value)} />,
-                            pokedexNumber: <input type="text" className="table-input" style={{width: '60px', textAlign: 'center'}} value={data.pokedexNumber || ''} onChange={(e) => handleTableEditChange(card.id, 'pokedexNumber', e.target.value)} />,
-                            series: <select className="table-input" value={data.series || ''} onChange={(e) => handleTableEditChange(card.id, 'series', e.target.value)}><option value="">선택</option>{appConfig.seriesOptions.map(s => <option key={s} value={s}>{s}</option>)}</select>,
-                            cardNumber: <input type="text" className="table-input" style={{width: '90px'}} value={data.cardNumber || ''} onChange={(e) => handleTableEditChange(card.id, 'cardNumber', e.target.value)} />,
-                            rarity: <select className="table-input" style={{width: '90px'}} value={data.rarity || ''} onChange={(e) => handleTableEditChange(card.id, 'rarity', e.target.value)}><option value="">선택</option>{appConfig.rarityOptions.map(s => <option key={s} value={s}>{s}</option>)}</select>,
-                            type: <select className="table-input" style={{width: '100px'}} value={data.type || ''} onChange={(e) => handleTableEditChange(card.id, 'type', e.target.value)}><option value="">선택</option>{appConfig.typeOptions.map(s => <option key={s} value={s}>{s}</option>)}</select>,
-                            status: <select className="table-input" style={{width: '110px'}} value={data.status || ''} onChange={(e) => handleTableEditChange(card.id, 'status', e.target.value)}><option value="">선택</option>{appConfig.statusOptions.map(s => <option key={s} value={s}>{s}</option>)}</select>,
-                            price: <input type="number" className="table-input price-input" value={data.price || 0} onChange={(e) => handleTableEditChange(card.id, 'price', e.target.value)} />
+                        cardName: <input type="text" className="table-input" value={rowDrafts.cardName ?? data.cardName ?? ''} onChange={(e) => handleTableEditChange(card.id, 'cardName', e.target.value)} onBlur={() => handleTableEditBlur(card.id, 'cardName')} />,
+                        pokedexNumber: <input type="text" className="table-input" style={{width: '60px', textAlign: 'center'}} value={rowDrafts.pokedexNumber ?? data.pokedexNumber ?? ''} onChange={(e) => handleTableEditChange(card.id, 'pokedexNumber', e.target.value)} onBlur={() => handleTableEditBlur(card.id, 'pokedexNumber')} />,
+                        series: <select className="table-input" value={rowDrafts.series ?? data.series ?? ''} onChange={(e) => handleTableSelectChange(card.id, 'series', e.target.value)}><option value="">선택</option>{appConfig.seriesOptions.map(s => <option key={s} value={s}>{s}</option>)}</select>,
+                        cardNumber: <input type="text" className="table-input" style={{width: '90px'}} value={rowDrafts.cardNumber ?? data.cardNumber ?? ''} onChange={(e) => handleTableEditChange(card.id, 'cardNumber', e.target.value)} onBlur={() => handleTableEditBlur(card.id, 'cardNumber')} />,
+                        rarity: <select className="table-input" style={{width: '90px'}} value={rowDrafts.rarity ?? data.rarity ?? ''} onChange={(e) => handleTableSelectChange(card.id, 'rarity', e.target.value)}><option value="">선택</option>{appConfig.rarityOptions.map(s => <option key={s} value={s}>{s}</option>)}</select>,
+                        type: <select className="table-input" style={{width: '100px'}} value={rowDrafts.type ?? data.type ?? ''} onChange={(e) => handleTableSelectChange(card.id, 'type', e.target.value)}><option value="">선택</option>{appConfig.typeOptions.map(s => <option key={s} value={s}>{s}</option>)}</select>,
+                        status: <select className="table-input" style={{width: '110px'}} value={rowDrafts.status ?? data.status ?? ''} onChange={(e) => handleTableSelectChange(card.id, 'status', e.target.value)}><option value="">선택</option>{appConfig.statusOptions.map(s => <option key={s} value={s}>{s}</option>)}</select>,
+                        price: <input type="number" className="table-input price-input" value={rowDrafts.price ?? data.price ?? 0} onChange={(e) => handleTableEditChange(card.id, 'price', e.target.value)} onBlur={() => handleTableEditBlur(card.id, 'price')} />
                         };
 
                         return (
@@ -350,10 +400,10 @@ export default function CardList({ appConfig }) {
                                  {data.imageUrl ? <img src={data.imageUrl} alt="preview" className="table-thumb" /> : <div className="table-no-thumb-wrapper"><img src="/placeholder.png" alt="placeholder" className="table-placeholder-img" /><div className="table-placeholder-text">이미지 필요</div></div>}
                                  {isSavingRef && <div style={{position:'absolute', top: 0, right: 0, padding:'2px 4px', fontSize: '0.7rem', color: '#10b981', fontWeight:'bold', background:'rgba(0,0,0,0.5)'}}>저장됨✅</div>}
                               </td>
-                              {appConfig.displayFields.filter(f => f.visible).sort((a,b)=>a.order-b.order).map(f => (
+                              {visibleDisplayFields.map(f => (
                                  <td key={f.id}>
                                      {cellInputs[f.id] ? cellInputs[f.id] : (
-                                        <input type="text" className="table-input" value={data[f.id] || ''} onChange={(e) => handleTableEditChange(card.id, f.id, e.target.value)} />
+                                        <input type="text" className="table-input" value={rowDrafts[f.id] ?? data[f.id] ?? ''} onChange={(e) => handleTableEditChange(card.id, f.id, e.target.value)} onBlur={() => handleTableEditBlur(card.id, f.id)} />
                                      )}
                                  </td>
                               ))}

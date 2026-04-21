@@ -1,11 +1,25 @@
-import React, { useState } from 'react';
-import { doc, updateDoc, collection, getDocs, addDoc, deleteDoc, deleteField } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
+import { doc, updateDoc, collection, getDocs, deleteDoc, deleteField, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import Papa from 'papaparse';
 
 export default function AdminSettings({ appConfig, setAppConfig }) {
-  const [config, setConfig] = useState(appConfig);
+   const hiddenSystemFields = ['raw_database_id', 'imageUrl', 'displayOrder', 'createdAt', 'islegacy', 'isLegacy'];
+   const sanitizeDisplayFields = (fields = []) => {
+      const cleaned = fields.filter((field) => field?.id && !hiddenSystemFields.includes(field.id));
+      return cleaned.map((field, index) => ({ ...field, order: index + 1 }));
+   };
+   const sanitizeConfig = (baseConfig) => ({
+      ...baseConfig,
+      displayFields: sanitizeDisplayFields(baseConfig?.displayFields || [])
+   });
+
+   const [config, setConfig] = useState(() => sanitizeConfig(appConfig));
   const [saving, setSaving] = useState(false);
+
+   useEffect(() => {
+      setConfig(sanitizeConfig(appConfig));
+   }, [appConfig]);
   
   // 새 항목 추가 위한 로컬 상태
   const [newSeries, setNewSeries] = useState('');
@@ -19,6 +33,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
   const [loadingRaw, setLoadingRaw] = useState(false);
   const [rawSortConfig, setRawSortConfig] = useState({ key: null, direction: 'asc' });
   const [isGlobalProcessing, setIsGlobalProcessing] = useState(false);
+   const [rawCellDrafts, setRawCellDrafts] = useState({});
 
   // 커스텀 필드 추가 로직
   const [newFieldLabel, setNewFieldLabel] = useState('');
@@ -29,8 +44,10 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
   const handleSaveConfig = async () => {
     setSaving(true);
     try {
-      await updateDoc(doc(db, "settings", "appConfig"), config);
-      setAppConfig(config);
+         const cleanedConfig = sanitizeConfig(config);
+         await updateDoc(doc(db, "settings", "appConfig"), cleanedConfig);
+         setConfig(cleanedConfig);
+         setAppConfig(cleanedConfig);
       alert("✅ 마스터 설정이 저장되었습니다.");
     } catch(err) {
       console.error(err);
@@ -44,11 +61,11 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
   const syncHeadersWithConfig = async (headers) => {
     if (!headers || headers.length === 0) return;
     
-    // 1. 시스템 내부용 필드 및 이미지 주소 제외
-    const excluded = ['raw_database_id', 'imageUrl'];
+   // 1. 시스템 내부용 필드 및 이미지 주소 제외
+    const excluded = [...hiddenSystemFields];
     const csvFields = headers.filter(h => h && !excluded.includes(h));
 
-    const updatedFields = [...config.displayFields];
+      const updatedFields = [...sanitizeDisplayFields(config.displayFields)];
     let changed = false;
 
     // A. 추가 로직: CSV에는 있는데 설정에는 없는 필드 추가
@@ -65,10 +82,11 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
     });
 
     // B. 삭제 로직: 설정에는 있는데 CSV에는 없고, 코어 필드도 아닌 것 제거
-    const finalFields = updatedFields.filter(field => {
+      const finalFields = updatedFields.filter(field => {
       const isCore = coreFields.includes(field.id);
       const inCsv = csvFields.includes(field.id);
-      if (!inCsv && !isCore) {
+         const isHiddenSystemField = hiddenSystemFields.includes(field.id);
+         if (isHiddenSystemField || (!inCsv && !isCore)) {
         changed = true;
         return false;
       }
@@ -91,16 +109,77 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
     }
   };
 
+
+
   const fetchRawDb = async () => {
      if (showRawDb) {
         setShowRawDb(false);
         return;
      }
+     setRawSortConfig({ key: null, direction: 'asc' });
      setLoadingRaw(true);
      try {
+          // 1. GitHub 최신 백업 CSV 기준 행 가져오기
+      let csvRowIds = [];
+       try {
+             const listRes = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/database_backups`, {
+           headers: { Authorization: `token ${GH_TOKEN}`, 'User-Agent': 'pokedex-app' }
+         });
+
+             if (!listRes.ok) throw new Error('백업 폴더 목록을 가져올 수 없습니다.');
+             const files = await listRes.json();
+             const backupFiles = files
+                .filter(f => f.name.startsWith('backup_') && f.name.endsWith('.csv'))
+                .sort((a, b) => a.name.localeCompare(b.name));
+             if (backupFiles.length === 0) throw new Error('최신 백업 파일이 없습니다.');
+
+             const latestFile = backupFiles[backupFiles.length - 1];
+             const contentRes = await fetch(latestFile.url, {
+                headers: { Authorization: `token ${GH_TOKEN}`, 'User-Agent': 'pokedex-app' }
+             });
+
+         if (contentRes.ok) {
+           const json = await contentRes.json();
+           const cleanBase64 = json.content.replace(/\n/g, '');
+           const bytes = Uint8Array.from(atob(cleanBase64), c => c.charCodeAt(0));
+           const csvStr = new TextDecoder('utf-8').decode(bytes);
+           
+           const parsed = Papa.parse(csvStr, {
+             header: true,
+             skipEmptyLines: 'greedy',
+             transformHeader: (h) => String(h || '').replace(/^\uFEFF/, '').trim()
+           });
+
+           const rows = (parsed.data || []).filter((row) => {
+             const values = Object.values(row || {});
+             return values.some(v => String(v ?? '').trim() !== '');
+           });
+
+           // GitHub CSV의 raw_database_id 순서 보존
+           csvRowIds = rows.map(r => String(r.raw_database_id || '').trim()).filter(id => id.length > 5);
+         }
+          } catch (ghErr) {
+             console.log("GitHub 최신 백업 CSV 읽기 실패:", ghErr);
+             throw ghErr;
+       }
+
+       // 2. Firestore에서 모든 데이터 가져오기
        const snapshot = await getDocs(collection(db, "pokemon_cards"));
-       const allData = snapshot.docs.map(d => ({ raw_database_id: d.id, ...d.data() }));
-       setRawDbData(allData);
+       let allData = snapshot.docs.map(d => ({ raw_database_id: d.id, ...d.data() }));
+       
+          // 3. 정렬: GitHub CSV 순서만 화면에 표시 (GitHub가 기준)
+       const csvDataMap = new Map();
+       
+       allData.forEach(item => {
+         const id = String(item.raw_database_id || '');
+             if (csvRowIds.includes(id)) csvDataMap.set(id, item);
+       });
+       
+          const sortedData = csvRowIds
+             .map((id) => csvDataMap.get(id))
+             .filter(Boolean);
+       
+       setRawDbData(sortedData);
        setShowRawDb(true);
      } catch (err) {
        console.error(err);
@@ -114,25 +193,45 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
   const [rawDbSaving, setRawDbSaving] = useState({});
 
   const handleRawEditChange = (id, key, value) => {
-      // 실시간 로컬 State 업데이트
-      setRawDbData(prev => prev.map(row => row.raw_database_id === id ? { ...row, [key]: value } : row));
-
-      // 디바운스 서버 저장
-      if (rawSaveTimeoutRef.current[id + key]) clearTimeout(rawSaveTimeoutRef.current[id + key]);
-      
-      rawSaveTimeoutRef.current[id + key] = setTimeout(async () => {
-         setRawDbSaving(prev => ({ ...prev, [id]: true }));
-         try {
-            const ref = doc(db, "pokemon_cards", id);
-            let finalValue = value;
-            if (key === 'price') finalValue = parseInt(value) || 0;
-            await updateDoc(ref, { [key]: finalValue });
-         } catch (err) {
-            console.error("DB 원격 저장 오류:", err);
-         } finally {
-            setRawDbSaving(prev => ({ ...prev, [id]: false }));
+      setRawCellDrafts(prev => ({
+         ...prev,
+         [id]: {
+            ...(prev[id] || {}),
+            [key]: value
          }
-      }, 800);
+      }));
+  };
+
+  const commitRawEditChange = async (id, key) => {
+      const draftValue = rawCellDrafts[id]?.[key];
+      const row = rawDbData?.find(item => item.raw_database_id === id);
+      if (!row || draftValue === undefined) return;
+
+      const nextValue = key === 'price' ? (parseInt(String(draftValue)) || 0) : draftValue;
+      const currentValue = key === 'price' ? (Number(row[key]) || 0) : (row[key] ?? '');
+      const normalizedNext = key === 'price' ? Number(nextValue || 0) : String(nextValue ?? '');
+      const normalizedCurrent = key === 'price' ? Number(currentValue || 0) : String(currentValue ?? '');
+      if (normalizedNext === normalizedCurrent) return;
+
+      setRawDbSaving(prev => ({ ...prev, [id]: true }));
+      try {
+         const ref = doc(db, "pokemon_cards", id);
+         await updateDoc(ref, { [key]: nextValue });
+         setRawDbData(prev => prev.map(item => item.raw_database_id === id ? { ...item, [key]: nextValue } : item));
+         setRawCellDrafts(prev => {
+            const nextDrafts = { ...prev };
+            if (nextDrafts[id]) {
+               const { [key]: removed, ...rest } = nextDrafts[id];
+               if (Object.keys(rest).length === 0) delete nextDrafts[id];
+               else nextDrafts[id] = rest;
+            }
+            return nextDrafts;
+         });
+      } catch (err) {
+         console.error("DB 원격 저장 오류:", err);
+      } finally {
+         setRawDbSaving(prev => ({ ...prev, [id]: false }));
+      }
   };
 
   const handleRawDeleteRow = async (id) => {
@@ -142,16 +241,6 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
           setRawDbData(prev => prev.filter(r => r.raw_database_id !== id));
       } catch(err) {
           alert('삭제 실패');
-      }
-  };
-
-  const handleRawAddRow = async () => {
-      try {
-          const newDoc = { cardName: "비어 있는 카드", price: 0 };
-          const ref = await addDoc(collection(db, "pokemon_cards"), newDoc);
-          setRawDbData(prev => [{ raw_database_id: ref.id, ...newDoc }, ...prev]);
-      } catch(err) {
-          alert("추가 실패");
       }
   };
 
@@ -169,12 +258,20 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
 
       setIsGlobalProcessing(true);
       try {
-          const updates = rawDbData.map(async (row) => {
-              const ref = doc(db, "pokemon_cards", row.raw_database_id);
-              await updateDoc(ref, { [colName]: "" });
+           const BATCH_LIMIT = 400;
+           let batch = writeBatch(db);
+           let ops = 0;
+           for (const row of rawDbData) {
+              batch.update(doc(db, "pokemon_cards", row.raw_database_id), { [colName]: "" });
               row[colName] = "";
-          });
-          await Promise.all(updates);
+              ops++;
+              if (ops >= BATCH_LIMIT) {
+               await batch.commit();
+               batch = writeBatch(db);
+               ops = 0;
+              }
+           }
+           if (ops > 0) await batch.commit();
           setRawDbData([...rawDbData]);
           alert("✅ 모든 문서에 항목이 성공적으로 생성되었습니다.");
       } catch (err) {
@@ -194,12 +291,20 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
 
       setIsGlobalProcessing(true);
       try {
-          const updates = rawDbData.map(async (row) => {
-              const ref = doc(db, "pokemon_cards", row.raw_database_id);
-              await updateDoc(ref, { [colName]: deleteField() });
+           const BATCH_LIMIT = 400;
+           let batch = writeBatch(db);
+           let ops = 0;
+           for (const row of rawDbData) {
+              batch.update(doc(db, "pokemon_cards", row.raw_database_id), { [colName]: deleteField() });
               delete row[colName];
-          });
-          await Promise.all(updates);
+              ops++;
+              if (ops >= BATCH_LIMIT) {
+               await batch.commit();
+               batch = writeBatch(db);
+               ops = 0;
+              }
+           }
+           if (ops > 0) await batch.commit();
           setRawDbData([...rawDbData]);
           alert(`✅ [${colName}] 항목이 모든 문서에서 성공적으로 삭제되었습니다.`);
       } catch (err) {
@@ -213,7 +318,9 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
   const sortedRawData = React.useMemo(() => {
       if(!rawDbData) return [];
       const sortable = [...rawDbData];
-      if (rawSortConfig.key) {
+      if (!rawSortConfig.key) {
+         return sortable;
+      } else {
          sortable.sort((a,b) => {
             let va = a[rawSortConfig.key];
             let vb = b[rawSortConfig.key];
@@ -233,6 +340,13 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
       return sortable;
   }, [rawDbData, rawSortConfig]);
 
+     const rawVisibleColumns = React.useMemo(() => {
+        if (!rawDbData || rawDbData.length === 0) return [];
+        return [...new Set(rawDbData.flatMap(Object.keys))].filter((key) => {
+           return key !== 'raw_database_id' && !hiddenSystemFields.includes(key);
+        });
+     }, [rawDbData]);
+
   // --- 깃허브 직접 연동 로직 ---
   const GH_TOKEN  = import.meta.env.VITE_GITHUB_TOKEN;
   const GH_OWNER  = import.meta.env.VITE_GITHUB_OWNER;
@@ -246,7 +360,9 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
       try {
           // 1. DB 전체 읽기
           const snapshot = await getDocs(collection(db, 'pokemon_cards'));
-          const allData = snapshot.docs.map(d => ({ raw_database_id: d.id, ...d.data() }));
+               const allData = snapshot.docs
+                  .map(d => ({ raw_database_id: d.id, ...d.data() }))
+                  .sort((a, b) => (Number(a.displayOrder) || Number.MAX_SAFE_INTEGER) - (Number(b.displayOrder) || Number.MAX_SAFE_INTEGER));
           
           // 2. CSV 변환 (papaparse)
           const csvStr = Papa.unparse(allData, { header: true });
@@ -276,57 +392,194 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
   };
 
   const handleGithubRestore = async () => {
-      if (!window.confirm('⚠️ 깃허브의 [가장 최근 백업 파일]을 찾아 현재 데이터와 마스터 설정을 동기화하시겠습니까?')) return;
-      setGhStatus('⏳ 최신 백업 파일 찾는 중...');
+     if (!window.confirm(`⚠️ 🐙 GitHub의 최신 backup_*.csv 파일로 완전히 복원합니다.\n\n현재 Firestore의 모든 데이터를 최신 백업 기준으로 일치시킵니다.\n(행 순서, 개수, 내용 전부 최신 백업 CSV와 동일하게 됩니다)`)) return;
+     setGhStatus('⏳ 최신 백업 파일 찾는 중...');
       try {
-          // 1. 깃허브 백업 폴더 목록 가져오기
-          const listRes = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/database_backups`, {
-              headers: { Authorization: `token ${GH_TOKEN}`, 'User-Agent': 'pokedex-app' }
-          });
-          if (!listRes.ok) throw new Error('백업 폴더가 없거나 목록을 가져올 수 없습니다.');
-          
-          const files = await listRes.json();
-          // backup_ 으로 시작하는 CSV 파일만 필터링 후 이름순 정렬 (최신이 마지막)
-          const backupFiles = files
-            .filter(f => f.name.startsWith('backup_') && f.name.endsWith('.csv'))
-            .sort((a,b) => a.name.localeCompare(b.name));
+        // 1. backup_ 파일 중 가장 최신 파일 사용
+        const listRes = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/database_backups`, {
+           headers: { Authorization: `token ${GH_TOKEN}`, 'User-Agent': 'pokedex-app' }
+        });
+        if (!listRes.ok) throw new Error('백업 폴더가 없거나 목록을 가져올 수 없습니다.');
 
-          if (backupFiles.length === 0) throw new Error('불러올 백업 파일이 없습니다.');
-          
-          const latestFile = backupFiles[backupFiles.length - 1];
-          setGhStatus(`⏳ 최신 파일(${latestFile.name}) 정보를 불러오는 중...`);
+        const files = await listRes.json();
+        const backupFiles = files
+         .filter(f => f.name.startsWith('backup_') && f.name.endsWith('.csv'))
+         .sort((a,b) => a.name.localeCompare(b.name));
 
-          // 2. 파일 내용 읽기
-          const contentRes = await fetch(latestFile.url, {
-              headers: { Authorization: `token ${GH_TOKEN}`, 'User-Agent': 'pokedex-app' }
-          });
-          const json = await contentRes.json();
+        if (backupFiles.length === 0) throw new Error('불러올 최신 백업 파일이 없습니다.');
+
+        const latestFile = backupFiles[backupFiles.length - 1];
+        const targetFileName = latestFile.name;
+        setGhStatus(`⏳ 최신 백업 파일(${targetFileName}) 읽는 중...`);
+
+        const contentRes = await fetch(latestFile.url, {
+           headers: { Authorization: `token ${GH_TOKEN}`, 'User-Agent': 'pokedex-app' }
+        });
+
+        if (!contentRes.ok) throw new Error('최신 백업 파일을 읽어올 수 없습니다.');
+        const json = await contentRes.json();
           const cleanBase64 = json.content.replace(/\n/g, '');
           const bytes = Uint8Array.from(atob(cleanBase64), c => c.charCodeAt(0));
           const csvStr = new TextDecoder('utf-8').decode(bytes);
 
-          // 3. CSV 파싱
-          const parsed = Papa.parse(csvStr, { header: true, skipEmptyLines: true });
-          const rows = parsed.data;
-          const headers = parsed.meta.fields;
+               // 3. CSV 파싱 (헤더 순서/공백/BOM 변경 대응)
+               const parsed = Papa.parse(csvStr, {
+                  header: true,
+                  skipEmptyLines: 'greedy',
+                  transformHeader: (h) => String(h || '').replace(/^\uFEFF/, '').trim()
+               });
+
+               if (parsed.errors && parsed.errors.length > 0) {
+                  const messages = parsed.errors.slice(0, 5).map(e => `line ${e.row}: ${e.message}`).join(' / ');
+                  throw new Error(`CSV 파싱 오류: ${messages}`);
+               }
+
+               const rows = (parsed.data || []).filter((row) => {
+                  const values = Object.values(row || {});
+                  return values.some(v => String(v ?? '').trim() !== '');
+               });
+               const headers = (parsed.meta.fields || []).filter(Boolean);
+
+               if (rows.length === 0) {
+                  throw new Error('백업 파일에 유효한 데이터 행이 없습니다.');
+               }
 
           // 4. 헤더 동기화 (화면 표시 항목 자동 조정)
           if (headers) await syncHeadersWithConfig(headers);
 
-          // 5. Firestore 반영
-          let count = 0;
-          for (const row of rows) {
-              const { raw_database_id, ...data } = row;
-              if (data.price) data.price = parseInt(data.price) || 0;
-              
-              if (raw_database_id && raw_database_id.length > 5) {
-                  await updateDoc(doc(db, 'pokemon_cards', raw_database_id), data);
-              } else {
-                  await addDoc(collection(db, 'pokemon_cards'), data);
-              }
-              count++;
-          }
-          setGhStatus(`✅ 복원 완료! 최신 파일(${latestFile.name})에서 ${count}건 반영됨`);
+               // 5. Firestore 반영 (대용량에서도 멈춤 방지: 배치 단위 커밋)
+               const cardsCol = collection(db, 'pokemon_cards');
+               const existingSnap = await getDocs(cardsCol);
+               const existingIds = new Set(existingSnap.docs.map(d => d.id));
+               const existingMap = new Map(existingSnap.docs.map(d => [d.id, d.data()]));
+
+               const csvIds = new Set();
+               let rowsWithId = 0;
+               let upsertedCount = 0;
+               let createdCount = 0;
+               let skippedCount = 0;
+
+               const BATCH_LIMIT = 100;
+               let batch = writeBatch(db);
+               let ops = 0;
+
+               const commitBatch = async () => {
+                  if (ops === 0) return;
+                  await batch.commit();
+                  batch = writeBatch(db);
+                  ops = 0;
+               };
+
+               const isSameValue = (left, right, key) => {
+                  if (key === 'price') {
+                     return Number(left || 0) === Number(right || 0);
+                  }
+                  return String(left ?? '') === String(right ?? '');
+               };
+
+               const hasMeaningfulChanges = (existingData, nextPayload) => {
+                  if (!existingData) return true;
+                  const hasUpdatedFields = Object.entries(nextPayload).some(([key, nextValue]) => {
+                     return !isSameValue(existingData[key], nextValue, key);
+                  });
+                  if (hasUpdatedFields) return true;
+
+                  return Object.keys(existingData).some((key) => {
+                     if (hiddenSystemFields.includes(key)) return false;
+                     return key !== 'raw_database_id' && !(key in nextPayload);
+                  });
+               };
+
+               const yieldToUi = () => new Promise(resolve => setTimeout(resolve, 0));
+
+               setGhStatus(`⏳ 복원 준비 완료. 적용 시작 0/${rows.length}`);
+
+               for (let i = 0; i < rows.length; i++) {
+                  const row = rows[i] || {};
+                  const rawId = String(row.raw_database_id || '').trim();
+
+                  const payload = {};
+                  for (const [rawKey, rawValue] of Object.entries(row)) {
+                     const key = String(rawKey || '').replace(/^\uFEFF/, '').trim();
+                     if (!key || key === 'raw_database_id') continue;
+
+                     const value = typeof rawValue === 'string' ? rawValue.trim() : rawValue;
+                     if (key === 'price') payload[key] = parseInt(String(value ?? ''), 10) || 0;
+                     else payload[key] = value ?? '';
+                  }
+
+                  if (rawId.length > 5) {
+                     rowsWithId++;
+                     csvIds.add(rawId);
+                     const existingData = existingMap.get(rawId);
+                     if (hasMeaningfulChanges(existingData, payload)) {
+                        batch.set(doc(db, 'pokemon_cards', rawId), payload);
+                        upsertedCount++;
+                     } else {
+                        skippedCount++;
+                     }
+                  } else {
+                     const newRef = doc(cardsCol);
+                     batch.set(newRef, payload);
+                     createdCount++;
+                  }
+
+                  ops++;
+                  if (ops >= BATCH_LIMIT) {
+                     setGhStatus(`⏳ 복원 적용 중... ${i + 1}/${rows.length} (배치 커밋)`);
+                     await commitBatch();
+                     await yieldToUi();
+                  }
+
+                  if ((i + 1) % 50 === 0 || i + 1 === rows.length) {
+                     setGhStatus(`⏳ 복원 적용 중... ${i + 1}/${rows.length}`);
+                     await yieldToUi();
+                  }
+               }
+
+               await commitBatch();
+               await yieldToUi();
+
+               let deletedCount = 0;
+               const shouldDeleteMissing = true;  // 항상 완전 동기화 수행
+               if (shouldDeleteMissing) {
+                  setGhStatus(`⏳ 누락 문서 삭제 중... 0/${existingIds.size}`);
+                  const idCoverage = rowsWithId / rows.length;
+                  if (idCoverage < 0.8) {
+                     throw new Error('삭제 동기화를 중단했습니다. CSV의 raw_database_id 비율이 낮아 전체 삭제 위험이 있습니다.');
+                  }
+
+                  batch = writeBatch(db);
+                  ops = 0;
+
+                  let processedDeletes = 0;
+                  for (const id of existingIds) {
+                     if (!csvIds.has(id)) {
+                        batch.delete(doc(db, 'pokemon_cards', id));
+                        deletedCount++;
+                        ops++;
+                        if (ops >= BATCH_LIMIT) {
+                           setGhStatus(`⏳ 누락 문서 삭제 중... ${processedDeletes}/${existingIds.size}`);
+                           await batch.commit();
+                           batch = writeBatch(db);
+                           ops = 0;
+                           await yieldToUi();
+                        }
+                     }
+
+                     processedDeletes++;
+                     if (processedDeletes % 50 === 0) {
+                        setGhStatus(`⏳ 누락 문서 삭제 중... ${processedDeletes}/${existingIds.size}`);
+                        await yieldToUi();
+                     }
+                  }
+                  if (ops > 0) {
+                     await batch.commit();
+                     await yieldToUi();
+                  }
+               }
+
+                  setGhStatus(`✅ 복원 완료! ${targetFileName} / 변경 ${upsertedCount + createdCount}건, 유지 ${skippedCount}건 (기존ID ${upsertedCount}, 신규 ${createdCount})${shouldDeleteMissing ? ` / 삭제 ${deletedCount}건` : ''}`);
       } catch (err) {
           console.error(err);
           setGhStatus('❌ 불러오기 실패: ' + err.message);
@@ -361,7 +614,9 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
   const handleExportDatabase = async () => {
      try {
        const snapshot = await getDocs(collection(db, "pokemon_cards"));
-       const allData = snapshot.docs.map(d => ({ raw_database_id: d.id, ...d.data() }));
+          const allData = snapshot.docs
+             .map(d => ({ raw_database_id: d.id, ...d.data() }))
+             .sort((a, b) => (Number(a.displayOrder) || Number.MAX_SAFE_INTEGER) - (Number(b.displayOrder) || Number.MAX_SAFE_INTEGER));
        
        if (allData.length === 0) {
           alert("데이터베이스가 비어있습니다!");
@@ -405,7 +660,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
               let addedCount = 0;
               const cardsCol = collection(db, "pokemon_cards");
               
-              for (const row of data) {
+              for (const [index, row] of data.entries()) {
                  const payload = {};
                  for (const [k, v] of Object.entries(row)) {
                      if (k === 'raw_database_id') continue;
@@ -625,7 +880,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
           <h3>🐙 깃허브 누적 클라우드 백업 (GitHub)</h3>
           <p className="help-text">
              기존 파일을 덮어씌우지 않고 백업 파일을 계속 생성하여 안전하게 보관합니다.<br/>
-             복원 시에는 가장 최근에 백업된 파일을 자동으로 찾아 화면 구성까지 일치시켜줍니다.
+             복원 시에는 항상 backup_ 파일 중 가장 최신 파일을 기준으로 Firestore를 동기화합니다.
           </p>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginTop: '1.5rem' }}>
@@ -637,10 +892,10 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
                 </button>
              </div>
              <div style={{ background: 'rgba(124,58,237,0.1)', padding: '1.5rem', borderRadius: '8px', border: '1px solid rgba(124,58,237,0.3)' }}>
-                <h4 style={{ color: '#a78bfa', marginBottom: '0.5rem' }}>📥 최신 백업 자동 복원 (GitHub → DB)</h4>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>백업 리스트 중 가장 최근 파일을 찾아 데이터와 UI 설정을 복구합니다.</p>
+                <h4 style={{ color: '#a78bfa', marginBottom: '0.5rem' }}>📥 깃허브 기준 데이터 복원</h4>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>GitHub의 최신 백업 데이터베이스를 기준으로 모든 행순서, 개수, 설정을 일치시킵니다.</p>
                 <button className="btn" style={{ border: '1px solid #7c3aed', color: '#a78bfa', width: '100%', padding: '0.8rem', background: 'transparent' }} onClick={handleGithubRestore}>
-                   ⬇️ 최신 백업 자동 복원
+                   ⬇️ 최신 백업 DB로 복원
                 </button>
              </div>
           </div>
@@ -698,10 +953,10 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
              <div style={{ marginTop: '2rem', padding: '1rem', background: 'rgba(0,0,0,0.5)', borderRadius: '8px', border: '1px solid var(--border-color)', overflowX: 'auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                    <h4 style={{ color: 'var(--primary-color)', margin: 0 }}>
-                       🔎 실시간 원본 데이터베이스 뷰어 (총 {rawDbData.length}건)
+                       🔎 실시간 원본 데이터베이스 뷰어 (총 {rawDbData.length}건, 🐙 GitHub 기준 정렬됨)
                    </h4>
                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                       <button className="btn btn-secondary" disabled={isGlobalProcessing} onClick={handleRawAddRow}>➕ 최상단 빈 카드 추가</button>
+                        <button className="btn btn-secondary" disabled={true} title="행 추가는 GitHub 기준 DB CSV를 먼저 수정한 뒤 복원으로 반영됩니다">➕ 새 행 추가 (비활성)</button>
                        <button className="btn btn-primary" disabled={isGlobalProcessing} onClick={handleRawAddColumn}>➕ 새로운 열(항목) 추가</button>
                    </div>
                 </div>
@@ -709,7 +964,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
                    <thead>
                       <tr>
                          <th style={{ padding: '0.5rem', width: '60px' }}>삭제</th>
-                         {[...new Set(rawDbData.flatMap(Object.keys))].map(k => (
+                         {rawVisibleColumns.map(k => (
                              <th 
                                 key={k} 
                                 onClick={() => handleRawSort(k)}
@@ -732,11 +987,11 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
                             <td style={{ padding: '0.2rem 0.5rem', textAlign: 'center' }}>
                                 <button className="btn btn-danger" style={{ padding: '2px 8px' }} onClick={() => handleRawDeleteRow(row.raw_database_id)}>✕</button>
                             </td>
-                            {[...new Set(rawDbData.flatMap(Object.keys))].map(k => (
+                            {rawVisibleColumns.map(k => (
                                <td key={k} style={{ padding: '0' }}>
-                                  {k === 'raw_database_id' ? (
+                                   {k === 'raw_database_id' ? (
                                       <div style={{ padding: '0.5rem', color: 'gray', fontSize:'0.7rem' }}>{row[k]}</div>
-                                  ) : (
+                                   ) : (
                                       <input 
                                          type="text" 
                                          className="table-input" 
@@ -748,8 +1003,10 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
                                             outline: 'none', 
                                             color: 'white' 
                                          }} 
-                                         value={typeof row[k] === 'object' ? JSON.stringify(row[k]) : (row[k] || '')} 
-                                         onChange={(e) => handleRawEditChange(row.raw_database_id, k, e.target.value)} 
+                                                             value={rawCellDrafts[row.raw_database_id]?.[k] ?? (typeof row[k] === 'object' ? JSON.stringify(row[k]) : (row[k] || ''))} 
+                                                             onChange={(e) => handleRawEditChange(row.raw_database_id, k, e.target.value)} 
+                                                             onBlur={() => commitRawEditChange(row.raw_database_id, k)}
+                                                             onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                                       />
                                   )}
                                 </td>
