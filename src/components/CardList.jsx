@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useDeferredValue } from 'react';
-import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
 import pokemonMapAll from '../utils/pokemonMapAll.json';
@@ -11,9 +11,16 @@ export default function CardList({ appConfig }) {
   const [loading, setLoading] = useState(true);
   
   // 필터 및 정렬 상태
-  const [searchTerm, setSearchTerm] = useState('');
-  const deferredSearchTerm = useDeferredValue(searchTerm);
-  const [sortBy, setSortBy] = useState('backup_order');
+   const [searchTerm, setSearchTerm] = useState('');
+   const deferredSearchTerm = useDeferredValue(searchTerm);
+   const [sortPanelOpen, setSortPanelOpen] = useState(false);
+   const [sortLevels, setSortLevels] = useState([
+      { field: 'pokedexNumber', dir: 'asc', enabled: true },
+      { field: '', dir: 'asc', enabled: false },
+      { field: '', dir: 'asc', enabled: false },
+      { field: '', dir: 'asc', enabled: false },
+      { field: '', dir: 'asc', enabled: false }
+   ]);
 
   // 첫 번째 메인 수정 모달창 상태
   const [selectedCard, setSelectedCard] = useState(null);
@@ -45,6 +52,61 @@ export default function CardList({ appConfig }) {
          .sort((a, b) => a.order - b.order);
    }, [appConfig.displayFields]);
 
+   useEffect(() => {
+      try {
+         const raw = localStorage.getItem('pc_sort_levels');
+         if (raw) setSortLevels(JSON.parse(raw));
+      } catch (e) { /* ignore */ }
+   }, []);
+
+   const persistSortLevels = (next) => {
+      setSortLevels(next);
+      try { localStorage.setItem('pc_sort_levels', JSON.stringify(next)); } catch (e) {}
+   };
+
+   const SORT_OPTIONS = [
+      { value: '', label: '없음' },
+      { value: 'createdAt', label: '등록일' },
+      { value: 'pokedexNumber', label: '전국도감번호' },
+      { value: 'series', label: '시리즈' },
+      { value: 'cardName', label: '카드 이름' },
+      { value: 'price', label: '가격' },
+      { value: 'status', label: '보유 상태' },
+      { value: 'rarity', label: '레어도' },
+      { value: 'type', label: '카드 종류' }
+   ];
+
+   const handleLevelFieldChange = (index, field) => {
+      const next = sortLevels.slice();
+      next[index] = { ...next[index], field, enabled: !!field };
+      persistSortLevels(next);
+   };
+
+   const toggleLevelDir = (index) => {
+      const next = sortLevels.slice();
+      next[index].dir = next[index].dir === 'asc' ? 'desc' : 'asc';
+      persistSortLevels(next);
+   };
+
+   const toggleLevelEnabled = (index) => {
+      const next = sortLevels.slice();
+      next[index].enabled = !next[index].enabled;
+      // if turning off, clear field
+      if (!next[index].enabled) next[index].field = '';
+      persistSortLevels(next);
+   };
+
+   const resetSortLevels = () => {
+      const def = [
+         { field: 'pokedexNumber', dir: 'asc', enabled: true },
+         { field: '', dir: 'asc', enabled: false },
+         { field: '', dir: 'asc', enabled: false },
+         { field: '', dir: 'asc', enabled: false },
+         { field: '', dir: 'asc', enabled: false }
+      ];
+      persistSortLevels(def);
+   };
+
   useEffect(() => {
     async function fetchCards() {
       try {
@@ -63,7 +125,7 @@ export default function CardList({ appConfig }) {
     fetchCards();
   }, []);
 
-  const filteredAndSortedCards = useMemo(() => {
+   const filteredAndSortedCards = useMemo(() => {
     let result = [...cards];
       if (deferredSearchTerm) {
          const lowerWord = deferredSearchTerm.toLowerCase();
@@ -74,73 +136,145 @@ export default function CardList({ appConfig }) {
         (card.pokedexNumber || '').includes(lowerWord)
       );
     }
-    result.sort((a, b) => {
-         if (sortBy === 'backup_order') {
-            const orderA = Number(a.displayOrder) || Number.MAX_SAFE_INTEGER;
-            const orderB = Number(b.displayOrder) || Number.MAX_SAFE_INTEGER;
-            if (orderA !== orderB) return orderA - orderB;
-            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-            return dateA - dateB;
-         } else if (sortBy === 'newest') {
-        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return dateB - dateA;
-      } else if (sortBy === 'price_high') {
-        return (b.price || 0) - (a.price || 0); 
-      } else if (sortBy === 'pokedex_asc') {
-        return parseInt(a.pokedexNumber || '9999') - parseInt(b.pokedexNumber || '9999');
-      } else if (sortBy === 'name_asc') {
-        return (a.cardName || '').localeCompare(b.cardName || '');
+      // Multi-level sorting: if any sortLevels enabled use them, otherwise fallback to previous single-sort behavior
+      const activeLevels = sortLevels.filter(l => l.enabled && l.field);
+      if (activeLevels.length) {
+         const statusOrder = (appConfig.statusOptions && Array.isArray(appConfig.statusOptions)) ? appConfig.statusOptions : ['보유중','등급카드','미보유'];
+         const statusRank = {};
+         statusOrder.forEach((s,i)=> statusRank[s] = i);
+
+         result.sort((a,b) => {
+            for (const lvl of activeLevels) {
+               const field = lvl.field;
+               const dir = lvl.dir === 'desc' ? -1 : 1;
+               let va = a[field];
+               let vb = b[field];
+
+               // Treat missing/invalid values as "absent" and always place them after present values
+               const isNumericField = field === 'pokedexNumber' || field === 'price';
+               const aRaw = va;
+               const bRaw = vb;
+               let aHas = aRaw !== undefined && aRaw !== null && String(aRaw).trim() !== '';
+               let bHas = bRaw !== undefined && bRaw !== null && String(bRaw).trim() !== '';
+               if (field === 'createdAt') {
+                  aHas = !!a.createdAt;
+                  bHas = !!b.createdAt;
+               }
+               if (isNumericField) {
+                  aHas = aHas && Number.isFinite(Number(aRaw));
+                  bHas = bHas && Number.isFinite(Number(bRaw));
+               }
+
+               if (!aHas || !bHas) {
+                  if (!aHas && !bHas) {
+                     // both absent -> treat as equal for this level, continue to next level
+                     continue;
+                  }
+                  // one is absent: absent item should be after present item regardless of direction
+                  if (!aHas) return 1;
+                  return -1;
+               }
+
+               let cmp = 0;
+               if (field === 'createdAt') {
+                  const ta = new Date(a.createdAt).getTime();
+                  const tb = new Date(b.createdAt).getTime();
+                  cmp = ta - tb;
+               } else if (isNumericField) {
+                  cmp = Number(aRaw) - Number(bRaw);
+               } else if (field === 'status') {
+                  const ra = statusRank[aRaw] ?? 999;
+                  const rb = statusRank[bRaw] ?? 999;
+                  cmp = ra - rb;
+               } else {
+                  cmp = String(aRaw).localeCompare(String(bRaw), 'ko');
+               }
+
+               if (cmp !== 0) return cmp * dir;
+            }
+            return 0;
+         });
+      } else {
+         // fallback: default to pokedexNumber ascending
+         result.sort((a, b) => {
+             return (Number(a.pokedexNumber) || 0) - (Number(b.pokedexNumber) || 0);
+         });
       }
-      return 0;
-    });
     return result;
-   }, [cards, deferredSearchTerm, sortBy]);
+   }, [cards, deferredSearchTerm, sortLevels]);
   
   const totalPages = Math.ceil(filteredAndSortedCards.length / itemsPerPage);
   const currentPageCards = viewMode === 'table' ? filteredAndSortedCards.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredAndSortedCards;
   
   // 검색이나 정렬이 변경되면 페이지를 1로 리셋합니다.
-  useEffect(() => { setCurrentPage(1); }, [deferredSearchTerm, sortBy]);
+   useEffect(() => { setCurrentPage(1); }, [deferredSearchTerm, sortLevels]);
 
   const commitTableCell = async (id, field, rawValue) => {
      const currentCard = cards.find(card => card.id === id);
      if (!currentCard) return;
+      const nextValueRaw = field === 'price' ? (parseInt(rawValue) || 0) : rawValue;
+      const currentValue = field === 'price' ? (Number(currentCard[field]) || 0) : (currentCard[field] ?? '');
 
-     const nextValue = field === 'price' ? (parseInt(rawValue) || 0) : rawValue;
-     const currentValue = field === 'price' ? (Number(currentCard[field]) || 0) : (currentCard[field] ?? '');
-     const normalizedNext = field === 'price' ? Number(nextValue || 0) : String(nextValue ?? '');
-     const normalizedCurrent = field === 'price' ? Number(currentValue || 0) : String(currentValue ?? '');
+      // Normalize pokedexNumber for storage/display; leave cardNumber untouched
+      let finalNext = nextValueRaw;
+      if (field === 'pokedexNumber') finalNext = normalizePokedexNumber(String(nextValueRaw || ''));
 
-     if (normalizedNext === normalizedCurrent) return;
+      const normalizedFinalNext = field === 'price' ? Number(finalNext || 0) : String(finalNext ?? '');
+      const normalizedCurrent = field === 'price' ? Number(currentValue || 0) : String(currentValue ?? '');
+      if (normalizedFinalNext === normalizedCurrent) return;
 
-     setIsRowSaving(prev => ({ ...prev, [id]: true }));
-     try {
-        const cardRef = doc(db, "pokemon_cards", id);
-        await updateDoc(cardRef, { [field]: nextValue });
-        setCards(prev => prev.map(card => card.id === id ? { ...card, [field]: nextValue } : card));
-        setTableDrafts(prev => {
-           const nextDrafts = { ...prev };
-           if (nextDrafts[id]) {
-              const { [field]: removed, ...rest } = nextDrafts[id];
-              if (Object.keys(rest).length === 0) delete nextDrafts[id];
-              else nextDrafts[id] = rest;
-           }
-           return nextDrafts;
-        });
-     } catch(err) {
-        console.error("자동저장 실패:", err);
-     } finally {
-        setIsRowSaving(prev => ({ ...prev, [id]: false }));
-     }
+      setIsRowSaving(prev => ({ ...prev, [id]: true }));
+      try {
+         const cardRef = doc(db, "pokemon_cards", id);
+         await updateDoc(cardRef, { [field]: finalNext });
+         setCards(prev => prev.map(card => card.id === id ? { ...card, [field]: finalNext } : card));
+         setTableDrafts(prev => {
+            const nextDrafts = { ...prev };
+            if (nextDrafts[id]) {
+               const { [field]: removed, ...rest } = nextDrafts[id];
+               if (Object.keys(rest).length === 0) delete nextDrafts[id];
+               else nextDrafts[id] = rest;
+            }
+            return nextDrafts;
+         });
+      } catch(err) {
+         console.error("자동저장 실패:", err);
+      } finally {
+         setIsRowSaving(prev => ({ ...prev, [id]: false }));
+      }
   };
+
+   // Normalize pokedexNumber: pad numeric sequences to 4 digits (e.g. 1 -> 0001)
+   const padTo4 = (num) => String(num).padStart(4, '0');
+   const normalizePokedexNumber = (raw) => {
+      if (raw === undefined || raw === null) return '';
+      const s = String(raw).trim();
+      if (!s) return '';
+      return String(s).replace(/\d+/g, (m) => padTo4(m));
+   };
+   const displayPokedexNumber = (raw) => normalizePokedexNumber(raw);
 
   // 메인 모달
   const openModal = (card) => {
-    setSelectedCard(card);
-    setEditData({ ...card });
+     setSelectedCard(card);
+     setEditData({ ...card, possessions: (card.possessions || []).slice() });
   };
+   const openCreate = () => {
+      const base = {
+         cardName: '',
+         series: '',
+         cardNumber: '',
+         rarity: '',
+         type: '',
+         pokedexNumber: '',
+         status: '미보유',
+         price: 0,
+         imageUrl: '',
+         possessions: []
+      };
+      setSelectedCard({ isNew: true });
+      setEditData(base);
+   };
   const closeModal = () => {
     setSelectedCard(null);
     setEditData({});
@@ -150,32 +284,39 @@ export default function CardList({ appConfig }) {
     const { name, value } = e.target;
     setEditData(prev => ({ ...prev, [name]: value }));
   };
-  const handleSave = async (e) => {
-    e.preventDefault();
-    setIsSaving(true);
-    try {
-      const cardRef = doc(db, "pokemon_cards", selectedCard.id);
-      const updatePayload = {
-        cardName: editData.cardName || '',
-        series: editData.series || '',
-        cardNumber: editData.cardNumber || '',
-        rarity: editData.rarity || '',
-        type: editData.type || '',
-        pokedexNumber: editData.pokedexNumber || '',
-        status: editData.status || '',
-        price: parseInt(editData.price) || 0,
-        imageUrl: editData.imageUrl || ''
-      };
-      await updateDoc(cardRef, updatePayload);
-      setCards(prev => prev.map(c => c.id === selectedCard.id ? { ...c, ...updatePayload } : c));
-      closeModal();
-    } catch(err) {
-      console.error(err);
-      alert("저장 중 오류가 발생했습니다.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
+   const handleSave = async (e) => {
+      e.preventDefault();
+      setIsSaving(true);
+      try {
+         const updatePayload = {
+            cardName: editData.cardName || '',
+            series: editData.series || '',
+            cardNumber: editData.cardNumber || '',
+            rarity: editData.rarity || '',
+            type: editData.type || '',
+            pokedexNumber: normalizePokedexNumber(editData.pokedexNumber || ''),
+            status: editData.status || '미보유',
+            price: parseInt(editData.price) || 0,
+            imageUrl: editData.imageUrl || '',
+            possessions: editData.possessions || []
+         };
+
+         if (selectedCard && selectedCard.isNew) {
+            const ref = await addDoc(collection(db, 'pokemon_cards'), updatePayload);
+            setCards(prev => [{ id: ref.id, ...updatePayload }, ...prev]);
+         } else if (selectedCard && selectedCard.id) {
+            const cardRef = doc(db, "pokemon_cards", selectedCard.id);
+            await updateDoc(cardRef, updatePayload);
+            setCards(prev => prev.map(c => c.id === selectedCard.id ? { ...c, ...updatePayload } : c));
+         }
+         closeModal();
+      } catch(err) {
+         console.error(err);
+         alert("저장 중 오류가 발생했습니다.");
+      } finally {
+         setIsSaving(false);
+      }
+   };
   const handleDelete = async () => {
     if(!window.confirm("정말로 이 카드를 창고에서 삭제할까요?")) return;
     try {
@@ -335,6 +476,91 @@ export default function CardList({ appConfig }) {
       closePicker();
   };
 
+   const renderPossessionBadges = (card) => {
+      const poss = card.possessions || [];
+      return poss.map((p, i) => (
+         <span key={(p.id || i)} className="badge-possession" style={{ background: '#f3f4f6', padding: '0.15rem 0.4rem', borderRadius: '4px', marginRight: '0.3rem', fontSize: '0.75rem' }}>
+             {p.region}{p.count ? ` x${p.count}` : ''}
+         </span>
+      ));
+   };
+
+   // 카드 문서의 possessions 배열에서 가장 높은 그레이딩(예: PSA 10)을 찾음
+   const getTopGrading = (card) => {
+      const poss = card.possessions || [];
+      let top = null;
+      poss.forEach(p => {
+         (p.graded || []).forEach(g => {
+            if (!g || !g.company || !g.grade) return;
+            // 숫자 레어도 우선 비교 (문자열이면 그대로 표시)
+            const gradeNum = parseFloat(String(g.grade).replace(/[^0-9.]/g, '')) || null;
+            if (!top) top = { company: g.company, grade: g.grade, gradeNum };
+            else if (gradeNum && top.gradeNum && gradeNum > top.gradeNum) top = { company: g.company, grade: g.grade, gradeNum };
+         });
+      });
+      return top; // {company, grade, gradeNum} 또는 null
+   };
+
+   // --- possessions(보유 정보) 관련 유틸 ---
+   const addPossession = () => {
+      setEditData(prev => ({
+         ...prev,
+         possessions: [
+            ...(prev.possessions || []),
+            { id: `p_${Date.now()}`, region: 'KR', count: 1, company: '', grade: '', serial: '', notes: '' }
+         ]
+      }));
+   };
+
+   const updatePossessionField = (index, field, value) => {
+      setEditData(prev => {
+         const poss = (prev.possessions || []).slice();
+         if (!poss[index]) return prev;
+         poss[index] = { ...poss[index], [field]: value };
+         return { ...prev, possessions: poss };
+      });
+   };
+
+   const removePossession = (index) => {
+      setEditData(prev => {
+         const poss = (prev.possessions || []).slice();
+         poss.splice(index, 1);
+         return { ...prev, possessions: poss };
+      });
+   };
+
+   const addGrading = (pIndex) => {
+      setEditData(prev => {
+         const poss = (prev.possessions || []).slice();
+         if (!poss[pIndex]) return prev;
+         poss[pIndex].graded = [...(poss[pIndex].graded || []), { company: '', grade: '', serial: '' }];
+         return { ...prev, possessions: poss };
+      });
+   };
+
+   const updateGrading = (pIndex, gIndex, field, value) => {
+      setEditData(prev => {
+         const poss = (prev.possessions || []).slice();
+         if (!poss[pIndex] || !poss[pIndex].graded) return prev;
+         const graded = (poss[pIndex].graded || []).slice();
+         graded[gIndex] = { ...graded[gIndex], [field]: value };
+         poss[pIndex].graded = graded;
+         return { ...prev, possessions: poss };
+      });
+   };
+
+   const removeGrading = (pIndex, gIndex) => {
+      setEditData(prev => {
+         const poss = (prev.possessions || []).slice();
+         if (!poss[pIndex] || !poss[pIndex].graded) return prev;
+         const graded = (poss[pIndex].graded || []).slice();
+         graded.splice(gIndex, 1);
+         poss[pIndex].graded = graded;
+         return { ...prev, possessions: poss };
+      });
+   };
+
+
 
   if (loading) {
      return (
@@ -351,14 +577,33 @@ export default function CardList({ appConfig }) {
        <div className="gallery-header">
           <h2>나만의 포켓몬 도감 <span>({filteredAndSortedCards.length}장)</span></h2>
           <div className="gallery-controls">
+             <button type="button" className="btn btn-primary" style={{marginRight: '0.6rem'}} onClick={openCreate}>➕ 카드 추가</button>
              <input type="text" className="search-input" placeholder="🔍 이름, 일련번호, 도감번호 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-             <select className="sort-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-                <option value="backup_order">백업 순서</option>
-                <option value="newest">최신 등록순</option>
-                <option value="pokedex_asc">도감 번호순</option>
-                <option value="price_high">높은 시세순</option>
-                <option value="name_asc">카드 이름순</option>
-             </select>
+             <button type="button" className="btn btn-secondary" style={{marginLeft: '0.6rem'}} onClick={() => setSortPanelOpen(p => !p)}>정렬 설정</button>
+             {sortPanelOpen && (
+               <div className="sort-panel" style={{position:'absolute', right: '2rem', top: '5.8rem', background: 'var(--surface-color)', border: '1px solid var(--border-color)', padding: '1rem', borderRadius: '8px', zIndex:1200, width: 420}}>
+                  <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.6rem'}}>
+                     <strong>정렬 우선순위 (최대 5단계)</strong>
+                     <div style={{display:'flex', gap:'0.4rem'}}>
+                        <button type="button" className="btn" onClick={resetSortLevels} style={{padding:'0.25rem 0.6rem'}}>초기화</button>
+                        <button type="button" className="btn btn-primary" onClick={() => setSortPanelOpen(false)} style={{padding:'0.25rem 0.6rem'}}>닫기</button>
+                     </div>
+                  </div>
+                  {sortLevels.map((lvl, idx) => (
+                    <div key={idx} style={{display:'flex', gap:'0.5rem', alignItems:'center', marginBottom:'0.45rem'}}>
+                       <div style={{width:'24px', textAlign:'center', fontWeight:700}}>{idx+1}</div>
+                       <select value={lvl.field} onChange={(e) => handleLevelFieldChange(idx, e.target.value)} style={{flex:1, padding:'0.4rem'}}>
+                         {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                       </select>
+                       <button type="button" className="btn" onClick={() => toggleLevelDir(idx)} style={{width:'48px'}}>{lvl.dir === 'asc' ? '▲' : '▼'}</button>
+                       <button type="button" className={`btn ${lvl.enabled ? 'btn-primary' : ''}`} onClick={() => toggleLevelEnabled(idx)} style={{width:'48px'}}>{lvl.enabled ? 'ON' : 'OFF'}</button>
+                    </div>
+                  ))}
+                  <div style={{display:'flex', justifyContent:'flex-end', gap:'0.5rem', marginTop:'0.6rem'}}>
+                     <button type="button" className="btn" onClick={() => { persistSortLevels(sortLevels); setSortPanelOpen(false); }}>저장</button>
+                  </div>
+               </div>
+             )}
              <div className="view-toggle">
                 <button className={`btn-toggle ${viewMode === 'gallery' ? 'active' : ''}`} onClick={() => setViewMode('gallery')}>🖼️ 갤러리</button>
                 <button className={`btn-toggle ${viewMode === 'table' ? 'active' : ''}`} onClick={() => setViewMode('table')}>📋 표</button>
@@ -385,7 +630,7 @@ export default function CardList({ appConfig }) {
 
                         const cellInputs = {
                         cardName: <input type="text" className="table-input" value={rowDrafts.cardName ?? data.cardName ?? ''} onChange={(e) => handleTableEditChange(card.id, 'cardName', e.target.value)} onBlur={() => handleTableEditBlur(card.id, 'cardName')} />,
-                        pokedexNumber: <input type="text" className="table-input" style={{width: '60px', textAlign: 'center'}} value={rowDrafts.pokedexNumber ?? data.pokedexNumber ?? ''} onChange={(e) => handleTableEditChange(card.id, 'pokedexNumber', e.target.value)} onBlur={() => handleTableEditBlur(card.id, 'pokedexNumber')} />,
+                        pokedexNumber: <input type="text" className="table-input" style={{width: '60px', textAlign: 'center'}} value={rowDrafts.pokedexNumber ?? displayPokedexNumber(data.pokedexNumber) ?? ''} onChange={(e) => handleTableEditChange(card.id, 'pokedexNumber', e.target.value)} onBlur={() => handleTableEditBlur(card.id, 'pokedexNumber')} />,
                         series: <select className="table-input" value={rowDrafts.series ?? data.series ?? ''} onChange={(e) => handleTableSelectChange(card.id, 'series', e.target.value)}><option value="">선택</option>{appConfig.seriesOptions.map(s => <option key={s} value={s}>{s}</option>)}</select>,
                         cardNumber: <input type="text" className="table-input" style={{width: '90px'}} value={rowDrafts.cardNumber ?? data.cardNumber ?? ''} onChange={(e) => handleTableEditChange(card.id, 'cardNumber', e.target.value)} onBlur={() => handleTableEditBlur(card.id, 'cardNumber')} />,
                         rarity: <select className="table-input" style={{width: '90px'}} value={rowDrafts.rarity ?? data.rarity ?? ''} onChange={(e) => handleTableSelectChange(card.id, 'rarity', e.target.value)}><option value="">선택</option>{appConfig.rarityOptions.map(s => <option key={s} value={s}>{s}</option>)}</select>,
@@ -427,21 +672,29 @@ export default function CardList({ appConfig }) {
              <div className="card-item fade-in" key={card.id} onClick={() => openModal(card)}>
                 <div className="card-image-wrapper">
                    {card.imageUrl ? (
-                      <img src={card.imageUrl} alt={card.cardName} loading="lazy" />
+                     <>
+                       <img src={card.imageUrl} alt={card.cardName} loading="lazy" />
+                       {/* 레어도(AR/SAR) 배지 - rarity 필드 사용 */}
+                       {card.rarity && <span className="card-rarity">{card.rarity}</span>}
+                       {/* 그레이딩(예: PSA 10) 배지 */}
+                       {(() => {
+                         const top = getTopGrading(card);
+                         return top ? <span className="grading-badge">{top.company} {top.grade}</span> : null;
+                       })()}
+                     </>
                    ) : (
                       <div className="no-image-wrapper"><img src="/placeholder.png" alt="placeholder" className="placeholder-img" /><div className="placeholder-text">이미지<br/>필요</div></div>
                    )}
-                   {card.rarity && <span className="card-rarity">{card.rarity}</span>}
                 </div>
                 <div className="card-info">
                    <h3 className="card-name" title={card.cardName}>{card.cardName || '이름 없음'}</h3>
                    <div className="card-meta">
                       {card.series && <span className="badge-series">{card.series}</span>}
-                      {card.pokedexNumber && <span className="badge-number">No.{card.pokedexNumber}</span>}
+                      {card.cardNumber && <span className="badge-number">No.{card.cardNumber}</span>}
+                      {card.pokedexNumber && <span className="badge-number">도감 번호 {displayPokedexNumber(card.pokedexNumber)}</span>}
                    </div>
                    <div className="card-bottom">
-                      <span className="card-price">₩{Number(card.price || 0).toLocaleString()}</span>
-                      <span className="card-status">{card.status || '상태 없음'}</span>
+                      <span className={`card-status ${((card.status||'미보유').replace(/\s+/g,'-'))}`}>{card.status || '미보유'}</span>
                    </div>
                 </div>
              </div>
@@ -525,12 +778,90 @@ export default function CardList({ appConfig }) {
                                    </select>
                                 )}
                                 {f.id === 'status' && (
-                                   <select name="status" value={editData.status || ''} onChange={handleEditChange}>
-                                      <option value="">선택</option>
-                                      {appConfig.statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
-                                   </select>
+                                   <div>
+                                      <div style={{ marginBottom: '0.6rem', display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                                         <div style={{ flex: '0 0 auto' }}>
+                                            <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginRight: '0.4rem' }}>보유여부</label>
+                                         </div>
+                                         <div style={{ flex: '0 0 220px' }}>
+                                            <select name="status" value={editData.status || '미보유'} onChange={handleEditChange} style={{ width: '100%' }}>
+                                               <option value="미보유">미보유</option>
+                                               <option value="보유중">보유중</option>
+                                               <option value="등급카드">등급카드</option>
+                                            </select>
+                                         </div>
+                                      </div>
+
+                                      <div className="possession-section">
+                                         <div className="possession-header">
+                                            <div className="pos-field country">국가</div>
+                                            <div className="pos-field company">등급 업체</div>
+                                            <div className="pos-field grade">등급</div>
+                                            <div className="pos-field count">수량</div>
+                                            <div className="pos-field serial">시리얼 번호</div>
+                                            <div className="pos-actions"></div>
+                                         </div>
+
+                                         {(editData.possessions || []).map((p, idx) => (
+                                            <div key={p.id || idx} className="possession-row">
+                                               <div className="pos-field country">
+                                                  <label style={{display:'none'}}>국가</label>
+                                                  <select name={`poss-${idx}-region`} data-pos-field="region" value={p.region || 'KR'} onChange={(e) => updatePossessionField(idx, 'region', e.target.value)}>
+                                                     <option value="KR">한국판 (KR)</option>
+                                                     <option value="JP">일본판 (JP)</option>
+                                                     <option value="US">미국판 (US)</option>
+                                                     <option value="CN">중국판 (CN)</option>
+                                                  </select>
+                                               </div>
+
+                                               <div className="pos-field company">
+                                                  <label style={{display:'none'}}>등급 업체</label>
+                                                  <select name={`poss-${idx}-company`} data-pos-field="company" value={p.company || ''} onChange={(e) => updatePossessionField(idx, 'company', e.target.value)}>
+                                                     <option value="">선택</option>
+                                                     {(appConfig.gradingCompaniesOptions || []).map(c => <option key={c} value={c}>{c}</option>)}
+                                                     <option value="raw">raw</option>
+                                                  </select>
+                                               </div>
+
+                                               <div className="pos-field grade">
+                                                  <label style={{display:'none'}}>등급</label>
+                                                  <select name={`poss-${idx}-grade`} data-pos-field="grade" value={p.grade || ''} onChange={(e) => updatePossessionField(idx, 'grade', e.target.value)} disabled={p.company === 'raw'}>
+                                                     <option value="">선택</option>
+                                                     {((appConfig.gradingScaleOptions && appConfig.gradingScaleOptions.length) ? appConfig.gradingScaleOptions : Array.from({length:10},(_,i)=>String(i+1))).map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                                                  </select>
+                                               </div>
+
+                                               <div className="pos-field count">
+                                                  <label style={{display:'none'}}>수량</label>
+                                                  <input name={`poss-${idx}-count`} data-pos-field="count" type="number" min={0} value={p.count || 1} onChange={(e) => updatePossessionField(idx, 'count', parseInt(e.target.value || 0))} />
+                                               </div>
+
+                                               <div className="pos-field serial">
+                                                  <label style={{display:'none'}}>시리얼</label>
+                                                  <input name={`poss-${idx}-serial`} data-pos-field="serial" type="text" value={p.serial || ''} onChange={(e) => updatePossessionField(idx, 'serial', e.target.value)} disabled={p.company === 'raw'} />
+                                               </div>
+
+                                               <div className="pos-actions">
+                                                  <button
+                                                     type="button"
+                                                     className="btn btn-delete"
+                                                     title="보유 정보 삭제"
+                                                     onClick={() => removePossession(idx)}
+                                                  >
+                                                     <span className="icon" aria-hidden>🗑</span>
+                                                  </button>
+                                               </div>
+                                            </div>
+                                         ))}
+
+                                         <div style={{ marginTop: '0.5rem' }}>
+                                            <button type="button" className="btn btn-secondary" onClick={addPossession}>➕ 보유 정보 추가</button>
+                                         </div>
+                                      </div>
+                                   </div>
                                 )}
-                                {!['cardName', 'pokedexNumber', 'series', 'cardNumber', 'rarity', 'type', 'status', 'price'].includes(f.id) && (
+                                {!['cardName', 'pokedexNumber', 'series', 'cardNumber', 'rarity', 'type', 'status', 'price'].includes(f.id)
+                                  && f.label !== '보유 여부' && f.label !== '보유여부' && (
                                    <input type="text" name={f.id} value={editData[f.id] || ''} onChange={handleEditChange} />
                                 )}
                              </div>

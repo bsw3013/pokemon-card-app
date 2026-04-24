@@ -8,6 +8,8 @@ export const defaultConfig = {
     "PROMO"
   ],
   rarityOptions: ["C", "U", "R", "RR", "RRR", "S", "SR", "SSR", "HR", "UR", "AR", "SAR", "CHR", "CSR", "A", "MA", "BWR", "MUR", "PROMO", "기타 AR", "없음"],
+  gradingCompaniesOptions: ["PSA", "Beckett", "CGC", "KSC"],
+  gradingScaleOptions: ["1","2","3","4","5","6","7","8","9","10"],
   typeOptions: ["포켓몬", "서포트", "도구", "스타디움", "에너지"],
   statusOptions: ["S급 (민트)", "A급 (니어민트)", "B급 (우수)", "C급 (플레이용)", "손상됨", "상태 없음"],
   displayFields: [
@@ -15,9 +17,9 @@ export const defaultConfig = {
     { id: 'pokedexNumber', label: '전국 도감 번호', visible: true, order: 2 },
     { id: 'series', label: '확장팩/시리즈', visible: true, order: 3 },
     { id: 'cardNumber', label: '카드 단일 넘버', visible: true, order: 4 },
-    { id: 'rarity', label: '등급 (Rarity)', visible: true, order: 5 },
+    { id: 'rarity', label: '레어도 (Rarity)', visible: true, order: 5 },
     { id: 'type', label: '종류', visible: true, order: 6 },
-    { id: 'status', label: '현재 보관 상태', visible: true, order: 7 },
+    { id: 'status', label: '보유 정보', visible: true, order: 7 },
     { id: 'price', label: '현재 평가 가격 (₩)', visible: true, order: 8 }
   ]
 };

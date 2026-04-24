@@ -34,7 +34,7 @@ export const analyzePokemonCard = async (file) => {
       "cardName": "포켓몬 한글 이름 (예: 리자돈 ex, 모야모, 네모)",
       "series": "해당 카드가 포함된 확장팩 이름 기호 (예: sv2a, s12a, sv4a 등 카드 하단의 작은 영어+숫자 조합) 모르면 빈칸",
       "cardNumber": "카드 하단에 적힌 번호 (예: 349/190 또는 006/165)",
-      "rarity": "카드 등급 기호 (예: SR, SAR, UR, AR, RR, C, U, R) 별모양은 AR/SAR 등이고, 글씨로 적혀있기도 합니다. 모르면 빈칸",
+      "rarity": "카드 레어도 기호 (예: SR, SAR, UR, AR, RR, C, U, R) 별모양은 AR/SAR 등이고, 글씨로 적혀있기도 합니다. 모르면 빈칸",
       "type": "카드의 큰 분류 (예: 포켓몬, 서포터, 아이템, 경기장, 에너지)",
       "pokedexNumber": "왼쪽이나 중앙의 도감 번호 숫자만 추출. (예: 006) 없으면 빈칸"
     }

@@ -1,5 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { analyzePokemonCard } from '../gemini';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { db, storage } from '../firebase';
 
 export default function CardUpload() {
   const [imagePreview, setImagePreview] = useState(null);
@@ -35,7 +38,46 @@ export default function CardUpload() {
   const handleSaveToFirebase = async (e) => {
     e.preventDefault();
     if (!cardData || !imageFile) return;
-    setError('직접 저장이 비활성화되었습니다. GitHub 기준 DB CSV를 먼저 수정한 뒤 관리자 화면에서 기준 DB 파일 복원을 실행해주세요.');
+    setError('');
+    setSaving(true);
+    try {
+      // 1) 이미지 업로드
+      const fileName = `cards/${Date.now()}_${imageFile.name}`;
+      const storageRef = ref(storage, fileName);
+      const snapshot = await uploadBytes(storageRef, imageFile);
+      const downloadUrl = await getDownloadURL(snapshot.ref);
+
+      // 2) possessions 기본값: 업로더는 기본으로 "KR" 1장 소유로 설정
+      const possessions = [
+        { id: `p_${Date.now()}`, region: 'KR', count: 1, company: '', grade: '', serial: '', notes: '' }
+      ];
+
+      // 3) Firestore에 새 문서 추가
+      const payload = {
+        cardName: cardData.cardName || '',
+        series: cardData.series || '',
+        cardNumber: cardData.cardNumber || '',
+        pokedexNumber: cardData.pokedexNumber || '',
+        rarity: cardData.rarity || '',
+        type: cardData.type || '',
+        price: cardData.price || 0,
+        status: '수집 완료 (소장중)',
+        imageUrl: downloadUrl,
+        possessions,
+        createdAt: serverTimestamp()
+      };
+
+      await addDoc(collection(db, 'pokemon_cards'), payload);
+      setSuccess(true);
+      setCardData(null);
+      setImageFile(null);
+      setImagePreview(null);
+    } catch (err) {
+      console.error(err);
+      setError(err.message || '저장 중 오류가 발생했습니다.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -111,9 +153,9 @@ export default function CardUpload() {
                 </div>
              </div>
              
-             <div className="form-row">
+                <div className="form-row">
                 <div className="form-group">
-                  <label>등급 (Rarity)</label>
+                  <label>레어도 (Rarity)</label>
                   <input type="text" name="rarity" defaultValue={cardData.rarity} />
                 </div>
                 <div className="form-group">

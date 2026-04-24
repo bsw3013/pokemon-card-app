@@ -112,14 +112,36 @@ body { margin: 0; font-family: 'Outfit', sans-serif; background-color: var(--bg-
 }
 /* 플레이스홀더 끝 */
 
-.card-rarity { position: absolute; top: 1rem; right: 1rem; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); padding: 0.3rem 0.8rem; border-radius: 999px; font-size: 0.85rem; font-weight: 800; color: #ffd700; border: 1px solid rgba(255, 215, 0, 0.4); box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+.card-rarity {
+   position: absolute;
+   top: 8px;
+   right: 8px;
+   display: inline-block;
+   background: linear-gradient(90deg, #ffd54d, #ffb300);
+   color: #111827;
+   font-weight: 800;
+   padding: 0.25rem 0.6rem;
+   border-radius: 10px;
+   font-size: 0.85rem;
+   border: 1px solid rgba(0,0,0,0.12);
+   box-shadow: 0 6px 16px rgba(0,0,0,0.6);
+   z-index: 30;
+   white-space: nowrap;
+   max-width: 80%;
+   line-height: 1;
+}
 .card-info { padding: 1.5rem; display: flex; flex-direction: column; gap: 0.8rem; flex: 1; }
 .card-name { font-size: 1.3rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .badge-series, .badge-number { font-size: 0.8rem; padding: 0.2rem 0.6rem; border-radius: 6px; background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.05); }
+.badge-rarity { display:none; }
 .card-bottom { margin-top: auto; display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 1px solid var(--border-color); }
 .card-price { font-size: 1.25rem; font-weight: 800; color: #10b981; }
-.card-status { font-size: 0.8rem; color: var(--text-muted); background: rgba(255,255,255,0.08); padding: 0.3rem 0.8rem; border-radius: 999px; }
+.card-status { font-size: 0.8rem; color: var(--text-muted); background: rgba(255,255,255,0.06); padding: 0.35rem 0.85rem; border-radius: 999px; font-weight: 700; box-shadow: 0 6px 18px rgba(0,0,0,0.45); }
+/* status color variants - more distinct gradients for visual clarity */
+.card-status.보유중 { background: linear-gradient(90deg,#059669 0%, #10b981 100%); color: #ffffff; border: 1px solid rgba(5,150,105,0.18); box-shadow: 0 8px 24px rgba(5,150,105,0.12); }
+.card-status.미보유 { background: linear-gradient(90deg,#6b7280 0%, #374151 100%); color: #e5e7eb; border: 1px solid rgba(255,255,255,0.04); box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+.card-status.등급카드 { background: linear-gradient(90deg,#f59e0b 0%, #f97316 100%); color: #111827; border: 1px solid rgba(249,115,22,0.16); box-shadow: 0 8px 24px rgba(249,115,22,0.12); }
 .empty-results { grid-column: 1 / -1; text-align: center; padding: 5rem; color: var(--text-muted); font-size: 1.2rem; background: rgba(255,255,255,0.02); border-radius: 20px; border: 1px dashed var(--border-color); }
 
 .loading-gallery { height: 70vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
@@ -130,15 +152,15 @@ body { margin: 0; font-family: 'Outfit', sans-serif; background-color: var(--bg-
    수정 모달창 (Card Edit Modal) CSS
 -------------------------------------- */
 .modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center; padding: 2rem; }
-.modal-content { background: var(--surface-color); width: 100%; max-width: 1000px; border-radius: 24px; border: 1px solid var(--border-color); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8); position: relative; max-height: 90vh; overflow-y: auto; padding: 2.5rem; }
-.modal-close { position: absolute; top: 1.5rem; right: 1.5rem; background: rgba(255,255,255,0.1); border: none; color: white; width: 40px; height: 40px; border-radius: 50%; font-size: 1.5rem; cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; z-index: 10; }
+.modal-content { background: var(--surface-color); width: 100%; max-width: 1200px; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.8); position: relative; max-height: 90vh; overflow-y: auto; padding: 1.2rem; }
+.modal-close { position: absolute; top: 1rem; right: 1rem; background: rgba(255,255,255,0.1); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; z-index: 10; }
 .modal-close:hover { background: var(--primary-color); }
-.modal-title { font-size: 1.8rem; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color); }
-.modal-body { display: flex; gap: 3rem; }
+.modal-title { font-size: 1.4rem; margin-bottom: 1rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--border-color); }
+.modal-body { display: flex; gap: 1rem; }
 @media (max-width: 768px) { .modal-body { flex-direction: column; } }
 
 .modal-image-col { flex: 1; display: flex; flex-direction: column; gap: 1rem; }
-.modal-card-image { width: 100%; aspect-ratio: 2.5/3.5; background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%); border-radius: 16px; padding: 1rem; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border-color); position: relative; transition: 0.3s; }
+.modal-card-image { width: 100%; aspect-ratio: 2.5/3.5; background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%); border-radius: 12px; padding: 0.6rem; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border-color); position: relative; transition: 0.3s; }
 .modal-card-image img { max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.6)); }
 .clickable:hover { border-color: var(--accent-color); cursor: pointer; }
 .hover-edit-text { position: absolute; bottom: 10px; background: rgba(0,0,0,0.7); box-shadow: 0 4px 10px rgba(0,0,0,0.5); padding: 0.5rem 1rem; border-radius: 999px; font-size: 0.9rem; opacity: 0; transition: 0.3s; pointer-events: none;}
@@ -160,11 +182,97 @@ body { margin: 0; font-family: 'Outfit', sans-serif; background-color: var(--bg-
 
 .modal-form { flex: 1.5; display: flex; flex-direction: column; gap: 1.2rem; }
 .sub-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem; }
-.sub-group input, .sub-group select { width: 100%; padding: 0.8rem 1rem; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 10px; color: white; font-family: inherit; font-size: 1rem; }
+.sub-group input, .sub-group select { width: 100%; padding: 0.45rem 0.6rem; background: rgba(0,0,0,0.18); border: 1px solid var(--border-color); border-radius: 8px; color: white; font-family: inherit; font-size: 0.95rem; }
 .sub-group input:focus, .sub-group select:focus { outline: none; border-color: var(--primary-color); }
 .modal-actions { display: flex; justify-content: space-between; margin-top: 1rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color); }
 .btn-danger { background-color: transparent; color: var(--text-muted); border: 1px solid transparent; }
 .btn-danger:hover { color: var(--primary-color); border-color: var(--primary-color); }
+
+/* Compact, visually distinct delete button for possession rows */
+.btn-delete {
+   padding: 0.18rem 0.36rem;
+   min-width: 34px;
+   height: 34px;
+   font-size: 0.95rem;
+   border-radius: 8px;
+   background: linear-gradient(180deg, #ff4d4f 0%, #dc2626 100%);
+   color: #fff; /* white icon/text for contrast */
+   border: 1px solid rgba(220,38,38,0.5);
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+   gap: 0.25rem;
+   cursor: pointer;
+   box-shadow: 0 6px 18px rgba(220,38,38,0.22), 0 2px 6px rgba(0,0,0,0.35);
+   transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+}
+.btn-delete:hover {
+   transform: translateY(-2px) scale(1.02);
+   box-shadow: 0 10px 30px rgba(220,38,38,0.32), 0 4px 10px rgba(0,0,0,0.45);
+   opacity: 1;
+}
+.btn-delete:active { transform: translateY(0) scale(0.98); }
+.btn-delete .icon { font-size: 1.05rem; line-height: 1; }
+.btn-delete.small-text { padding: 0.12rem 0.3rem; }
+
+/* 보유 정보(positions) UI 개선 */
+.possession-section { background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03); }
+.possession-item { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.35rem; background: rgba(0,0,0,0.12); border-radius: 6px; }
+.possession-item .top-row { display:flex; gap:0.4rem; align-items:center; }
+.possession-item select, .possession-item input[type=number], .possession-item input[type=text] { background: rgba(0,0,0,0.22); border: 1px solid var(--border-color); padding: 0.4rem; border-radius: 6px; color: white; font-size: 0.95rem; }
+.possession-item .grading-list { margin-top: 0.3rem; display:flex; flex-direction:column; gap:0.3rem; }
+
+/* Compact horizontal possession row */
+.possession-header,
+.possession-row {
+   display: grid;
+   grid-template-columns: 160px 68px 140px 72px minmax(160px, 1fr) auto;
+   gap: 0.5rem;
+   align-items: center;
+}
+.possession-header { padding: 0 0.4rem 0.45rem; font-size:0.75rem; color:var(--text-muted); }
+.possession-row { padding: 0.35rem; border-radius:6px; background: rgba(255,255,255,0.01); }
+.pos-field { display:flex; flex-direction:column; gap:0.18rem; min-width:0; }
+.pos-field label { font-size:0.65rem; color:var(--text-muted); }
+.pos-field select, .pos-field input { padding:0.35rem 0.5rem; border-radius:6px; font-size:0.95rem; background: rgba(0,0,0,0.18); border: 1px solid var(--border-color); color: white; }
+.pos-actions { display:flex; align-items:center; }
+.pos-field.country { }
+.pos-field.count { }
+.pos-field.company { }
+.pos-field.grade { }
+.pos-field.serial { }
+
+@media (max-width: 720px) {
+   .possession-row { flex-direction: column; align-items: stretch; }
+   .possession-header { display:none; }
+   .pos-field { width: 100%; flex: 1 1 auto; min-width: 0; }
+   .pos-field.country, .pos-field.company, .pos-field.serial { min-width: 0; }
+}
+
+/* allow horizontal scroll if still too wide on narrow containers */
+.possession-section { overflow-x: auto; }
+.possession-compact { display:flex; gap:0.5rem; flex-wrap:wrap; }
+.possession-badge { background: rgba(255,255,255,0.03); padding: 0.25rem 0.45rem; border-radius: 999px; font-size:0.8rem; color: var(--text-muted); border:1px solid rgba(255,255,255,0.03); }
+.possession-actions { display:flex; gap:0.5rem; }
+
+/* 그레이딩 배지 (썸네일 우측 상단에 PSA 등 표시) */
+.grading-badge {
+   position: absolute;
+   top: 8px;
+   left: 8px;
+   background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+   color: #fff;
+   font-weight: 800;
+   padding: 0.25rem 0.5rem;
+   border-radius: 6px;
+   font-size: 0.75rem;
+   border: 1px solid rgba(255,255,255,0.06);
+   box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+   z-index: 12;
+}
+
+/* 레어도 배지 위치 조정(기존 오른쪽 상단 유지) */
+.card-rarity { right: 8px; top: 8px; }
 
 
 /* -------------------------------------

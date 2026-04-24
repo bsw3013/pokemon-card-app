@@ -22,17 +22,46 @@ function App() {
          const docRef = doc(db, 'settings', 'appConfig');
          
          try {
-           const snap = await Promise.race([getDoc(docRef), timeoutPromise]);
-           if (snap.exists()) {
-             setAppConfig(snap.data());
-           } else {
-             // 문서가 없으면 기본값으로 진행 (백그라운드에서 생성)
-             setAppConfig(defaultConfig);
-             // 백그라운드에서 설정 저장 (기다리지 않음)
-             setDoc(docRef, defaultConfig).catch(err => 
-               console.warn("Config save failed (will retry): ", err)
-             );
-           }
+          const snap = await Promise.race([getDoc(docRef), timeoutPromise]);
+          if (snap && snap.exists()) {
+            const fetched = snap.data() || {};
+            // Merge fetched config with defaultConfig to ensure required keys exist
+            const merged = {
+              ...defaultConfig,
+              ...fetched,
+              gradingCompaniesOptions: fetched.gradingCompaniesOptions || defaultConfig.gradingCompaniesOptions,
+              gradingScaleOptions: fetched.gradingScaleOptions || defaultConfig.gradingScaleOptions,
+              seriesOptions: fetched.seriesOptions || defaultConfig.seriesOptions,
+              rarityOptions: fetched.rarityOptions || defaultConfig.rarityOptions,
+              typeOptions: fetched.typeOptions || defaultConfig.typeOptions,
+              statusOptions: fetched.statusOptions || defaultConfig.statusOptions
+            };
+
+            // Merge displayFields by id, favor fetched values but ensure 'status' exists and is visible
+            const defaultFields = Array.isArray(defaultConfig.displayFields) ? defaultConfig.displayFields : [];
+            const fetchedFields = Array.isArray(fetched.displayFields) ? fetched.displayFields : [];
+            const fieldMap = new Map(defaultFields.map(f => [f.id, { ...f }]));
+            fetchedFields.forEach(f => {
+              fieldMap.set(f.id, { ...fieldMap.get(f.id), ...f });
+            });
+            if (!fieldMap.has('status')) {
+              fieldMap.set('status', { id: 'status', label: '보유 정보', visible: true, order: fieldMap.size + 1 });
+            } else {
+              const st = fieldMap.get('status');
+              fieldMap.set('status', { ...st, visible: true });
+            }
+            const mergedFields = Array.from(fieldMap.values()).sort((a, b) => (a.order || 0) - (b.order || 0)).map((f, i) => ({ ...f, order: i + 1 }));
+            merged.displayFields = mergedFields;
+
+            setAppConfig(merged);
+          } else {
+            // 문서가 없으면 기본값으로 진행 (백그라운드에서 생성)
+            setAppConfig(defaultConfig);
+            // 백그라운드에서 설정 저장 (기다리지 않음)
+            setDoc(docRef, defaultConfig).catch(err => 
+              console.warn("Config save failed (will retry): ", err)
+            );
+          }
          } catch (timeoutErr) {
            console.warn("Firebase config load timeout - using default config", timeoutErr);
            setAppConfig(defaultConfig);
