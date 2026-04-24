@@ -352,54 +352,158 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
   // --- 깃허브 직접 연동 로직 ---
    // Security change: client must not hold a GitHub PAT.
    // All GitHub write/read operations should be performed server-side (Functions/Actions).
-   const GH_TOKEN  = null;
+   const GH_TOKEN  = import.meta.env.VITE_GITHUB_TOKEN;
    const GH_OWNER  = import.meta.env.VITE_GITHUB_OWNER;
    const GH_REPO   = import.meta.env.VITE_GITHUB_REPO;
+   const GH_MAIN_PATH = import.meta.env.VITE_GITHUB_BACKUP_PATH || 'database_backups/main_dataset.csv';
 
   const [ghStatus, setGhStatus] = useState('');
 
   const handleGithubBackup = async () => {
-     if (!window.confirm('🚀 파이어베이스 데이터를 깃허브에 누적 백업하시겠습니까? (기존 파일은 유지됨)')) return;
-     setGhStatus('⏳ 백업 트리거 중...');
-     try {
-      // 우선 서버리스 함수를 호출해 GitHub Actions 워크플로를 트리거
-      const { httpsCallable } = await import('firebase/functions');
-      const fn = httpsCallable(functions, 'triggerBackup');
-      const res = await fn({});
-      if (res && res.data && res.data.ok) {
-        setGhStatus('✅ 백업 워크플로가 트리거되었습니다. GitHub Actions를 확인하세요.');
-        return;
-      }
-      setGhStatus('✅ 백업 요청이 전송되었습니다. (응답 없음)');
-      return;
-     } catch (err) {
-      console.warn('Callable function trigger failed:', err);
-      setGhStatus('⚠️ 서버 호출 실패: 자동 업로드가 설정되어 있지 않습니다. CSV를 다운로드해 수동 업로드해주세요.');
-     }
-
-     // 보안상: 클라이언트에 토큰이 없으므로 직접 GitHub에 업로드하지 않습니다.
-     // 대신 CSV를 생성하여 사용자에게 다운로드하도록 제공합니다.
+     if (!window.confirm('🚀 파이어베이스 데이터를 깃허브에 누적 백업하시겠습니까?')) return;
+     if (!GH_TOKEN) return alert("VITE_GITHUB_TOKEN 설정이 필요합니다.");
+     setGhStatus('⏳ 백업 데이터 준비 중...');
      try {
         const snapshot = await getDocs(collection(db, 'pokemon_cards'));
         const allData = snapshot.docs
           .map(d => ({ raw_database_id: d.id, ...d.data() }))
-          .sort((a, b) => (Number(a.displayOrder) || Number.MAX_SAFE_INTEGER) - (Number(b.displayOrder) || Number.MAX_SAFE_INTEGER));
+          .sort((a, b) => (Number(a.displayOrder) || 0) - (Number(b.displayOrder) || 0));
 
-        const csvStr = Papa.unparse(allData, { header: true });
+        const allKeys = new Set(['raw_database_id']);
+        allData.forEach(item => Object.keys(item).forEach(k => allKeys.add(k)));
+        
+        const csvStr = Papa.unparse(allData, { columns: Array.from(allKeys) });
+        const bom = "\uFEFF";
+        const encodedContent = btoa(unescape(encodeURIComponent(bom + csvStr)));
         const now = new Date();
-        const filename = `database_backups_backup_${now.toISOString().replace(/[:.]/g, '-')}.csv`;
-        downloadCsv(csvStr, filename);
-        setGhStatus('⬇️ CSV 다운로드가 준비되었습니다. GitHub에 수동 업로드하세요.');
+        const timestamp = now.toISOString().replace(/[:.]/g, '-');
+        const filename = `database_backups/backup_${timestamp}.csv`;
+
+        // 1. 타임스탬프 로그 백업
+        setGhStatus('⏳ 로그 백업 파일 업로드 중...');
+        const logRes = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${filename}`, {
+           method: 'PUT',
+           headers: { Authorization: `token ${GH_TOKEN}`, 'Content-Type': 'application/json' },
+           body: JSON.stringify({ message: `🔒 누적 백업: ${timestamp} (총 ${allData.length}건)`, content: encodedContent })
+        });
+        if (!logRes.ok) throw new Error("로그 백업 실패");
+
+        // 2. 메인 데이터셋 갱신 (항상 최신 상태 유지)
+        setGhStatus('⏳ 메인 데이터셋(main_dataset.csv) 동기화 중...');
+        let sha = null;
+        const checkRes = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_MAIN_PATH}`, {
+           headers: { Authorization: `token ${GH_TOKEN}` }
+        });
+        if (checkRes.ok) {
+           const json = await checkRes.json();
+           sha = json.sha;
+        }
+
+        const mainRes = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_MAIN_PATH}`, {
+           method: 'PUT',
+           headers: { Authorization: `token ${GH_TOKEN}`, 'Content-Type': 'application/json' },
+           body: JSON.stringify({ message: `✅ 최신 데이터 동기화: ${timestamp}`, content: encodedContent, sha })
+        });
+        if (!mainRes.ok) throw new Error("메인 데이터셋 갱신 실패");
+
+        setGhStatus(`✅ 백업 성공! (${allData.length}건)`);
      } catch (err) {
         console.error(err);
-        setGhStatus('❌ 백업 생성 실패: ' + (err.message || String(err)));
+        setGhStatus('❌ 백업 실패: ' + err.message);
      }
   };
 
   const handleGithubRestore = async () => {
-    if (!window.confirm(`⚠️ 🐙 GitHub의 최신 backup_*.csv 파일로 완전히 복원합니다.\n\n현재 Firestore의 모든 데이터를 최신 백업 기준으로 일치시킵니다.\n(행 순서, 개수, 내용 전부 최신 백업 CSV와 동일하게 됩니다)`)) return;
-    setGhStatus('⚠️ 이 작업은 서버 설정이 필요합니다. 관리자에게 서버 백업/복원 설정을 요청하세요.');
-    return;
+    if (!GH_TOKEN) return alert("VITE_GITHUB_TOKEN 설정이 필요합니다.");
+    if (!window.confirm(`⚠️ GitHub의 'main_dataset.csv' 파일로 현재 DB를 덮어씁니다.\n\n이 작업은 Firestore의 모든 데이터를 CSV 내용과 100% 일치시킵니다.\n(수동으로 수정한 CSV를 DB에 즉시 반영하기에 아주 좋습니다)`)) return;
+    
+    setGhStatus('⏳ GitHub에서 데이터 가져오는 중...');
+    try {
+       const res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_MAIN_PATH}`, {
+          headers: { Authorization: `token ${GH_TOKEN}`, 'Accept': 'application/vnd.github.v3.raw' }
+       });
+       if (!res.ok) throw new Error("GitHub CSV 파일을 찾을 수 없습니다.");
+       const csvStr = await res.text();
+       
+       Papa.parse(csvStr, {
+          header: true,
+          skipEmptyLines: true,
+          complete: async (results) => {
+             const csvData = results.data;
+             if (!csvData || csvData.length === 0) throw new Error("CSV 데이터가 비어있습니다.");
+             
+             setGhStatus(`⏳ 동기화 중... (0/${csvData.length})`);
+             const cardsCol = collection(db, "pokemon_cards");
+             
+             // 1. 현재 Firestore 데이터 모두 가져오기 (매칭 및 삭제용)
+             const snapshot = await getDocs(cardsCol);
+             const currentIds = snapshot.docs.map(d => d.id);
+             const csvIds = csvData.map(row => String(row.raw_database_id || '').trim()).filter(Boolean);
+
+             const BATCH_LIMIT = 400;
+             let batch = writeBatch(db);
+             let ops = 0;
+
+             // 2. CSV 기준으로 추가 또는 업데이트
+             for (const [idx, row] of csvData.entries()) {
+                const id = String(row.raw_database_id || '').trim();
+                const payload = { ...row };
+                delete payload.raw_database_id;
+                
+                // 데이터 타입 변환 (숫자 및 JSON 객체)
+                Object.keys(payload).forEach(key => {
+                   let val = payload[key];
+                   if (key === 'price' || key === 'displayOrder') {
+                      payload[key] = parseInt(val) || 0;
+                   } else if (typeof val === 'string' && val.trim().startsWith('[') && val.trim().endsWith(']')) {
+                      try { payload[key] = JSON.parse(val); } catch(e) { payload[key] = val; }
+                   }
+                });
+
+                if (id && currentIds.includes(id)) {
+                   // 업데이트
+                   batch.update(doc(db, "pokemon_cards", id), payload);
+                } else {
+                   // 신규 생성 (ID 지정 가능하면 지정, 없으면 자동생성)
+                   if (id) batch.set(doc(db, "pokemon_cards", id), payload);
+                   else batch.set(doc(cardsCol), payload);
+                }
+
+                ops++;
+                if (ops >= BATCH_LIMIT) {
+                   await batch.commit();
+                   batch = writeBatch(db);
+                   ops = 0;
+                   setGhStatus(`⏳ 동기화 중... (${idx + 1}/${csvData.length})`);
+                }
+             }
+
+             // 3. CSV에 없는 데이터 삭제 (필요한 경우)
+             if (window.confirm("🤔 깃허브 엑셀에 없는 데이터를 DB에서 모두 삭제하여 100% 일치시킬까요?\n(새로 등록된 카드만 삭제할 경우 '취소'를 누르면 업데이트만 진행됩니다)")) {
+                for (const id of currentIds) {
+                   if (!csvIds.includes(id)) {
+                      batch.delete(doc(db, "pokemon_cards", id));
+                      ops++;
+                      if (ops >= BATCH_LIMIT) {
+                         await batch.commit();
+                         batch = writeBatch(db);
+                         ops = 0;
+                      }
+                   }
+                }
+             }
+
+             if (ops > 0) await batch.commit();
+             setGhStatus(`✅ 복원 및 동기화 완료! (총 ${csvData.length}건)`);
+             alert("🚀 모든 데이터가 성공적으로 동기화되었습니다.");
+             window.location.reload();
+          }
+       });
+
+    } catch (err) {
+       console.error(err);
+       setGhStatus('❌ 복원 실패: ' + err.message);
+    }
   };
 
   // --- 엑셀(CSV) 연동 로직 ---
@@ -452,50 +556,77 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
   };
 
   const handleImportCSV = (e) => {
-     const file = e.target.files[0];
-     if (!file) return;
+    const file = e.target.files[0];
+    if (!file) return;
 
-     Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: async (results) => {
-           const data = results.data;
-           const headers = results.meta.fields;
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        const data = (results.data || []).filter(row => Object.values(row).some(v => String(v).trim() !== ''));
+        const headers = results.meta.fields;
 
-           if (!data || data.length === 0) return alert("데이터가 없거나 형식이 잘못되었습니다.");
-           if (!window.confirm(`총 ${data.length}개의 카드를 등록하고 화면 설정을 동기화하시겠습니까?`)) {
-               e.target.value = null;
-               return;
-           }
-
-           setSaving(true);
-           try {
-              // 헤더 동기화
-              if (headers) await syncHeadersWithConfig(headers);
-
-              let addedCount = 0;
-              const cardsCol = collection(db, "pokemon_cards");
-              
-              for (const [index, row] of data.entries()) {
-                 const payload = {};
-                 for (const [k, v] of Object.entries(row)) {
-                     if (k === 'raw_database_id') continue;
-                     if (k === 'price') payload[k] = parseInt(v) || 0;
-                     else payload[k] = v || '';
-                 }
-                 await addDoc(cardsCol, payload);
-                 addedCount++;
-              }
-              alert(`✅ 총 ${addedCount}장의 카드가 등록되었습니다.`);
-           } catch(err) {
-              console.error(err);
-              alert("데이터 등록 중 오류가 발생했습니다.");
-           } finally {
-              setSaving(false);
-              e.target.value = null;
-           }
+        if (!data || data.length === 0) return alert("데이터가 없거나 형식이 잘못되었습니다.");
+        if (!window.confirm(`총 ${data.length}개의 카드를 동기화(추가/수정)하시겠습니까?`)) {
+          e.target.value = null;
+          return;
         }
-     });
+
+        setSaving(true);
+        try {
+          if (headers) await syncHeadersWithConfig(headers);
+
+          const cardsCol = collection(db, "pokemon_cards");
+          const snapshot = await getDocs(cardsCol);
+          const currentIds = snapshot.docs.map(d => d.id);
+
+          const BATCH_LIMIT = 400;
+          let batch = writeBatch(db);
+          let ops = 0;
+
+          for (const [index, row] of data.entries()) {
+            const id = String(row.raw_database_id || '').trim();
+            const payload = {};
+            for (const [k, v] of Object.entries(row)) {
+              if (k === 'raw_database_id') continue;
+              
+              let val = v || '';
+              // 타입 변환
+              if (k === 'price' || k === 'displayOrder') {
+                 val = parseInt(val) || 0;
+              } else if (typeof val === 'string' && val.trim().startsWith('[') && val.trim().endsWith(']')) {
+                 try { val = JSON.parse(val); } catch(e) {}
+              }
+              payload[k] = val;
+            }
+
+            if (id && currentIds.includes(id)) {
+              batch.update(doc(db, "pokemon_cards", id), payload);
+            } else {
+              if (id) batch.set(doc(db, "pokemon_cards", id), payload);
+              else batch.set(doc(cardsCol), payload);
+            }
+
+            ops++;
+            if (ops >= BATCH_LIMIT) {
+              await batch.commit();
+              batch = writeBatch(db);
+              ops = 0;
+            }
+          }
+
+          if (ops > 0) await batch.commit();
+          alert(`✅ 총 ${data.length}장의 카드가 동기화되었습니다.`);
+          window.location.reload();
+        } catch(err) {
+          console.error(err);
+          alert("데이터 등록 중 오류가 발생했습니다.");
+        } finally {
+          setSaving(false);
+          e.target.value = null;
+        }
+      }
+    });
   };
 
   const handleArrayAdd = (key, value, setter) => {

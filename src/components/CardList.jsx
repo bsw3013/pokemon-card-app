@@ -113,7 +113,11 @@ export default function CardList({ appConfig }) {
         const snap = await getDocs(collection(db, "pokemon_cards"));
         const fetched = [];
         snap.forEach(doc => {
-          fetched.push({ id: doc.id, ...doc.data() });
+          const data = doc.data();
+          if (data.possessions && typeof data.possessions === 'string' && data.possessions.trim().startsWith('[')) {
+             try { data.possessions = JSON.parse(data.possessions); } catch(e) {}
+          }
+          fetched.push({ id: doc.id, ...data });
         });
         setCards(fetched);
       } catch(err) {
@@ -487,7 +491,11 @@ export default function CardList({ appConfig }) {
 
    // 카드 문서의 possessions 배열에서 가장 높은 그레이딩(예: PSA 10)을 찾음
    const getTopGrading = (card) => {
-      const poss = card.possessions || [];
+      let poss = card.possessions || [];
+      if (typeof poss === 'string' && poss.trim().startsWith('[')) {
+         try { poss = JSON.parse(poss); } catch(e) { poss = []; }
+      }
+      if (!Array.isArray(poss)) poss = [];
       let top = null;
       poss.forEach(p => {
          (p.graded || []).forEach(g => {
