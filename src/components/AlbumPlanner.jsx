@@ -414,6 +414,12 @@ export default function AlbumPlanner() {
       return;
     }
 
+    const existingSlotCard = editingAlbum?.pages?.[currentPageIndex]?.slots?.[activeSlotIndex] || null;
+    if (existingSlotCard) {
+      const shouldReplace = window.confirm('이미 카드가 있는 슬롯입니다. 교체할까요?');
+      if (!shouldReplace) return;
+    }
+
     const cardLite = mapCardLite(card);
     applyAlbumUpdate((draft) => {
       draft.pages[currentPageIndex].slots[activeSlotIndex] = cardLite;
