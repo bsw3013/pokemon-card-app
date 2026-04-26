@@ -993,6 +993,31 @@ select.table-input { appearance: none; cursor: pointer; }
    inset: 0;
 }
 
+.album-slot-remove {
+   position: absolute;
+   top: 6px;
+   right: 6px;
+   z-index: 4;
+   width: 24px;
+   height: 24px;
+   border: 1px solid rgba(255,255,255,0.22);
+   border-radius: 999px;
+   background: rgba(2, 6, 23, 0.72);
+   color: #fff;
+   font-size: 0.78rem;
+   font-weight: 800;
+   line-height: 1;
+   cursor: pointer;
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+}
+
+.album-slot-remove:hover {
+   background: rgba(239,68,68,0.9);
+   border-color: rgba(239,68,68,0.95);
+}
+
 .album-slot-empty {
    position: absolute;
    inset: 0;

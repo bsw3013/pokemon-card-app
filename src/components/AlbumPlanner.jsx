@@ -151,12 +151,36 @@ export default function AlbumPlanner() {
   const filteredCards = useMemo(() => {
     const keyword = cardSearch.trim().toLowerCase();
     if (!keyword) return allCards;
-    return allCards.filter((card) => {
-      const name = String(card.cardName || '').toLowerCase();
-      const series = String(card.series || '').toLowerCase();
-      const number = String(card.cardNumber || '').toLowerCase();
-      return name.includes(keyword) || series.includes(keyword) || number.includes(keyword);
-    });
+
+    const scored = allCards
+      .map((card) => {
+        const name = String(card.cardName || '').toLowerCase();
+        const series = String(card.series || '').toLowerCase();
+        const number = String(card.cardNumber || '').toLowerCase();
+
+        let score = -1;
+
+        // 카드명 우선순위
+        if (name === keyword) score = 300;
+        else if (name.startsWith(keyword)) score = 260;
+        else if (name.includes(keyword)) score = 220;
+        else if (number === keyword) score = 170;
+        else if (number.startsWith(keyword)) score = 150;
+        else if (number.includes(keyword)) score = 130;
+        else if (series === keyword) score = 110;
+        else if (series.startsWith(keyword)) score = 90;
+        else if (series.includes(keyword)) score = 70;
+
+        return { card, score };
+      })
+      .filter((item) => item.score >= 0)
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return String(a.card.cardName || '').localeCompare(String(b.card.cardName || ''));
+      })
+      .map((item) => item.card);
+
+    return scored;
   }, [allCards, cardSearch]);
 
   const persistAlbumDraftLocal = (album) => {
@@ -428,12 +452,15 @@ export default function AlbumPlanner() {
     clearDragState();
   };
 
-  const clearSlot = () => {
-    if (!editingAlbum || activeSlotIndex === null || activeSlotIndex === undefined) return;
+  const clearSlotByIndex = (slotIndex) => {
+    if (!editingAlbum || slotIndex === null || slotIndex === undefined) return;
     applyAlbumUpdate((draft) => {
-      draft.pages[currentPageIndex].slots[activeSlotIndex] = null;
+      draft.pages[currentPageIndex].slots[slotIndex] = null;
       return draft;
     });
+    if (activeSlotIndex === slotIndex) {
+      setActiveSlotIndex(null);
+    }
   };
 
   if (loadingAlbums) {
@@ -621,6 +648,20 @@ export default function AlbumPlanner() {
                   }}
                   onDragEnd={clearDragState}
                 >
+                  {!isEmpty && (
+                    <button
+                      type="button"
+                      className="album-slot-remove"
+                      title="이 슬롯에서 카드 제거"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        clearSlotByIndex(index);
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+
                   {slot?.imageUrl ? (
                     <img src={slot.imageUrl} alt={slot.cardName || 'card'} />
                   ) : (
@@ -652,7 +693,6 @@ export default function AlbumPlanner() {
               value={cardSearch}
               onChange={(e) => setCardSearch(e.target.value)}
             />
-            <button type="button" className="btn btn-secondary" onClick={clearSlot} disabled={activeSlotIndex === null}>선택 슬롯 비우기</button>
           </div>
 
           {loadingCards ? (
