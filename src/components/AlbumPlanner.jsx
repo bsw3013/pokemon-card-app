@@ -48,6 +48,7 @@ function mapCardLite(card) {
     imageUrl: card.imageUrl || '',
     series: card.series || '',
     cardNumber: card.cardNumber || '',
+    rarity: card.rarity || '',
     status: card.status || '상태 없음',
   };
 }
@@ -630,6 +631,7 @@ export default function AlbumPlanner() {
                     <strong>{slot?.cardName || `슬롯 ${index + 1}`}</strong>
                     <small>{slot?.series || '-'}</small>
                     <small>{slot?.cardNumber || '-'}</small>
+                    <small>레어도: {slot?.rarity || '-'}</small>
                     <span className={`album-slot-status ${getStatusTone(slot?.status)}`}>{slot?.status || '미배치'}</span>
                   </div>
                 </button>
@@ -669,6 +671,7 @@ export default function AlbumPlanner() {
                     <strong>{card.cardName || '이름 없음'}</strong>
                     <small>{card.series || '-'}</small>
                     <small>{card.cardNumber || '-'}</small>
+                    <small>레어도: {card.rarity || '-'}</small>
                     <small className={`picker-status ${getStatusTone(card.status)}`}>{card.status || '상태 없음'}</small>
                   </div>
                 </button>
