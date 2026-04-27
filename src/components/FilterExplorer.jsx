@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { collection, deleteDoc, doc, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { normalizeStatus } from '../utils/statusUtils';
+import { normalizePokedexNumber } from '../utils/numberUtils';
 import CardDetailModal from './CardDetailModal';
+import CardThumbnail from './CardThumbnail';
 
 function normalize(value) {
   return String(value || '').trim();
@@ -171,13 +173,7 @@ export default function FilterExplorer({ appConfig }) {
     }
   };
 
-  const padTo4 = (num) => String(num).padStart(4, '0');
-  const normalizePokedexNumber = (raw) => {
-    if (raw === undefined || raw === null) return '';
-    const s = String(raw).trim();
-    if (!s) return '';
-    return s.replace(/\d+/g, (m) => padTo4(m));
-  };
+
 
 
 
@@ -433,14 +429,7 @@ export default function FilterExplorer({ appConfig }) {
                   title="클릭해서 카드 상세 수정"
                 >
                   <div className="card-image-wrapper">
-                    {card.imageUrl ? (
-                      <img src={card.imageUrl} alt={card.cardName || 'card'} loading="lazy" />
-                    ) : (
-                      <div className="no-image-wrapper">
-                        <img src="/placeholder.png" alt="placeholder" className="placeholder-img" />
-                        <div className="placeholder-text">이미지<br />필요</div>
-                      </div>
-                    )}
+                    <CardThumbnail imageUrl={card.imageUrl} alt={card.cardName || 'card'} type="grid" />
                     {card.rarity ? <span className="card-rarity">{card.rarity}</span> : null}
                     <span className="filter-card-edit-hint">클릭 수정</span>
                   </div>

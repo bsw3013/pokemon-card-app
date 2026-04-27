@@ -3,6 +3,7 @@ import { analyzePokemonCard } from '../gemini';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db, storage } from '../firebase';
+import { normalizePokedexNumber } from '../utils/numberUtils';
 
 export default function CardUpload() {
   const [imagePreview, setImagePreview] = useState(null);
@@ -57,7 +58,7 @@ export default function CardUpload() {
         cardName: cardData.cardName || '',
         series: cardData.series || '',
         cardNumber: cardData.cardNumber || '',
-        pokedexNumber: cardData.pokedexNumber || '',
+        pokedexNumber: normalizePokedexNumber(cardData.pokedexNumber || ''),
         rarity: cardData.rarity || '',
         type: cardData.type || '',
         price: cardData.price || 0,

@@ -4,7 +4,9 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
 import pokemonMapAll from '../utils/pokemonMapAll.json';
 import { normalizeStatus } from '../utils/statusUtils';
+import { normalizePokedexNumber } from '../utils/numberUtils';
 import CardDetailModal from './CardDetailModal';
+import CardThumbnail from './CardThumbnail';
 
 const ALBUM_COLLECTION = 'album_plans';
 const DRAFT_STORAGE_PREFIX = 'album_draft_';
@@ -97,7 +99,7 @@ function totalSlots(album) {
 
 function clampCanvasColumns(value) {
   const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return 2;
+  if (!Number.isFinite(numeric)) return 3;
   return Math.max(1, Math.min(3, Math.round(numeric)));
 }
 
@@ -105,6 +107,7 @@ export default function AlbumPlanner({ appConfig }) {
   const [loadingAlbums, setLoadingAlbums] = useState(true);
   const [albums, setAlbums] = useState([]);
   const [albumViewMode, setAlbumViewMode] = useState('grid');
+  const [showTrash, setShowTrash] = useState(false);
 
   const [showCreate, setShowCreate] = useState(false);
   const [newAlbumName, setNewAlbumName] = useState('');
@@ -113,8 +116,8 @@ export default function AlbumPlanner({ appConfig }) {
 
   const [editingAlbum, setEditingAlbum] = useState(null);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
-  const [editorViewMode, setEditorViewMode] = useState('page');
-  const [canvasColumns, setCanvasColumns] = useState(2);
+  const [editorViewMode, setEditorViewMode] = useState('canvas');
+  const [canvasColumns, setCanvasColumns] = useState(3);
   const [activeSlotIndex, setActiveSlotIndex] = useState(null);
   const [draggingSlotIndex, setDraggingSlotIndex] = useState(null);
   const [dragOverSlotIndex, setDragOverSlotIndex] = useState(null);
@@ -246,6 +249,9 @@ export default function AlbumPlanner({ appConfig }) {
     });
     return map;
   }, [allCards]);
+
+  const activeAlbums = useMemo(() => albums.filter(a => !a.isDeleted), [albums]);
+  const trashAlbums = useMemo(() => albums.filter(a => a.isDeleted), [albums]);
 
   const findMasterCardBySlot = (slot) => {
     if (!slot) return null;
@@ -401,7 +407,7 @@ export default function AlbumPlanner({ appConfig }) {
     }
 
     setCurrentPageIndex(0);
-    setEditorViewMode('page');
+    setEditorViewMode('canvas');
     setActiveSlotIndex(null);
     setHistoryPast([]);
     setHistoryFuture([]);
@@ -412,7 +418,7 @@ export default function AlbumPlanner({ appConfig }) {
   const closeEditor = () => {
     setEditingAlbum(null);
     setCurrentPageIndex(0);
-    setEditorViewMode('page');
+    setEditorViewMode('canvas');
     setActiveSlotIndex(null);
     setDraggingSlotIndex(null);
     setDragOverSlotIndex(null);
@@ -458,15 +464,38 @@ export default function AlbumPlanner({ appConfig }) {
   };
 
   const handleDeleteAlbum = async (albumId) => {
-    if (!window.confirm('정말 이 앨범을 삭제할까요?')) return;
+    if (!window.confirm('정말 이 앨범을 휴지통으로 보낼까요?')) return;
+    try {
+      await updateDoc(doc(db, ALBUM_COLLECTION, albumId), { isDeleted: true });
+      setAlbums((prev) => prev.map((a) => a.id === albumId ? { ...a, isDeleted: true } : a));
+      localStorage.removeItem(`${DRAFT_STORAGE_PREFIX}${albumId}`);
+      if (editingAlbum?.id === albumId) closeEditor();
+    } catch (err) {
+      console.error('delete album error', err);
+      alert('앨범 휴지통 이동에 실패했습니다.');
+    }
+  };
+
+  const handleRestoreAlbum = async (albumId) => {
+    try {
+      await updateDoc(doc(db, ALBUM_COLLECTION, albumId), { isDeleted: false });
+      setAlbums((prev) => prev.map((a) => a.id === albumId ? { ...a, isDeleted: false } : a));
+    } catch (err) {
+      console.error('restore album error', err);
+      alert('앨범 복구 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handlePermanentDeleteAlbum = async (albumId) => {
+    if (!window.confirm('정말 영구적으로 삭제할까요? 복구할 수 없습니다.')) return;
     try {
       await deleteDoc(doc(db, ALBUM_COLLECTION, albumId));
       setAlbums((prev) => prev.filter((a) => a.id !== albumId));
       localStorage.removeItem(`${DRAFT_STORAGE_PREFIX}${albumId}`);
       if (editingAlbum?.id === albumId) closeEditor();
     } catch (err) {
-      console.error('delete album error', err);
-      alert('앨범 삭제에 실패했습니다.');
+      console.error('permanent delete album error', err);
+      alert('앨범 영구 삭제 중 오류가 발생했습니다.');
     }
   };
 
@@ -646,6 +675,7 @@ export default function AlbumPlanner({ appConfig }) {
 
   const clearSlotAt = (pageIndex, slotIndex) => {
     if (!editingAlbum || pageIndex === null || pageIndex === undefined || slotIndex === null || slotIndex === undefined) return;
+    if (!window.confirm("이 슬롯에 배치된 카드를 정말로 제거할까요?")) return;
     applyAlbumUpdate((draft) => {
       draft.pages[pageIndex].slots[slotIndex] = null;
       return draft;
@@ -685,7 +715,7 @@ export default function AlbumPlanner({ appConfig }) {
       cardNumber: payload.cardNumber || '',
       rarity: payload.rarity || '',
       type: payload.type || '',
-      pokedexNumber: payload.pokedexNumber || '',
+      pokedexNumber: normalizePokedexNumber(payload.pokedexNumber || ''),
       status: payload.status || '미보유',
       price: parseInt(payload.price, 10) || 0,
       imageUrl: payload.imageUrl || '',
@@ -763,39 +793,49 @@ export default function AlbumPlanner({ appConfig }) {
       <main className="album-page slide-up">
         <div className="album-header">
           <div>
-            <h2>🖼️ 앨범 꾸미기</h2>
-            <p>카드 배치를 미리 설계하고 페이지 구성을 저장하세요.</p>
+            <h2>{showTrash ? '🗑️ 휴지통' : '🖼️ 앨범 꾸미기'}</h2>
+            <p>{showTrash ? '삭제된 앨범을 복구하거나 영구 삭제할 수 있습니다.' : '카드 배치를 미리 설계하고 페이지 구성을 저장하세요.'}</p>
           </div>
           <div className="album-header-actions">
+            <button type="button" className={`btn-toggle ${showTrash ? 'active' : ''}`} onClick={() => setShowTrash(!showTrash)} style={{ marginRight: '1rem', color: showTrash ? 'var(--danger-color)' : 'inherit' }}>
+               {showTrash ? '돌아가기' : `🗑️ 휴지통 (${trashAlbums.length}개)`}
+            </button>
             <div className="view-toggle">
               <button type="button" className={`btn-toggle ${albumViewMode === 'grid' ? 'active' : ''}`} onClick={() => setAlbumViewMode('grid')}>앨범형</button>
               <button type="button" className={`btn-toggle ${albumViewMode === 'list' ? 'active' : ''}`} onClick={() => setAlbumViewMode('list')}>목록형</button>
             </div>
-            <button type="button" className="btn btn-primary" onClick={() => setShowCreate(true)}>➕ 새 앨범 만들기</button>
+            {!showTrash && <button type="button" className="btn btn-primary" onClick={() => setShowCreate(true)}>➕ 새 앨범 만들기</button>}
           </div>
         </div>
 
         <section className={albumViewMode === 'grid' ? 'album-grid' : 'album-list'}>
-          {albums.map((album) => {
+          {(showTrash ? trashAlbums : activeAlbums).map((album) => {
             const filled = countFilledSlots(album);
             const total = totalSlots(album);
             const completion = countOwnedAndPlacedSlots(album);
             return (
               <article key={album.id} className={`album-card ${albumViewMode}`}>
-                <div className="album-card-main" onClick={() => openAlbumEditor(album)}>
-                  <h3>{album.name}</h3>
+                <div className="album-card-main" onClick={() => !showTrash && openAlbumEditor(album)} style={{ cursor: showTrash ? 'default' : 'pointer' }}>
+                  <h3>{album.name} {showTrash && <span style={{fontSize: '0.8rem', color: 'var(--danger-color)'}}>(삭제됨)</span>}</h3>
                   <p>레이아웃: {album.layoutKey} · 페이지 {album.pageCount || album.pages?.length || 1}장</p>
                   <p>완성도(보유중/배치): {completion.ownedPlaced}/{completion.placed}</p>
                   <small>배치 현황: {filled}/{total}</small>
                   <small>최근 수정: {String(album.updatedAt || '').replace('T', ' ').slice(0, 16) || '-'}</small>
                 </div>
-                <button type="button" className="btn btn-danger" onClick={() => handleDeleteAlbum(album.id)}>삭제</button>
+                {showTrash ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <button type="button" className="btn btn-secondary" onClick={() => handleRestoreAlbum(album.id)}>복구하기</button>
+                    <button type="button" className="btn btn-danger" onClick={() => handlePermanentDeleteAlbum(album.id)}>영구 삭제</button>
+                  </div>
+                ) : (
+                  <button type="button" className="btn btn-danger" onClick={() => handleDeleteAlbum(album.id)}>휴지통</button>
+                )}
               </article>
             );
           })}
-          {albums.length === 0 && (
+          {(showTrash ? trashAlbums : activeAlbums).length === 0 && (
             <div className="album-empty">
-              아직 앨범이 없습니다. 새 앨범을 만들어 시작해보세요.
+              {showTrash ? '휴지통이 비어 있습니다.' : '아직 앨범이 없습니다. 새 앨범을 만들어 시작해보세요.'}
             </div>
           )}
         </section>
@@ -972,11 +1012,7 @@ export default function AlbumPlanner({ appConfig }) {
                       </button>
                     )}
 
-                    {resolvedSlot?.imageUrl ? (
-                      <img src={resolvedSlot.imageUrl} alt={resolvedSlot.cardName || 'card'} />
-                    ) : (
-                      <div className="album-slot-empty">비어있음</div>
-                    )}
+                    <CardThumbnail imageUrl={resolvedSlot?.imageUrl} alt={resolvedSlot?.cardName || 'card'} type="album-slot" />
 
                     {!isEmpty && (
                       <div className="album-slot-details">
@@ -1083,11 +1119,7 @@ export default function AlbumPlanner({ appConfig }) {
                                 </button>
                               )}
 
-                              {resolvedSlot?.imageUrl ? (
-                                <img src={resolvedSlot.imageUrl} alt={resolvedSlot.cardName || 'card'} />
-                              ) : (
-                                <div className="album-slot-empty">비어있음</div>
-                              )}
+                                <CardThumbnail imageUrl={resolvedSlot?.imageUrl} alt={resolvedSlot?.cardName || 'card'} type="album-slot" />
 
                               {!isEmpty && (
                                 <div className="album-slot-details">
@@ -1137,7 +1169,7 @@ export default function AlbumPlanner({ appConfig }) {
               {filteredCards.slice(0, 200).map((card) => (
                 <button type="button" className="album-card-item" key={card.id} onClick={() => assignCardToSlot(card)}>
                   <div className="thumb-wrap">
-                    {card.imageUrl ? <img src={card.imageUrl} alt={card.cardName || 'card'} /> : <div className="thumb-placeholder">No Img</div>}
+                    <CardThumbnail imageUrl={card.imageUrl} alt={card.cardName || 'card'} type="album-picker" />
                   </div>
                   <div className="info">
                     <strong>{card.cardName || '이름 없음'}</strong>

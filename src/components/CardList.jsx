@@ -4,7 +4,9 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
 import pokemonMapAll from '../utils/pokemonMapAll.json';
 import { normalizeStatus } from '../utils/statusUtils';
+import { normalizePokedexNumber, displayPokedexNumber } from '../utils/numberUtils';
 import CardDetailModal from './CardDetailModal';
+import CardThumbnail from './CardThumbnail';
 
 const { krToEn, krToJa } = pokemonMapAll;
 
@@ -237,15 +239,7 @@ export default function CardList({ appConfig }) {
       }
   };
 
-   // Normalize pokedexNumber: pad numeric sequences to 4 digits (e.g. 1 -> 0001)
-   const padTo4 = (num) => String(num).padStart(4, '0');
-   const normalizePokedexNumber = (raw) => {
-      if (raw === undefined || raw === null) return '';
-      const s = String(raw).trim();
-      if (!s) return '';
-      return String(s).replace(/\d+/g, (m) => padTo4(m));
-   };
-   const displayPokedexNumber = (raw) => normalizePokedexNumber(raw);
+
 
   // 메인 모달
   const openModal = (card) => {
@@ -453,7 +447,7 @@ export default function CardList({ appConfig }) {
                         return (
                            <tr key={card.id} className={isSavingRef ? 'row-draft' : ''}>
                               <td className="center-cell td-photo" onClick={() => openModal(card)} style={{ position: 'relative' }}>
-                                 {data.imageUrl ? <img src={data.imageUrl} alt="preview" className="table-thumb" /> : <div className="table-no-thumb-wrapper"><img src="/placeholder.png" alt="placeholder" className="table-placeholder-img" /><div className="table-placeholder-text">이미지 필요</div></div>}
+                                 <CardThumbnail imageUrl={data.imageUrl} alt="preview" type="table" className="table-thumb" />
                                  {isSavingRef && <div style={{position:'absolute', top: 0, right: 0, padding:'2px 4px', fontSize: '0.7rem', color: '#10b981', fontWeight:'bold', background:'rgba(0,0,0,0.5)'}}>저장됨✅</div>}
                               </td>
                               {visibleDisplayFields.map(f => (
@@ -482,20 +476,14 @@ export default function CardList({ appConfig }) {
              {filteredAndSortedCards.map(card => (
              <div className="card-item fade-in" key={card.id} onClick={() => openModal(card)}>
                 <div className="card-image-wrapper">
-                   {card.imageUrl ? (
-                     <>
-                       <img src={card.imageUrl} alt={card.cardName} loading="lazy" />
-                       {/* 레어도(AR/SAR) 배지 - rarity 필드 사용 */}
-                       {card.rarity && <span className="card-rarity">{card.rarity}</span>}
-                       {/* 그레이딩(예: PSA 10) 배지 */}
-                       {(() => {
-                         const top = getTopGrading(card);
-                         return top ? <span className="grading-badge">{top.company} {top.grade}</span> : null;
-                       })()}
-                     </>
-                   ) : (
-                      <div className="no-image-wrapper"><img src="/placeholder.png" alt="placeholder" className="placeholder-img" /><div className="placeholder-text">이미지<br/>필요</div></div>
-                   )}
+                   <CardThumbnail imageUrl={card.imageUrl} alt={card.cardName} type="grid" />
+                   {/* 레어도(AR/SAR) 배지 - rarity 필드 사용 */}
+                   {card.rarity && <span className="card-rarity">{card.rarity}</span>}
+                   {/* 그레이딩(예: PSA 10) 배지 */}
+                   {(() => {
+                     const top = getTopGrading(card);
+                     return top ? <span className="grading-badge">{top.company} {top.grade}</span> : null;
+                   })()}
                 </div>
                 <div className="card-info">
                    <h3 className="card-name" title={card.cardName}>{card.cardName || '이름 없음'}</h3>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebase';
 import pokemonMapAll from '../utils/pokemonMapAll.json';
+import CardThumbnail from './CardThumbnail';
 
 const { krToEn, krToJa } = pokemonMapAll;
 
@@ -206,14 +207,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, onClose, onSa
           <div className="modal-body">
             <div className="modal-image-col">
               <div className="modal-card-image">
-                {editData.imageUrl ? (
-                  <img src={editData.imageUrl} alt="preview" />
-                ) : (
-                  <div className="placeholder-image">
-                    <img src="/placeholder.png" alt="placeholder" className="modal-placeholder-img" />
-                    <div className="modal-placeholder-text">이미지<br />필요</div>
-                  </div>
-                )}
+                <CardThumbnail imageUrl={editData.imageUrl} alt="preview" type="modal" />
               </div>
 
               <div className="image-upload-options">
