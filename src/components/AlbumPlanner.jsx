@@ -1,9 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { addDoc, collection, deleteDoc, doc, getDocs, setDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { addDoc, collection, deleteDoc, doc, getDocs, setDoc, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../firebase';
+import pokemonMapAll from '../utils/pokemonMapAll.json';
+import { normalizeStatus } from '../utils/statusUtils';
+import CardDetailModal from './CardDetailModal';
 
 const ALBUM_COLLECTION = 'album_plans';
 const DRAFT_STORAGE_PREFIX = 'album_draft_';
+const CANVAS_COLUMNS_STORAGE_KEY = 'album_canvas_columns_v1';
 
 const LAYOUT_OPTIONS = [
   { key: '2x2', cols: 2, rows: 2, label: '2 x 2 (4칸)' },
@@ -12,6 +17,8 @@ const LAYOUT_OPTIONS = [
 ];
 
 const MAX_HISTORY = 80;
+
+const { krToEn, krToJa } = pokemonMapAll;
 
 function deepCopy(value) {
   return JSON.parse(JSON.stringify(value));
@@ -49,7 +56,7 @@ function mapCardLite(card) {
     series: card.series || '',
     cardNumber: card.cardNumber || '',
     rarity: card.rarity || '',
-    status: card.status || '상태 없음',
+    status: normalizeStatus(card.status),
   };
 }
 
@@ -68,11 +75,33 @@ function countFilledSlots(album) {
   }, 0);
 }
 
+function countOwnedAndPlacedSlots(album) {
+  if (!album?.pages?.length) return { ownedPlaced: 0, placed: 0 };
+
+  return album.pages.reduce((acc, page) => {
+    const slots = page?.slots || [];
+    slots.forEach((slot) => {
+      if (!slot) return;
+      acc.placed += 1;
+      if (String(slot.status || '').includes('보유중')) {
+        acc.ownedPlaced += 1;
+      }
+    });
+    return acc;
+  }, { ownedPlaced: 0, placed: 0 });
+}
+
 function totalSlots(album) {
   return (album?.pages?.length || 0) * ((album?.cols || 0) * (album?.rows || 0));
 }
 
-export default function AlbumPlanner() {
+function clampCanvasColumns(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return 2;
+  return Math.max(1, Math.min(3, Math.round(numeric)));
+}
+
+export default function AlbumPlanner({ appConfig }) {
   const [loadingAlbums, setLoadingAlbums] = useState(true);
   const [albums, setAlbums] = useState([]);
   const [albumViewMode, setAlbumViewMode] = useState('grid');
@@ -84,14 +113,20 @@ export default function AlbumPlanner() {
 
   const [editingAlbum, setEditingAlbum] = useState(null);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [editorViewMode, setEditorViewMode] = useState('page');
+  const [canvasColumns, setCanvasColumns] = useState(2);
   const [activeSlotIndex, setActiveSlotIndex] = useState(null);
   const [draggingSlotIndex, setDraggingSlotIndex] = useState(null);
   const [dragOverSlotIndex, setDragOverSlotIndex] = useState(null);
+  const [canvasDraggingLocation, setCanvasDraggingLocation] = useState(null);
+  const [canvasDragOverLocation, setCanvasDragOverLocation] = useState(null);
   const [albumNameDraft, setAlbumNameDraft] = useState('');
 
   const [allCards, setAllCards] = useState([]);
   const [loadingCards, setLoadingCards] = useState(true);
   const [cardSearch, setCardSearch] = useState('');
+
+  const [slotEditingCard, setSlotEditingCard] = useState(null);
 
   const [saveStatus, setSaveStatus] = useState('idle');
 
@@ -104,6 +139,24 @@ export default function AlbumPlanner() {
   useEffect(() => {
     albumRef.current = editingAlbum;
   }, [editingAlbum]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CANVAS_COLUMNS_STORAGE_KEY);
+      if (!raw) return;
+      setCanvasColumns(clampCanvasColumns(raw));
+    } catch {
+      // noop
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CANVAS_COLUMNS_STORAGE_KEY, String(canvasColumns));
+    } catch {
+      // noop
+    }
+  }, [canvasColumns]);
 
   useEffect(() => {
     async function fetchInitialData() {
@@ -121,7 +174,10 @@ export default function AlbumPlanner() {
         setAlbums(loadedAlbums);
 
         const loadedCards = cardSnap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
+          .map((d) => {
+            const data = d.data();
+            return { id: d.id, ...data, status: normalizeStatus(data.status) };
+          })
           .sort((a, b) => String(a.cardName || '').localeCompare(String(b.cardName || '')));
         setAllCards(loadedCards);
       } catch (err) {
@@ -182,6 +238,48 @@ export default function AlbumPlanner() {
 
     return scored;
   }, [allCards, cardSearch]);
+
+  const cardsById = useMemo(() => {
+    const map = new Map();
+    allCards.forEach((card) => {
+      if (card?.id) map.set(card.id, card);
+    });
+    return map;
+  }, [allCards]);
+
+  const findMasterCardBySlot = (slot) => {
+    if (!slot) return null;
+
+    if (slot.cardId) {
+      const byId = cardsById.get(slot.cardId);
+      if (byId) return byId;
+    }
+
+    const keyName = String(slot.cardName || '').trim().toLowerCase();
+    const keyNumber = String(slot.cardNumber || '').trim().toLowerCase();
+    const keySeries = String(slot.series || '').trim().toLowerCase();
+    if (!keyName && !keyNumber && !keySeries) return null;
+
+    return allCards.find((card) => {
+      return String(card.cardName || '').trim().toLowerCase() === keyName
+        && String(card.cardNumber || '').trim().toLowerCase() === keyNumber
+        && String(card.series || '').trim().toLowerCase() === keySeries;
+    }) || null;
+  };
+
+  const resolveSlotCard = (slot) => {
+    if (!slot) return null;
+
+    const masterCard = findMasterCardBySlot(slot);
+    if (!masterCard) return slot;
+
+    // 슬롯에는 최소 데이터만 저장되어도, 화면에서는 항상 원본 카드 최신 정보를 우선 반영한다.
+    return {
+      ...slot,
+      ...mapCardLite(masterCard),
+      cardId: masterCard.id,
+    };
+  };
 
   const persistAlbumDraftLocal = (album) => {
     if (!album?.id) return;
@@ -303,6 +401,7 @@ export default function AlbumPlanner() {
     }
 
     setCurrentPageIndex(0);
+    setEditorViewMode('page');
     setActiveSlotIndex(null);
     setHistoryPast([]);
     setHistoryFuture([]);
@@ -313,9 +412,12 @@ export default function AlbumPlanner() {
   const closeEditor = () => {
     setEditingAlbum(null);
     setCurrentPageIndex(0);
+    setEditorViewMode('page');
     setActiveSlotIndex(null);
     setDraggingSlotIndex(null);
     setDragOverSlotIndex(null);
+    setCanvasDraggingLocation(null);
+    setCanvasDragOverLocation(null);
     setHistoryPast([]);
     setHistoryFuture([]);
     setSaveStatus('idle');
@@ -409,12 +511,40 @@ export default function AlbumPlanner() {
   };
 
   const assignCardToSlot = (card) => {
-    if (!editingAlbum || activeSlotIndex === null || activeSlotIndex === undefined) {
-      alert('먼저 채울 슬롯을 선택해주세요.');
+    if (!editingAlbum) return;
+
+    const pageSlots = editingAlbum?.pages?.[currentPageIndex]?.slots || [];
+    const pageCount = editingAlbum?.pages?.length || 0;
+    const hasActiveSlot = activeSlotIndex !== null && activeSlotIndex !== undefined;
+    let targetPageIndex = currentPageIndex;
+    let targetSlotIndex = null;
+
+    if (hasActiveSlot) {
+      targetSlotIndex = activeSlotIndex;
+    } else if (editorViewMode === 'canvas' && pageCount > 0) {
+      for (let offset = 0; offset < pageCount; offset += 1) {
+        const pageIndex = (currentPageIndex + offset) % pageCount;
+        const slots = editingAlbum?.pages?.[pageIndex]?.slots || [];
+        const emptyIndex = slots.findIndex((slot) => !slot);
+        if (emptyIndex !== -1) {
+          targetPageIndex = pageIndex;
+          targetSlotIndex = emptyIndex;
+          break;
+        }
+      }
+    } else {
+      const nextEmptySlotIndex = pageSlots.findIndex((slot) => !slot);
+      targetSlotIndex = nextEmptySlotIndex;
+    }
+
+    if (targetSlotIndex === -1 || targetSlotIndex === null || targetSlotIndex === undefined) {
+      alert(editorViewMode === 'canvas'
+        ? '캔버스 전체에 빈 슬롯이 없습니다. 슬롯을 직접 선택해 교체해주세요.'
+        : '현재 페이지에 빈 슬롯이 없습니다. 슬롯을 직접 선택해 교체해주세요.');
       return;
     }
 
-    const existingSlotCard = editingAlbum?.pages?.[currentPageIndex]?.slots?.[activeSlotIndex] || null;
+    const existingSlotCard = editingAlbum?.pages?.[targetPageIndex]?.slots?.[targetSlotIndex] || null;
     if (existingSlotCard) {
       const shouldReplace = window.confirm('이미 카드가 있는 슬롯입니다. 교체할까요?');
       if (!shouldReplace) return;
@@ -422,14 +552,52 @@ export default function AlbumPlanner() {
 
     const cardLite = mapCardLite(card);
     applyAlbumUpdate((draft) => {
-      draft.pages[currentPageIndex].slots[activeSlotIndex] = cardLite;
+      draft.pages[targetPageIndex].slots[targetSlotIndex] = cardLite;
       return draft;
     });
+
+    setCurrentPageIndex(targetPageIndex);
+
+    // 슬롯을 직접 선택하지 않은 자동 배치 모드에서는 계속 순차 배치되도록 선택 상태를 유지하지 않는다.
+    if (!hasActiveSlot) {
+      setActiveSlotIndex(null);
+    }
   };
 
   const clearDragState = () => {
     setDraggingSlotIndex(null);
     setDragOverSlotIndex(null);
+  };
+
+  const clearCanvasDragState = () => {
+    setCanvasDraggingLocation(null);
+    setCanvasDragOverLocation(null);
+  };
+
+  const moveOrSwapSlotCard = (fromPageIndex, fromSlotIndex, toPageIndex, toSlotIndex) => {
+    if (!editingAlbum) return;
+    if (fromPageIndex === toPageIndex && fromSlotIndex === toSlotIndex) return;
+
+    applyAlbumUpdate((draft) => {
+      const fromSlots = draft?.pages?.[fromPageIndex]?.slots;
+      const toSlots = draft?.pages?.[toPageIndex]?.slots;
+      if (!Array.isArray(fromSlots) || !Array.isArray(toSlots)) return draft;
+
+      const fromCard = fromSlots[fromSlotIndex] || null;
+      if (!fromCard) return draft;
+      const toCard = toSlots[toSlotIndex] || null;
+
+      // 빈 슬롯 드롭은 이동, 카드가 있는 슬롯 드롭은 교환.
+      if (!toCard) {
+        toSlots[toSlotIndex] = fromCard;
+        fromSlots[fromSlotIndex] = null;
+      } else {
+        toSlots[toSlotIndex] = fromCard;
+        fromSlots[fromSlotIndex] = toCard;
+      }
+
+      return draft;
+    });
   };
 
   const handleSlotDrop = (targetIndex) => {
@@ -458,16 +626,126 @@ export default function AlbumPlanner() {
     clearDragState();
   };
 
-  const clearSlotByIndex = (slotIndex) => {
-    if (!editingAlbum || slotIndex === null || slotIndex === undefined) return;
+  const handleCanvasSlotDrop = (targetPageIndex, targetSlotIndex) => {
+    if (!canvasDraggingLocation) {
+      clearCanvasDragState();
+      return;
+    }
+
+    moveOrSwapSlotCard(
+      canvasDraggingLocation.pageIndex,
+      canvasDraggingLocation.slotIndex,
+      targetPageIndex,
+      targetSlotIndex,
+    );
+
+    setCurrentPageIndex(targetPageIndex);
+    setActiveSlotIndex(targetSlotIndex);
+    clearCanvasDragState();
+  };
+
+  const clearSlotAt = (pageIndex, slotIndex) => {
+    if (!editingAlbum || pageIndex === null || pageIndex === undefined || slotIndex === null || slotIndex === undefined) return;
     applyAlbumUpdate((draft) => {
-      draft.pages[currentPageIndex].slots[slotIndex] = null;
+      draft.pages[pageIndex].slots[slotIndex] = null;
       return draft;
     });
-    if (activeSlotIndex === slotIndex) {
+    if (pageIndex === currentPageIndex && activeSlotIndex === slotIndex) {
       setActiveSlotIndex(null);
     }
   };
+
+  const clearSlotByIndex = (slotIndex) => {
+    clearSlotAt(currentPageIndex, slotIndex);
+  };
+
+  const closeSlotCardEditor = () => {
+    setSlotEditingCard(null);
+  };
+
+  const openSlotCardEditor = (slotCard, pageIndex, slotIndex) => {
+    const fullCard = findMasterCardBySlot(slotCard);
+
+    if (!fullCard) {
+      alert('원본 카드 정보를 찾을 수 없습니다. 도감을 새로고침한 뒤 다시 시도해주세요.');
+      return;
+    }
+
+    setCurrentPageIndex(pageIndex);
+    setActiveSlotIndex(slotIndex);
+    setSlotEditingCard(fullCard);
+  };
+
+  const handleModalSave = async (payload) => {
+    if (!slotEditingCard?.id) return;
+
+    const updatePayload = {
+      cardName: payload.cardName || '',
+      series: payload.series || '',
+      cardNumber: payload.cardNumber || '',
+      rarity: payload.rarity || '',
+      type: payload.type || '',
+      pokedexNumber: payload.pokedexNumber || '',
+      status: payload.status || '미보유',
+      price: parseInt(payload.price, 10) || 0,
+      imageUrl: payload.imageUrl || '',
+      possessions: payload.possessions || [],
+    };
+
+    try {
+      await updateDoc(doc(db, 'pokemon_cards', slotEditingCard.id), updatePayload);
+
+      setAllCards((prev) => prev.map((card) => (
+        card.id === slotEditingCard.id ? { ...card, ...updatePayload } : card
+      )));
+
+      applyAlbumUpdate((draft) => {
+        const updatedLite = mapCardLite({ id: slotEditingCard.id, ...updatePayload });
+        draft.pages = (draft.pages || []).map((page) => {
+          const slots = Array.isArray(page.slots) ? page.slots : [];
+          return {
+            ...page,
+            slots: slots.map((slot) => {
+              if (!slot || slot.cardId !== slotEditingCard.id) return slot;
+              return { ...slot, ...updatedLite };
+            }),
+          };
+        });
+        return draft;
+      });
+
+      closeSlotCardEditor();
+    } catch (err) {
+      console.error('album slot card save error', err);
+      alert('카드 상세 정보 저장에 실패했습니다.');
+      throw err;
+    }
+  };
+
+  const handleModalDelete = async () => {
+    if (!slotEditingCard?.id) return;
+
+    try {
+      await deleteDoc(doc(db, 'pokemon_cards', slotEditingCard.id));
+      setAllCards((prev) => prev.filter((card) => card.id !== slotEditingCard.id));
+
+      applyAlbumUpdate((draft) => {
+        draft.pages = (draft.pages || []).map((page) => ({
+          ...page,
+          slots: (page.slots || []).map((slot) => (slot?.cardId === slotEditingCard.id ? null : slot)),
+        }));
+        return draft;
+      });
+
+      closeSlotCardEditor();
+    } catch (err) {
+      console.error('album slot card delete error', err);
+      alert('삭제 실패');
+      throw err;
+    }
+  };
+
+
 
   if (loadingAlbums) {
     return (
@@ -501,12 +779,14 @@ export default function AlbumPlanner() {
           {albums.map((album) => {
             const filled = countFilledSlots(album);
             const total = totalSlots(album);
+            const completion = countOwnedAndPlacedSlots(album);
             return (
               <article key={album.id} className={`album-card ${albumViewMode}`}>
                 <div className="album-card-main" onClick={() => openAlbumEditor(album)}>
                   <h3>{album.name}</h3>
                   <p>레이아웃: {album.layoutKey} · 페이지 {album.pageCount || album.pages?.length || 1}장</p>
-                  <p>완성도: {filled}/{total}</p>
+                  <p>완성도(보유중/배치): {completion.ownedPlaced}/{completion.placed}</p>
+                  <small>배치 현황: {filled}/{total}</small>
                   <small>최근 수정: {String(album.updatedAt || '').replace('T', ' ').slice(0, 16) || '-'}</small>
                 </div>
                 <button type="button" className="btn btn-danger" onClick={() => handleDeleteAlbum(album.id)}>삭제</button>
@@ -578,10 +858,24 @@ export default function AlbumPlanner() {
             />
             <button type="button" className="btn btn-secondary" onClick={commitAlbumName}>이름 저장</button>
           </div>
-          <p>레이아웃 {editingAlbum.layoutKey} · 페이지 {currentPageIndex + 1}/{editingAlbum.pages.length}</p>
+          <p>레이아웃 {editingAlbum.layoutKey} · 페이지 {currentPageIndex + 1}/{editingAlbum.pages.length} · 보기 {editorViewMode === 'page' ? '페이지' : '캔버스'}</p>
         </div>
         <div className="album-editor-actions">
           <button type="button" className="btn btn-secondary" onClick={closeEditor}>목록으로</button>
+          <div className="view-toggle">
+            <button type="button" className={`btn-toggle ${editorViewMode === 'page' ? 'active' : ''}`} onClick={() => setEditorViewMode('page')}>페이지 보기</button>
+            <button type="button" className={`btn-toggle ${editorViewMode === 'canvas' ? 'active' : ''}`} onClick={() => setEditorViewMode('canvas')}>전체 캔버스</button>
+          </div>
+          {editorViewMode === 'canvas' && (
+            <div className="canvas-columns-control" title="캔버스 페이지 열 수 선택">
+              <span>캔버스 배치</span>
+              <div className="view-toggle">
+                <button type="button" className={`btn-toggle ${canvasColumns === 1 ? 'active' : ''}`} onClick={() => setCanvasColumns(1)}>1열</button>
+                <button type="button" className={`btn-toggle ${canvasColumns === 2 ? 'active' : ''}`} onClick={() => setCanvasColumns(2)}>2열</button>
+                <button type="button" className={`btn-toggle ${canvasColumns === 3 ? 'active' : ''}`} onClick={() => setCanvasColumns(3)}>3열</button>
+              </div>
+            </div>
+          )}
           <button type="button" className="btn btn-secondary" onClick={handleUndo} disabled={!canUndo}>↶ 실행 취소</button>
           <button type="button" className="btn btn-secondary" onClick={handleRedo} disabled={!canRedo}>↷ 다시 실행</button>
           <button type="button" className="btn btn-secondary" onClick={addNewPage}>＋ 페이지 추가</button>
@@ -593,6 +887,8 @@ export default function AlbumPlanner() {
 
       <div className="album-editor-layout">
         <section className="album-page-preview-wrap">
+          {editorViewMode === 'page' && (
+            <>
           <div className="album-page-tabs">
             {editingAlbum.pages.map((_, index) => (
               <button
@@ -617,8 +913,9 @@ export default function AlbumPlanner() {
             }}
           >
             {(currentPage?.slots || []).map((slot, index) => {
+              const resolvedSlot = resolveSlotCard(slot);
               const isActive = activeSlotIndex === index;
-              const isEmpty = !slot;
+              const isEmpty = !resolvedSlot;
               const isDragging = draggingSlotIndex === index;
               const isDragOver = dragOverSlotIndex === index && draggingSlotIndex !== index;
               return (
@@ -626,8 +923,14 @@ export default function AlbumPlanner() {
                   type="button"
                   key={`slot-${index}`}
                   className={`album-slot ${isActive ? 'active' : ''} ${isEmpty ? 'empty' : ''} ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''}`}
-                  onClick={() => setActiveSlotIndex(index)}
-                  title={isEmpty ? '빈 슬롯' : `${slot.cardName || '카드'} 슬롯`}
+                  onClick={() => {
+                    if (isEmpty) {
+                      setActiveSlotIndex(index);
+                      return;
+                    }
+                    openSlotCardEditor(resolvedSlot, currentPageIndex, index);
+                  }}
+                  title={isEmpty ? '빈 슬롯' : `${resolvedSlot.cardName || '카드'} 슬롯`}
                   draggable={!isEmpty}
                   onDragStart={(e) => {
                     if (isEmpty) {
@@ -654,42 +957,165 @@ export default function AlbumPlanner() {
                   }}
                   onDragEnd={clearDragState}
                 >
-                  {!isEmpty && (
-                    <button
-                      type="button"
-                      className="album-slot-remove"
-                      title="이 슬롯에서 카드 제거"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        clearSlotByIndex(index);
-                      }}
-                    >
-                      ✕
-                    </button>
-                  )}
+                  <div className="album-slot-visual">
+                    {!isEmpty && (
+                      <button
+                        type="button"
+                        className="album-slot-remove"
+                        title="이 슬롯에서 카드 제거"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          clearSlotByIndex(index);
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
 
-                  {slot?.imageUrl ? (
-                    <img src={slot.imageUrl} alt={slot.cardName || 'card'} />
-                  ) : (
-                    <div className="album-slot-empty">비어있음</div>
-                  )}
+                    {resolvedSlot?.imageUrl ? (
+                      <img src={resolvedSlot.imageUrl} alt={resolvedSlot.cardName || 'card'} />
+                    ) : (
+                      <div className="album-slot-empty">비어있음</div>
+                    )}
+
+                    {!isEmpty && (
+                      <div className="album-slot-details">
+                        <small>{resolvedSlot?.series || '-'}</small>
+                        <small>{resolvedSlot?.cardNumber || '-'}</small>
+                        <small>레어도: {resolvedSlot?.rarity || '-'}</small>
+                      </div>
+                    )}
+                  </div>
 
                   <div className="album-slot-meta">
-                    <strong>{slot?.cardName || `슬롯 ${index + 1}`}</strong>
-                    <small>{slot?.series || '-'}</small>
-                    <small>{slot?.cardNumber || '-'}</small>
-                    <small>레어도: {slot?.rarity || '-'}</small>
-                    <span className={`album-slot-status ${getStatusTone(slot?.status)}`}>{slot?.status || '미배치'}</span>
+                    <strong>{resolvedSlot?.cardName || `슬롯 ${index + 1}`}</strong>
+                    <span className={`album-slot-status ${getStatusTone(resolvedSlot?.status)}`}>{resolvedSlot?.status || '미배치'}</span>
                   </div>
                 </button>
               );
             })}
           </div>
+            </>
+          )}
+
+          {editorViewMode === 'canvas' && (
+            <div
+              className="album-canvas-board"
+              style={{
+                gridTemplateColumns: `repeat(${canvasColumns}, minmax(0, 1fr))`,
+              }}
+            >
+              {editingAlbum.pages.map((page, pageIndex) => {
+                const filledCount = (page.slots || []).filter(Boolean).length;
+                const totalCount = (page.slots || []).length;
+                return (
+                  <article
+                    key={`canvas-page-${pageIndex}`}
+                    className={`album-canvas-page-card ${currentPageIndex === pageIndex ? 'active' : ''}`}
+                    onClick={() => {
+                      setCurrentPageIndex(pageIndex);
+                    }}
+                  >
+                    <header className="album-canvas-page-header">
+                      <strong>P{pageIndex + 1}</strong>
+                      <small>{filledCount}/{totalCount}</small>
+                    </header>
+                    <div
+                      className="album-canvas-page-grid"
+                      style={{
+                        gridTemplateColumns: `repeat(${selectedLayout?.cols || editingAlbum.cols}, minmax(0, 1fr))`,
+                      }}
+                    >
+                      {(page.slots || []).map((slot, slotIndex) => {
+                        const resolvedSlot = resolveSlotCard(slot);
+                        const isEmpty = !resolvedSlot;
+                        const isDragging = canvasDraggingLocation?.pageIndex === pageIndex && canvasDraggingLocation?.slotIndex === slotIndex;
+                        const isDragOver = canvasDragOverLocation?.pageIndex === pageIndex && canvasDragOverLocation?.slotIndex === slotIndex && !isDragging;
+                        return (
+                          <button
+                            type="button"
+                            key={`canvas-slot-${pageIndex}-${slotIndex}`}
+                            className={`album-slot ${isEmpty ? 'empty' : ''} ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''}`}
+                            onClick={() => {
+                              setCurrentPageIndex(pageIndex);
+                              setActiveSlotIndex(slotIndex);
+                              if (!resolvedSlot) return;
+                              openSlotCardEditor(resolvedSlot, pageIndex, slotIndex);
+                            }}
+                            title={isEmpty ? '빈 슬롯' : `${resolvedSlot.cardName || '카드'} 슬롯`}
+                            draggable={!isEmpty}
+                            onDragStart={(e) => {
+                              if (isEmpty) {
+                                e.preventDefault();
+                                return;
+                              }
+                              setCanvasDraggingLocation({ pageIndex, slotIndex });
+                              setCanvasDragOverLocation({ pageIndex, slotIndex });
+                              e.dataTransfer.effectAllowed = 'move';
+                            }}
+                            onDragEnter={() => {
+                              if (!canvasDraggingLocation) return;
+                              setCanvasDragOverLocation({ pageIndex, slotIndex });
+                            }}
+                            onDragOver={(e) => {
+                              if (!canvasDraggingLocation) return;
+                              e.preventDefault();
+                              e.dataTransfer.dropEffect = 'move';
+                            }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              handleCanvasSlotDrop(pageIndex, slotIndex);
+                            }}
+                            onDragEnd={clearCanvasDragState}
+                          >
+                            <div className="album-slot-visual">
+                              {!isEmpty && (
+                                <button
+                                  type="button"
+                                  className="album-slot-remove"
+                                  title="이 슬롯에서 카드 제거"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    clearSlotAt(pageIndex, slotIndex);
+                                  }}
+                                >
+                                  ✕
+                                </button>
+                              )}
+
+                              {resolvedSlot?.imageUrl ? (
+                                <img src={resolvedSlot.imageUrl} alt={resolvedSlot.cardName || 'card'} />
+                              ) : (
+                                <div className="album-slot-empty">비어있음</div>
+                              )}
+
+                              {!isEmpty && (
+                                <div className="album-slot-details">
+                                  <small>{resolvedSlot?.series || '-'}</small>
+                                  <small>{resolvedSlot?.cardNumber || '-'}</small>
+                                  <small>레어도: {resolvedSlot?.rarity || '-'}</small>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="album-slot-meta">
+                              <strong>{resolvedSlot?.cardName || `슬롯 ${slotIndex + 1}`}</strong>
+                              <span className={`album-slot-status ${getStatusTone(resolvedSlot?.status)}`}>{resolvedSlot?.status || '미배치'}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         <aside className="album-card-picker">
           <h3>카드 배치 패널</h3>
-          <p>슬롯 선택 후 카드를 클릭하면 해당 위치에 배치됩니다.</p>
+          <p>슬롯 선택 시 해당 위치에 배치되고, 미선택 시 빈 슬롯에 자동으로 순차 배치됩니다. (캔버스 모드는 전체 페이지 기준)</p>
 
           <div className="album-picker-top-actions">
             <input
@@ -727,6 +1153,15 @@ export default function AlbumPlanner() {
           )}
         </aside>
       </div>
+
+      <CardDetailModal 
+        isOpen={!!slotEditingCard}
+        card={slotEditingCard}
+        appConfig={appConfig}
+        onClose={closeSlotCardEditor}
+        onSave={handleModalSave}
+        onDelete={handleModalDelete}
+      />
     </main>
   );
 }

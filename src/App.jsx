@@ -4,29 +4,47 @@ import { db } from './firebase';
 import './index.css';
 import CardUpload from './components/CardUpload';
 import CardList from './components/CardList';
+import FilterExplorer from './components/FilterExplorer';
 import AdminSettings from './components/AdminSettings';
 import StatsDashboard from './components/StatsDashboard';
 import AlbumPlanner from './components/AlbumPlanner';
 import { defaultConfig } from './defaultConfig';
+import { sanitizeStatusOptions } from './utils/statusUtils';
 
 const NAV_ITEMS = [
   { id: 'home', label: '홈', description: '메인 대시보드' },
   { id: 'upload', label: '카드 등록', description: 'AI 이미지 분석 등록' },
   { id: 'gallery', label: '도감 갤러리', description: '보유 카드 조회/편집' },
+  { id: 'filter', label: '필터 탐색기', description: '시리즈/레어도/종류 탐색' },
   { id: 'album', label: '앨범 꾸미기', description: '페이지 배치 시뮬레이션' },
   { id: 'stats', label: '통계', description: '레어도/상태 집계' },
   { id: 'admin', label: '마스터 설정', description: '환경설정/백업/복원' },
 ];
 
 const DEFAULT_VIEW = 'home';
+const LAST_VIEW_KEY = 'pc_last_view';
+
+function isValidView(viewId) {
+  return NAV_ITEMS.some((item) => item.id === viewId);
+}
+
+function getStoredView() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = String(window.localStorage.getItem(LAST_VIEW_KEY) || '').trim();
+    return isValidView(stored) ? stored : null;
+  } catch (err) {
+    return null;
+  }
+}
 
 function getViewFromHash() {
   if (typeof window === 'undefined') return DEFAULT_VIEW;
   const raw = window.location.hash.replace(/^#\/?/, '').trim();
-  if (!raw) return DEFAULT_VIEW;
+  if (!raw) return getStoredView() || DEFAULT_VIEW;
   const normalized = raw.split('?')[0].split('&')[0].replace(/^\/+|\/+$/g, '').trim();
-  if (!normalized) return DEFAULT_VIEW;
-  return NAV_ITEMS.some((item) => item.id === normalized) ? normalized : DEFAULT_VIEW;
+  if (!normalized) return getStoredView() || DEFAULT_VIEW;
+  return isValidView(normalized) ? normalized : (getStoredView() || DEFAULT_VIEW);
 }
 
 function App() {
@@ -97,6 +115,22 @@ function App() {
   useEffect(() => () => clearCloseTimer(), []);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(LAST_VIEW_KEY, currentView);
+    } catch (err) {
+      // ignore storage failures
+    }
+  }, [currentView]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!window.location.hash) {
+      window.location.hash = `#/${currentView}`;
+    }
+  }, [currentView]);
+
+  useEffect(() => {
     async function fetchConfig() {
        try {
          // 타임아웃 설정 (3초 이상 걸리면 기본값 사용)
@@ -119,7 +153,7 @@ function App() {
               seriesOptions: fetched.seriesOptions || defaultConfig.seriesOptions,
               rarityOptions: fetched.rarityOptions || defaultConfig.rarityOptions,
               typeOptions: fetched.typeOptions || defaultConfig.typeOptions,
-              statusOptions: fetched.statusOptions || defaultConfig.statusOptions
+              statusOptions: sanitizeStatusOptions(fetched.statusOptions || defaultConfig.statusOptions)
             };
 
             // Merge displayFields by id, favor fetched values but ensure 'status' exists and is visible
@@ -223,9 +257,10 @@ function App() {
 
       <nav className="navbar">
         <div className="logo" onClick={() => navigateTo('home')} style={{cursor: 'pointer'}}>PokéDex AI</div>
-        <div className="btn-group" style={{ gap: '1rem' }}>
-          <button type="button" className="btn btn-secondary" style={{ padding: '0.5rem 1.5rem', fontSize: '0.9rem' }} onClick={() => navigateTo('gallery')}>나의 도감</button>
-          <button type="button" className="btn btn-primary" style={{ padding: '0.5rem 1.5rem', fontSize: '0.9rem' }} onClick={() => navigateTo('admin')}>⚙️ 마스터 설정</button>
+        <div className="btn-group top-nav-actions">
+          <button type="button" className="btn btn-secondary btn-compact" onClick={() => navigateTo('gallery')}>나의 도감</button>
+          <button type="button" className="btn btn-secondary btn-compact" onClick={() => navigateTo('filter')}>필터</button>
+          <button type="button" className="btn btn-primary btn-compact" onClick={() => navigateTo('admin')}>⚙️ 마스터 설정</button>
         </div>
       </nav>
 
@@ -252,6 +287,12 @@ function App() {
          </main>
       )}
 
+      {currentView === 'filter' && (
+        <main className="gallery-page">
+          <FilterExplorer appConfig={appConfig} />
+        </main>
+      )}
+
       {currentView === 'admin' && (
          <main className="admin-page">
             <AdminSettings appConfig={appConfig} setAppConfig={setAppConfig} />
@@ -263,7 +304,7 @@ function App() {
       )}
 
       {currentView === 'album' && (
-        <AlbumPlanner />
+        <AlbumPlanner appConfig={appConfig} />
       )}
 
       {currentView === 'home' && (

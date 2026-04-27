@@ -11,7 +11,7 @@ export const defaultConfig = {
   gradingCompaniesOptions: ["PSA", "Beckett", "CGC", "KSC"],
   gradingScaleOptions: ["1","2","3","4","5","6","7","8","9","10"],
   typeOptions: ["포켓몬", "서포트", "도구", "스타디움", "에너지"],
-  statusOptions: ["S급 (민트)", "A급 (니어민트)", "B급 (우수)", "C급 (플레이용)", "손상됨", "상태 없음"],
+  statusOptions: ["미보유", "보유중", "등급카드", "손상됨", "상태 없음"],
   displayFields: [
     { id: 'cardName', label: '고유 이름', visible: true, order: 1 },
     { id: 'pokedexNumber', label: '전국 도감 번호', visible: true, order: 2 },
