@@ -2,7 +2,12 @@ import React from 'react';
 
 export default function CardThumbnail({ imageUrl, alt = '카드', type = 'grid', className = '' }) {
   if (imageUrl) {
-    return <img src={imageUrl} alt={alt} className={className} loading="lazy" />;
+    let validUrl = imageUrl;
+    // URL이 http/https, data:, / 로 시작하지 않으면 (예: www.example.com/img.jpg) https://를 붙여줍니다.
+    if (!/^(https?:\/\/|data:|blob:|\/)/.test(imageUrl)) {
+      validUrl = `https://${imageUrl}`;
+    }
+    return <img src={validUrl} alt={alt} className={className} loading="lazy" />;
   }
 
   // Fallbacks based on type
