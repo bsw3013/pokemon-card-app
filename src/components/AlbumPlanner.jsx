@@ -5,6 +5,7 @@ import { db, storage } from '../firebase';
 import pokemonMapAll from '../utils/pokemonMapAll.json';
 import { normalizeStatus } from '../utils/statusUtils';
 import { normalizePokedexNumber } from '../utils/numberUtils';
+import { formatCardPayload } from '../utils/cardUtils';
 import CardDetailModal from './CardDetailModal';
 import CardThumbnail from './CardThumbnail';
 
@@ -709,18 +710,7 @@ export default function AlbumPlanner({ appConfig }) {
   const handleModalSave = async (payload) => {
     if (!slotEditingCard?.id) return;
 
-    const updatePayload = {
-      cardName: payload.cardName || '',
-      series: payload.series || '',
-      cardNumber: payload.cardNumber || '',
-      rarity: payload.rarity || '',
-      type: payload.type || '',
-      pokedexNumber: normalizePokedexNumber(payload.pokedexNumber || ''),
-      status: payload.status || '미보유',
-      price: parseInt(payload.price, 10) || 0,
-      imageUrl: payload.imageUrl || '',
-      possessions: payload.possessions || [],
-    };
+    const updatePayload = formatCardPayload(payload);
 
     try {
       await updateDoc(doc(db, 'pokemon_cards', slotEditingCard.id), updatePayload);

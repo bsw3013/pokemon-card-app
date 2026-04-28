@@ -5,26 +5,58 @@ import { db, storage } from '../firebase';
 import pokemonMapAll from '../utils/pokemonMapAll.json';
 import { normalizeStatus } from '../utils/statusUtils';
 import { normalizePokedexNumber, displayPokedexNumber } from '../utils/numberUtils';
+import { formatCardPayload } from '../utils/cardUtils';
+import { useThumbnailSettings } from '../hooks/useThumbnailSettings';
+import { useMultiSort } from '../hooks/useMultiSort';
+import { sortCards } from '../utils/sortUtils';
+import ThumbnailSettings from './ThumbnailSettings';
 import CardDetailModal from './CardDetailModal';
 import CardThumbnail from './CardThumbnail';
+import MultiSortPanel from './MultiSortPanel';
 
 const { krToEn, krToJa } = pokemonMapAll;
 
+const getFlagEmoji = (lang) => {
+  if (!lang) return '🇰🇷';
+  if (lang.includes('한국')) return '🇰🇷';
+  if (lang.includes('일본')) return '🇯🇵';
+  if (lang.includes('미국') || lang.includes('영')) return '🇺🇸';
+  if (lang.includes('중국')) return '🇨🇳';
+  return '🇰🇷';
+};
+
+const getStatusClass = (status) => {
+  if (!status || status.includes('미보유')) return 'unowned';
+  if (status.includes('등급')) return 'graded';
+  return 'owned';
+};
+
 export default function CardList({ appConfig }) {
   const [cards, setCards] = useState([]);
-  const [loading, setLoading] = useState(true);
+   const { settings: thumbSettings, toggleSetting: toggleThumbSetting } = useThumbnailSettings();
+
+   const [loading, setLoading] = useState(true);
   
   // 필터 및 정렬 상태
    const [searchTerm, setSearchTerm] = useState('');
    const deferredSearchTerm = useDeferredValue(searchTerm);
    const [sortPanelOpen, setSortPanelOpen] = useState(false);
-   const [sortLevels, setSortLevels] = useState([
-      { field: 'pokedexNumber', dir: 'asc', enabled: true },
-      { field: '', dir: 'asc', enabled: false },
-      { field: '', dir: 'asc', enabled: false },
-      { field: '', dir: 'asc', enabled: false },
-      { field: '', dir: 'asc', enabled: false }
-   ]);
+  const {
+    sortLevels,
+    handleLevelFieldChange,
+    toggleLevelDir,
+    toggleLevelEnabled,
+    resetSortLevels,
+    persistSortLevels,
+  } = useMultiSort();
+
+   const [gridColumns, setGridColumns] = useState(() => {
+      try { return parseInt(localStorage.getItem('cardList_gridColumns_v1')) || 6; } catch { return 6; }
+   });
+
+   useEffect(() => {
+      try { localStorage.setItem('cardList_gridColumns_v1', gridColumns); } catch {}
+   }, [gridColumns]);
 
   // 첫 번째 메인 수정 모달창 상태
   const [selectedCard, setSelectedCard] = useState(null);
@@ -42,61 +74,6 @@ export default function CardList({ appConfig }) {
          .slice()
          .sort((a, b) => a.order - b.order);
    }, [appConfig.displayFields]);
-
-   useEffect(() => {
-      try {
-         const raw = localStorage.getItem('pc_sort_levels');
-         if (raw) setSortLevels(JSON.parse(raw));
-      } catch (e) { /* ignore */ }
-   }, []);
-
-   const persistSortLevels = (next) => {
-      setSortLevels(next);
-      try { localStorage.setItem('pc_sort_levels', JSON.stringify(next)); } catch (e) {}
-   };
-
-   const SORT_OPTIONS = [
-      { value: '', label: '없음' },
-      { value: 'createdAt', label: '등록일' },
-      { value: 'pokedexNumber', label: '전국도감번호' },
-      { value: 'series', label: '시리즈' },
-      { value: 'cardName', label: '카드 이름' },
-      { value: 'price', label: '가격' },
-      { value: 'status', label: '보유 상태' },
-      { value: 'rarity', label: '레어도' },
-      { value: 'type', label: '카드 종류' }
-   ];
-
-   const handleLevelFieldChange = (index, field) => {
-      const next = sortLevels.slice();
-      next[index] = { ...next[index], field, enabled: !!field };
-      persistSortLevels(next);
-   };
-
-   const toggleLevelDir = (index) => {
-      const next = sortLevels.slice();
-      next[index].dir = next[index].dir === 'asc' ? 'desc' : 'asc';
-      persistSortLevels(next);
-   };
-
-   const toggleLevelEnabled = (index) => {
-      const next = sortLevels.slice();
-      next[index].enabled = !next[index].enabled;
-      // if turning off, clear field
-      if (!next[index].enabled) next[index].field = '';
-      persistSortLevels(next);
-   };
-
-   const resetSortLevels = () => {
-      const def = [
-         { field: 'pokedexNumber', dir: 'asc', enabled: true },
-         { field: '', dir: 'asc', enabled: false },
-         { field: '', dir: 'asc', enabled: false },
-         { field: '', dir: 'asc', enabled: false },
-         { field: '', dir: 'asc', enabled: false }
-      ];
-      persistSortLevels(def);
-   };
 
   useEffect(() => {
     async function fetchCards() {
@@ -131,71 +108,8 @@ export default function CardList({ appConfig }) {
         (card.pokedexNumber || '').includes(lowerWord)
       );
     }
-      // Multi-level sorting: if any sortLevels enabled use them, otherwise fallback to previous single-sort behavior
-      const activeLevels = sortLevels.filter(l => l.enabled && l.field);
-      if (activeLevels.length) {
-         const statusOrder = (appConfig.statusOptions && Array.isArray(appConfig.statusOptions)) ? appConfig.statusOptions : ['보유중','등급카드','미보유'];
-         const statusRank = {};
-         statusOrder.forEach((s,i)=> statusRank[s] = i);
-
-         result.sort((a,b) => {
-            for (const lvl of activeLevels) {
-               const field = lvl.field;
-               const dir = lvl.dir === 'desc' ? -1 : 1;
-               let va = a[field];
-               let vb = b[field];
-
-               // Treat missing/invalid values as "absent" and always place them after present values
-               const isNumericField = field === 'pokedexNumber' || field === 'price';
-               const aRaw = va;
-               const bRaw = vb;
-               let aHas = aRaw !== undefined && aRaw !== null && String(aRaw).trim() !== '';
-               let bHas = bRaw !== undefined && bRaw !== null && String(bRaw).trim() !== '';
-               if (field === 'createdAt') {
-                  aHas = !!a.createdAt;
-                  bHas = !!b.createdAt;
-               }
-               if (isNumericField) {
-                  aHas = aHas && Number.isFinite(Number(aRaw));
-                  bHas = bHas && Number.isFinite(Number(bRaw));
-               }
-
-               if (!aHas || !bHas) {
-                  if (!aHas && !bHas) {
-                     // both absent -> treat as equal for this level, continue to next level
-                     continue;
-                  }
-                  // one is absent: absent item should be after present item regardless of direction
-                  if (!aHas) return 1;
-                  return -1;
-               }
-
-               let cmp = 0;
-               if (field === 'createdAt') {
-                  const ta = new Date(a.createdAt).getTime();
-                  const tb = new Date(b.createdAt).getTime();
-                  cmp = ta - tb;
-               } else if (isNumericField) {
-                  cmp = Number(aRaw) - Number(bRaw);
-               } else if (field === 'status') {
-                  const ra = statusRank[aRaw] ?? 999;
-                  const rb = statusRank[bRaw] ?? 999;
-                  cmp = ra - rb;
-               } else {
-                  cmp = String(aRaw).localeCompare(String(bRaw), 'ko');
-               }
-
-               if (cmp !== 0) return cmp * dir;
-            }
-            return 0;
-         });
-      } else {
-         // fallback: default to pokedexNumber ascending
-         result.sort((a, b) => {
-             return (Number(a.pokedexNumber) || 0) - (Number(b.pokedexNumber) || 0);
-         });
-      }
-    return result;
+      // Multi-level sorting: use sortUtils
+      return sortCards(result, sortLevels.filter(l => l.enabled && l.field), appConfig);
    }, [cards, deferredSearchTerm, sortLevels]);
   
   const totalPages = Math.ceil(filteredAndSortedCards.length / itemsPerPage);
@@ -251,18 +165,7 @@ export default function CardList({ appConfig }) {
 
    const handleModalSave = async (payload) => {
       try {
-         const updatePayload = {
-            cardName: payload.cardName || '',
-            series: payload.series || '',
-            cardNumber: payload.cardNumber || '',
-            rarity: payload.rarity || '',
-            type: payload.type || '',
-            pokedexNumber: normalizePokedexNumber(payload.pokedexNumber || ''),
-            status: payload.status || '미보유',
-            price: parseInt(payload.price) || 0,
-            imageUrl: payload.imageUrl || '',
-            possessions: payload.possessions || []
-         };
+         const updatePayload = formatCardPayload(payload);
 
          if (selectedCard && selectedCard.isNew) {
             const ref = await addDoc(collection(db, 'pokemon_cards'), updatePayload);
@@ -276,6 +179,19 @@ export default function CardList({ appConfig }) {
       } catch(err) {
          console.error(err);
          alert("저장 중 오류가 발생했습니다.");
+         throw err;
+      }
+   };
+
+   const handleModalDuplicate = async (payload) => {
+      try {
+         const duplicatePayload = formatCardPayload(payload);
+         const ref = await addDoc(collection(db, 'pokemon_cards'), duplicatePayload);
+         setCards(prev => [{ id: ref.id, ...duplicatePayload }, ...prev]);
+         setSelectedCard(null);
+      } catch(err) {
+         console.error(err);
+         alert("복제 중 오류가 발생했습니다.");
          throw err;
       }
    };
@@ -382,33 +298,26 @@ export default function CardList({ appConfig }) {
        <div className="gallery-header">
           <h2>나만의 포켓몬 도감 <span>({filteredAndSortedCards.length}장)</span></h2>
           <div className="gallery-controls">
+             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(255,255,255,0.05)', padding: '0.3rem 0.8rem', borderRadius: '999px', border: '1px solid var(--border-color)', height: '100%', marginRight: '0.6rem' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>가로칸수:</span>
+                <input type="number" min="2" max="12" value={gridColumns} onChange={(e) => setGridColumns(Number(e.target.value) || 6)} style={{ width: '36px', background: 'transparent', border: 'none', color: 'white', outline: 'none', textAlign: 'center', fontWeight: 'bold', fontSize: '0.9rem' }} />
+             </div>
+             <ThumbnailSettings settings={thumbSettings} toggleSetting={toggleThumbSetting} />
              <button type="button" className="btn btn-primary" style={{marginRight: '0.6rem'}} onClick={openCreate}>➕ 카드 추가</button>
              <input type="text" className="search-input" placeholder="🔍 이름, 일련번호, 도감번호 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-             <button type="button" className="btn btn-secondary" style={{marginLeft: '0.6rem'}} onClick={() => setSortPanelOpen(p => !p)}>정렬 설정</button>
-             {sortPanelOpen && (
-               <div className="sort-panel" style={{position:'absolute', right: '2rem', top: '5.8rem', background: 'var(--surface-color)', border: '1px solid var(--border-color)', padding: '1rem', borderRadius: '8px', zIndex:1200, width: 420}}>
-                  <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.6rem'}}>
-                     <strong>정렬 우선순위 (최대 5단계)</strong>
-                     <div style={{display:'flex', gap:'0.4rem'}}>
-                        <button type="button" className="btn" onClick={resetSortLevels} style={{padding:'0.25rem 0.6rem'}}>초기화</button>
-                        <button type="button" className="btn btn-primary" onClick={() => setSortPanelOpen(false)} style={{padding:'0.25rem 0.6rem'}}>닫기</button>
-                     </div>
-                  </div>
-                  {sortLevels.map((lvl, idx) => (
-                    <div key={idx} style={{display:'flex', gap:'0.5rem', alignItems:'center', marginBottom:'0.45rem'}}>
-                       <div style={{width:'24px', textAlign:'center', fontWeight:700}}>{idx+1}</div>
-                       <select value={lvl.field} onChange={(e) => handleLevelFieldChange(idx, e.target.value)} style={{flex:1, padding:'0.4rem'}}>
-                         {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                       </select>
-                       <button type="button" className="btn" onClick={() => toggleLevelDir(idx)} style={{width:'48px'}}>{lvl.dir === 'asc' ? '▲' : '▼'}</button>
-                       <button type="button" className={`btn ${lvl.enabled ? 'btn-primary' : ''}`} onClick={() => toggleLevelEnabled(idx)} style={{width:'48px'}}>{lvl.enabled ? 'ON' : 'OFF'}</button>
-                    </div>
-                  ))}
-                  <div style={{display:'flex', justifyContent:'flex-end', gap:'0.5rem', marginTop:'0.6rem'}}>
-                     <button type="button" className="btn" onClick={() => { persistSortLevels(sortLevels); setSortPanelOpen(false); }}>저장</button>
-                  </div>
-               </div>
-             )}
+             <div style={{ position: 'relative' }}>
+               <button type="button" className="btn btn-secondary" style={{marginLeft: '0.6rem'}} onClick={() => setSortPanelOpen(p => !p)}>정렬 설정</button>
+               {sortPanelOpen && (
+                 <MultiSortPanel
+                   sortLevels={sortLevels}
+                   handleLevelFieldChange={handleLevelFieldChange}
+                   toggleLevelDir={toggleLevelDir}
+                   toggleLevelEnabled={toggleLevelEnabled}
+                   resetSortLevels={resetSortLevels}
+                   onClose={() => setSortPanelOpen(false)}
+                 />
+               )}
+             </div>
              <div className="view-toggle">
                 <button className={`btn-toggle ${viewMode === 'gallery' ? 'active' : ''}`} onClick={() => setViewMode('gallery')}>🖼️ 갤러리</button>
                 <button className={`btn-toggle ${viewMode === 'table' ? 'active' : ''}`} onClick={() => setViewMode('table')}>📋 표</button>
@@ -472,10 +381,10 @@ export default function CardList({ appConfig }) {
               )}
            </div>
        ) : (
-          <div className="card-grid">
+          <div className="card-grid fade-in" style={{ gridTemplateColumns: `repeat(${gridColumns}, 1fr)` }}>
              {filteredAndSortedCards.map(card => (
-             <div className="card-item fade-in" key={card.id} onClick={() => openModal(card)}>
-                <div className="card-image-wrapper">
+             <div className={`card-item fade-in ${thumbSettings.hoverMode ? 'hover-mode-active' : ''}`} key={card.id} onClick={() => openModal(card)}>
+                <div className={`card-image-wrapper ${(card.status === '미보유' || !card.status) ? 'filter-grayscale' : ''}`}>
                    <CardThumbnail imageUrl={card.imageUrl} alt={card.cardName} type="grid" />
                    {/* 레어도(AR/SAR) 배지 - rarity 필드 사용 */}
                    {card.rarity && <span className="card-rarity">{card.rarity}</span>}
@@ -485,17 +394,30 @@ export default function CardList({ appConfig }) {
                      return top ? <span className="grading-badge">{top.company} {top.grade}</span> : null;
                    })()}
                 </div>
-                <div className="card-info">
-                   <h3 className="card-name" title={card.cardName}>{card.cardName || '이름 없음'}</h3>
-                   <div className="card-meta">
-                      {card.series && <span className="badge-series">{card.series}</span>}
-                      {card.cardNumber && <span className="badge-number">No.{card.cardNumber}</span>}
-                      {card.pokedexNumber && <span className="badge-number">도감 번호 {displayPokedexNumber(card.pokedexNumber)}</span>}
-                   </div>
-                   <div className="card-bottom">
-                      <span className={`card-status ${((card.status||'미보유').replace(/\s+/g,'-'))}`}>{card.status || '미보유'}</span>
-                   </div>
-                </div>
+                 <div className="card-info">
+                   {thumbSettings.showName && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span className={`status-dot ${getStatusClass(card.status)}`} title={card.status}></span>
+                            <h3 className="card-name" style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }} title={card.cardName}>{card.cardName || '이름 없음'}</h3>
+                         </div>
+                         <span className="country-flag" title={card.language || '한국'}>{getFlagEmoji(card.language)}</span>
+                      </div>
+                   )}
+                    <div className="card-meta">
+                       {thumbSettings.showSeries && card.series && <span className="badge-series">{card.series}</span>}
+                       {thumbSettings.showNumber && card.cardNumber && <span className="badge-number">No.{card.cardNumber}</span>}
+                       {thumbSettings.showNumber && card.pokedexNumber && <span className="badge-number">도감 번호 {displayPokedexNumber(card.pokedexNumber)}</span>}
+                       {thumbSettings.showRarity && card.rarity && <span className="badge-series">{card.rarity}</span>}
+                    </div>
+                    {thumbSettings.showPrice && (
+                       <div className="card-footer" style={{ marginTop: 'auto' }}>
+                          <span className="card-price" style={{ fontWeight: 'bold', color: 'var(--accent-color)' }}>
+                             {card.price ? `${card.price.toLocaleString()}원` : '-'}
+                          </span>
+                       </div>
+                    )}
+                 </div>
              </div>
           ))}
           {filteredAndSortedCards.length === 0 && <div className="empty-results">검색어와 일치하는 카드가 없습니다.</div>}
@@ -510,6 +432,7 @@ export default function CardList({ appConfig }) {
          onClose={() => setSelectedCard(null)}
          onSave={handleModalSave}
          onDelete={!selectedCard?.isNew ? handleModalDelete : undefined}
+         onDuplicate={!selectedCard?.isNew ? handleModalDuplicate : undefined}
        />
     </div>
   )

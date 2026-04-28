@@ -48,21 +48,24 @@ export default function CardUpload() {
       const snapshot = await uploadBytes(storageRef, imageFile);
       const downloadUrl = await getDownloadURL(snapshot.ref);
 
-      // 2) possessions 기본값: 업로더는 기본으로 "KR" 1장 소유로 설정
+      // 2) possessions 기본값: 업로더는 기본으로 1장 소유로 설정
       const possessions = [
-        { id: `p_${Date.now()}`, region: 'KR', count: 1, company: '', grade: '', serial: '', notes: '' }
+        { id: `p_${Date.now()}`, count: 1, company: '', grade: '', serial: '', notes: '' }
       ];
+
+      const formData = new FormData(e.target);
 
       // 3) Firestore에 새 문서 추가
       const payload = {
-        cardName: cardData.cardName || '',
-        series: cardData.series || '',
-        cardNumber: cardData.cardNumber || '',
-        pokedexNumber: normalizePokedexNumber(cardData.pokedexNumber || ''),
-        rarity: cardData.rarity || '',
-        type: cardData.type || '',
-        price: cardData.price || 0,
-        status: '수집 완료 (소장중)',
+        cardName: formData.get('cardName') || '',
+        series: formData.get('series') || '',
+        cardNumber: formData.get('cardNumber') || '',
+        pokedexNumber: normalizePokedexNumber(formData.get('pokedexNumber') || ''),
+        rarity: formData.get('rarity') || '',
+        type: formData.get('type') || '',
+        price: parseInt(formData.get('price')) || 0,
+        status: formData.get('status') || '수집 완료 (소장중)',
+        language: formData.get('language') || '한국',
         imageUrl: downloadUrl,
         possessions,
         createdAt: serverTimestamp()
@@ -172,13 +175,26 @@ export default function CardUpload() {
                     <label>💰 구매/미감정 시세 (원)</label>
                     <input type="number" name="price" placeholder="예: 15000" />
                 </div>
-                <div className="form-group">
-                    <label>✅ 상태</label>
-                    <select name="status">
-                        <option value="수집 완료 (소장중)">수집 완료 (소장중)</option>
-                        <option value="배송 중">배송 중</option>
-                        <option value="위시 리스트">위시 리스트</option>
-                    </select>
+                <div className="form-group" style={{ display: 'flex', gap: '0.5rem' }}>
+                    <div style={{ flex: 1 }}>
+                        <label>✅ 상태</label>
+                        <select name="status" defaultValue="수집 완료 (소장중)">
+                            <option value="미보유">미보유</option>
+                            <option value="수집 완료 (소장중)">수집 완료 (소장중)</option>
+                            <option value="등급카드">등급카드</option>
+                            <option value="배송 중">배송 중</option>
+                            <option value="위시 리스트">위시 리스트</option>
+                        </select>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <label>🌍 언어/국가</label>
+                        <select name="language" defaultValue="한국">
+                            <option value="한국">한국</option>
+                            <option value="일본">일본</option>
+                            <option value="미국">미국</option>
+                            <option value="중국">중국</option>
+                        </select>
+                    </div>
                 </div>
              </div>
              

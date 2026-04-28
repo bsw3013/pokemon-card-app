@@ -1,26 +1,37 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { collection, deleteDoc, doc, getDocs, updateDoc } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDocs, updateDoc, addDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { normalizeStatus } from '../utils/statusUtils';
 import { normalizePokedexNumber } from '../utils/numberUtils';
+import { formatCardPayload } from '../utils/cardUtils';
+import { useThumbnailSettings } from '../hooks/useThumbnailSettings';
+import { useMultiSort } from '../hooks/useMultiSort';
+import { sortCards } from '../utils/sortUtils';
+import { compareText } from '../utils/stringUtils';
+import ThumbnailSettings from './ThumbnailSettings';
 import CardDetailModal from './CardDetailModal';
 import CardThumbnail from './CardThumbnail';
+import MultiSortPanel from './MultiSortPanel';
 
 function normalize(value) {
   return String(value || '').trim();
 }
 
-function compareText(a, b) {
-  return String(a || '').localeCompare(String(b || ''), 'ko');
-}
+const getFlagEmoji = (lang) => {
+  if (!lang) return '🇰🇷';
+  if (lang.includes('한국')) return '🇰🇷';
+  if (lang.includes('일본')) return '🇯🇵';
+  if (lang.includes('미국') || lang.includes('영')) return '🇺🇸';
+  if (lang.includes('중국')) return '🇨🇳';
+  return '🇰🇷';
+};
 
-function compareNumberLike(a, b) {
-  const na = Number(String(a || '').replace(/[^0-9.-]/g, ''));
-  const nb = Number(String(b || '').replace(/[^0-9.-]/g, ''));
-  const va = Number.isFinite(na) ? na : Number.MAX_SAFE_INTEGER;
-  const vb = Number.isFinite(nb) ? nb : Number.MAX_SAFE_INTEGER;
-  return va - vb;
-}
+const getStatusClass = (status) => {
+  if (!status || status.includes('미보유')) return 'unowned';
+  if (status.includes('등급')) return 'graded';
+  return 'owned';
+};
+
 
 function mergeByMasterOrder(masterOptions, cardSet) {
   const master = Array.isArray(masterOptions)
@@ -49,19 +60,36 @@ function mergeByMasterOrder(masterOptions, cardSet) {
 }
 
 export default function FilterExplorer({ appConfig }) {
+  const { settings: thumbSettings, toggleSetting: toggleThumbSetting } = useThumbnailSettings();
   const [loading, setLoading] = useState(true);
   const [cards, setCards] = useState([]);
   const SERIES_VISIBLE_COUNT = 12;
   const [selectedCard, setSelectedCard] = useState(null);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState('cardName');
-  const [sortDir, setSortDir] = useState('asc');
+  const [sortPanelOpen, setSortPanelOpen] = useState(false);
+  const {
+    sortLevels,
+    handleLevelFieldChange,
+    toggleLevelDir,
+    toggleLevelEnabled,
+    resetSortLevels,
+    persistSortLevels,
+  } = useMultiSort();
+  
+  const [gridColumns, setGridColumns] = useState(() => {
+    try { return parseInt(localStorage.getItem('filterExplorer_gridColumns_v1')) || 6; } catch { return 6; }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem('filterExplorer_gridColumns_v1', gridColumns); } catch {}
+  }, [gridColumns]);
 
   const [seriesFilter, setSeriesFilter] = useState([]);
   const [rarityFilter, setRarityFilter] = useState([]);
   const [typeFilter, setTypeFilter] = useState([]);
   const [statusFilter, setStatusFilter] = useState([]);
+  const [languageFilter, setLanguageFilter] = useState([]);
   const [seriesExpanded, setSeriesExpanded] = useState(false);
 
   useEffect(() => {
@@ -89,6 +117,7 @@ export default function FilterExplorer({ appConfig }) {
       rarity: new Set(),
       type: new Set(),
       status: new Set(),
+      language: new Set(),
     };
 
     cards.forEach((card) => {
@@ -96,10 +125,12 @@ export default function FilterExplorer({ appConfig }) {
       const r = normalize(card.rarity);
       const t = normalize(card.type);
       const st = normalize(card.status);
+      const l = normalize(card.language || '한국');
       if (s) fromCards.series.add(s);
       if (r) fromCards.rarity.add(r);
       if (t) fromCards.type.add(t);
       if (st) fromCards.status.add(st);
+      if (l) fromCards.language.add(l);
     });
 
     return {
@@ -107,6 +138,7 @@ export default function FilterExplorer({ appConfig }) {
       rarity: mergeByMasterOrder(appConfig?.rarityOptions, fromCards.rarity),
       type: mergeByMasterOrder(appConfig?.typeOptions, fromCards.type),
       status: mergeByMasterOrder(appConfig?.statusOptions, fromCards.status),
+      language: mergeByMasterOrder(['한국', '일본', '영어'], fromCards.language),
     };
   }, [cards, appConfig]);
 
@@ -116,12 +148,11 @@ export default function FilterExplorer({ appConfig }) {
 
   const clearAllFilters = () => {
     setSearchTerm('');
-    setSortField('cardName');
-    setSortDir('asc');
     setSeriesFilter([]);
     setRarityFilter([]);
     setTypeFilter([]);
     setStatusFilter([]);
+    setLanguageFilter([]);
   };
 
   const openModal = (card) => {
@@ -131,18 +162,7 @@ export default function FilterExplorer({ appConfig }) {
   const handleModalSave = async (payload) => {
     if (!selectedCard?.id) return;
 
-    const updatePayload = {
-      cardName: String(payload.cardName || '').trim(),
-      series: String(payload.series || '').trim(),
-      cardNumber: String(payload.cardNumber || '').trim(),
-      pokedexNumber: normalizePokedexNumber(payload.pokedexNumber || ''),
-      rarity: String(payload.rarity || '').trim(),
-      type: String(payload.type || '').trim(),
-      status: normalizeStatus(payload.status || '미보유'),
-      price: Number(payload.price) || 0,
-      imageUrl: String(payload.imageUrl || '').trim(),
-      possessions: Array.isArray(payload.possessions) ? payload.possessions : [],
-    };
+    const updatePayload = formatCardPayload(payload);
 
     try {
       await updateDoc(doc(db, 'pokemon_cards', selectedCard.id), updatePayload);
@@ -155,6 +175,19 @@ export default function FilterExplorer({ appConfig }) {
     } catch (err) {
       console.error('filter explorer save error', err);
       alert('저장 중 오류가 발생했습니다.');
+      throw err;
+    }
+  };
+
+  const handleModalDuplicate = async (payload) => {
+    try {
+      const duplicatePayload = formatCardPayload(payload);
+      const ref = await addDoc(collection(db, 'pokemon_cards'), duplicatePayload);
+      setCards((prev) => [{ id: ref.id, ...duplicatePayload, status: normalizeStatus(duplicatePayload.status) }, ...prev]);
+      setSelectedCard(null);
+    } catch (err) {
+      console.error('filter explorer duplicate error', err);
+      alert('복제 중 오류가 발생했습니다.');
       throw err;
     }
   };
@@ -182,6 +215,7 @@ export default function FilterExplorer({ appConfig }) {
     if (group === 'rarity') setRarityFilter((prev) => prev.filter((v) => v !== value));
     if (group === 'type') setTypeFilter((prev) => prev.filter((v) => v !== value));
     if (group === 'status') setStatusFilter((prev) => prev.filter((v) => v !== value));
+    if (group === 'language') setLanguageFilter((prev) => prev.filter((v) => v !== value));
   };
 
   useEffect(() => {
@@ -198,11 +232,13 @@ export default function FilterExplorer({ appConfig }) {
       const rarity = normalize(card.rarity);
       const type = normalize(card.type);
       const status = normalize(card.status);
+      const language = normalize(card.language || '한국');
 
       if (seriesFilter.length && !seriesFilter.includes(series)) return false;
       if (rarityFilter.length && !rarityFilter.includes(rarity)) return false;
       if (typeFilter.length && !typeFilter.includes(type)) return false;
       if (statusFilter.length && !statusFilter.includes(status)) return false;
+      if (languageFilter.length && !languageFilter.includes(language)) return false;
 
       if (!keyword) return true;
 
@@ -214,55 +250,24 @@ export default function FilterExplorer({ appConfig }) {
         rarity,
         type,
         status,
+        language,
       ].join(' ').toLowerCase();
 
       return haystack.includes(keyword);
     });
 
-    result.sort((a, b) => {
-      let va = a[sortField];
-      let vb = b[sortField];
-      const isNumericField = sortField === 'pokedexNumber' || sortField === 'price';
-      
-      let aHas = va !== undefined && va !== null && String(va).trim() !== '';
-      let bHas = vb !== undefined && vb !== null && String(vb).trim() !== '';
-      
-      if (sortField === 'createdAt') {
-        aHas = !!a.createdAt;
-        bHas = !!b.createdAt;
-      }
-      if (isNumericField) {
-        aHas = aHas && Number.isFinite(Number(String(va || '').replace(/[^0-9.-]/g, '')));
-        bHas = bHas && Number.isFinite(Number(String(vb || '').replace(/[^0-9.-]/g, '')));
-      }
-
-      if (!aHas || !bHas) {
-        if (!aHas && !bHas) return 0;
-        if (!aHas) return 1;
-        return -1;
-      }
-
-      let cmp = 0;
-      if (isNumericField) {
-        cmp = compareNumberLike(va, vb);
-      } else if (sortField === 'createdAt') {
-        cmp = new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
-      } else {
-        cmp = compareText(va, vb);
-      }
-      return sortDir === 'desc' ? -cmp : cmp;
-    });
-
-    return result;
+    // Multi-level sorting: use sortUtils
+    const activeLevels = sortLevels.filter(l => l.enabled && l.field);
+    return sortCards(result, activeLevels, appConfig);
   }, [
     cards,
     searchTerm,
-    sortField,
-    sortDir,
+    sortLevels,
     seriesFilter,
     rarityFilter,
     typeFilter,
     statusFilter,
+    languageFilter,
   ]);
 
   const selectedSummary = useMemo(() => {
@@ -271,8 +276,9 @@ export default function FilterExplorer({ appConfig }) {
       ...rarityFilter.map((value) => ({ group: 'rarity', label: `레어도: ${value}`, value })),
       ...typeFilter.map((value) => ({ group: 'type', label: `종류: ${value}`, value })),
       ...statusFilter.map((value) => ({ group: 'status', label: `상태: ${value}`, value })),
+      ...languageFilter.map((value) => ({ group: 'language', label: `국가: ${value}`, value })),
     ];
-  }, [seriesFilter, rarityFilter, typeFilter, statusFilter]);
+  }, [seriesFilter, rarityFilter, typeFilter, statusFilter, languageFilter]);
 
   const renderFilterGroup = ({
     keyName,
@@ -347,20 +353,33 @@ export default function FilterExplorer({ appConfig }) {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
-        <select className="sort-select compact" value={sortField} onChange={(e) => setSortField(e.target.value)}>
-          <option value="cardName">이름</option>
-          <option value="series">시리즈</option>
-          <option value="rarity">레어도</option>
-          <option value="type">종류</option>
-          <option value="status">상태</option>
-          <option value="pokedexNumber">도감번호</option>
-          <option value="createdAt">등록일</option>
-        </select>
-        <select className="sort-select compact" value={sortDir} onChange={(e) => setSortDir(e.target.value)}>
-          <option value="asc">오름차순</option>
-          <option value="desc">내림차순</option>
-        </select>
+        <div style={{ position: 'relative' }}>
+          <button 
+            type="button"
+            className="btn btn-secondary btn-compact" 
+            onClick={() => setSortPanelOpen(p => !p)}
+          >
+            정렬 설정
+          </button>
+          
+          {sortPanelOpen && (
+            <MultiSortPanel
+              sortLevels={sortLevels}
+              handleLevelFieldChange={handleLevelFieldChange}
+              toggleLevelDir={toggleLevelDir}
+              toggleLevelEnabled={toggleLevelEnabled}
+              resetSortLevels={resetSortLevels}
+              onClose={() => setSortPanelOpen(false)}
+              align="left"
+            />
+          )}
+        </div>
         <button type="button" className="btn btn-secondary btn-compact" onClick={clearAllFilters}>필터 초기화</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(255,255,255,0.05)', padding: '0.3rem 0.8rem', borderRadius: '999px', border: '1px solid var(--border-color)' }}>
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>가로칸수:</span>
+          <input type="number" min="2" max="12" value={gridColumns} onChange={(e) => setGridColumns(Number(e.target.value) || 6)} style={{ width: '36px', background: 'transparent', border: 'none', color: 'white', outline: 'none', textAlign: 'center', fontWeight: 'bold', fontSize: '0.9rem' }} />
+        </div>
+        <ThumbnailSettings settings={thumbSettings} toggleSetting={toggleThumbSetting} />
       </div>
 
       <section className="selected-filter-summary" aria-live="polite">
@@ -403,6 +422,7 @@ export default function FilterExplorer({ appConfig }) {
           {renderFilterGroup({ keyName: 'rarity', title: '레어도', options: optionSets.rarity, selected: rarityFilter, setter: setRarityFilter })}
           {renderFilterGroup({ keyName: 'type', title: '종류', options: optionSets.type, selected: typeFilter, setter: setTypeFilter })}
           {renderFilterGroup({ keyName: 'status', title: '상태', options: optionSets.status, selected: statusFilter, setter: setStatusFilter })}
+          {renderFilterGroup({ keyName: 'language', title: '국가', options: optionSets.language, selected: languageFilter, setter: setLanguageFilter })}
         </aside>
 
         <section className="filter-results">
@@ -412,11 +432,11 @@ export default function FilterExplorer({ appConfig }) {
               <p>카드 데이터 로딩 중...</p>
             </div>
           ) : (
-            <div className="card-grid filter-card-grid">
+            <div className="card-grid filter-card-grid fade-in" style={{ gridTemplateColumns: `repeat(${gridColumns}, 1fr)` }}>
               {filteredCards.map((card) => (
                 <article
                   key={card.id}
-                  className="card-item filter-editable-card"
+                  className={`card-item filter-editable-card ${thumbSettings.hoverMode ? 'hover-mode-active' : ''}`}
                   onClick={() => openModal(card)}
                   role="button"
                   tabIndex={0}
@@ -428,21 +448,34 @@ export default function FilterExplorer({ appConfig }) {
                   }}
                   title="클릭해서 카드 상세 수정"
                 >
-                  <div className="card-image-wrapper">
+                  <div className={`card-image-wrapper ${(card.status === '미보유' || !card.status) ? 'filter-grayscale' : ''}`}>
                     <CardThumbnail imageUrl={card.imageUrl} alt={card.cardName || 'card'} type="grid" />
                     {card.rarity ? <span className="card-rarity">{card.rarity}</span> : null}
                     <span className="filter-card-edit-hint">클릭 수정</span>
                   </div>
                   <div className="card-info">
-                    <h3 className="card-name" title={card.cardName}>{card.cardName || '이름 없음'}</h3>
+                    {thumbSettings.showName && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span className={`status-dot ${getStatusClass(card.status)}`} title={card.status}></span>
+                            <h3 className="card-name" style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }} title={card.cardName}>{card.cardName || '이름 없음'}</h3>
+                         </div>
+                         <span className="country-flag" title={card.language || '한국'}>{getFlagEmoji(card.language)}</span>
+                      </div>
+                    )}
                     <div className="card-meta">
-                      <span className="badge-series">{card.series || '-'}</span>
-                      <span className="badge-number">No.{card.cardNumber || '-'}</span>
-                      <span className="badge-number">도감 {card.pokedexNumber || '-'}</span>
+                      {thumbSettings.showSeries && <span className="badge-series">{card.series || '-'}</span>}
+                      {thumbSettings.showNumber && <span className="badge-number">No.{card.cardNumber || '-'}</span>}
+                      {thumbSettings.showNumber && <span className="badge-number">도감 {card.pokedexNumber || '-'}</span>}
+                      {thumbSettings.showRarity && <span className="badge-series">{card.rarity || '-'}</span>}
                     </div>
-                    <div className="card-bottom">
-                      <span className={`card-status ${String(card.status || '미보유').replace(/\s+/g, '-')}`}>{card.status || '미보유'}</span>
-                    </div>
+                    {thumbSettings.showPrice && (
+                       <div className="card-footer" style={{ marginTop: 'auto' }}>
+                          <span className="card-price" style={{ fontWeight: 'bold', color: 'var(--accent-color)' }}>
+                             {card.price ? `${card.price.toLocaleString()}원` : '-'}
+                          </span>
+                       </div>
+                    )}
                   </div>
                 </article>
               ))}
@@ -459,6 +492,7 @@ export default function FilterExplorer({ appConfig }) {
         onClose={() => setSelectedCard(null)}
         onSave={handleModalSave}
         onDelete={handleModalDelete}
+        onDuplicate={handleModalDuplicate}
       />
     </div>
   );

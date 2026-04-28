@@ -6,7 +6,7 @@ import CardThumbnail from './CardThumbnail';
 
 const { krToEn, krToJa } = pokemonMapAll;
 
-export default function CardDetailModal({ isOpen, card, appConfig, onClose, onSave, onDelete }) {
+export default function CardDetailModal({ isOpen, card, appConfig, onClose, onSave, onDelete, onDuplicate }) {
   const [editData, setEditData] = useState({});
   const [isSaving, setIsSaving] = useState(false);
 
@@ -62,6 +62,19 @@ export default function CardDetailModal({ isOpen, card, appConfig, onClose, onSa
       await onSave(editData);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDuplicateInternal = async () => {
+    if (window.confirm('이 카드와 동일한 정보로 새 카드를 만드시겠습니까?')) {
+      setIsSaving(true);
+      try {
+        await onDuplicate(editData);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -176,7 +189,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, onClose, onSa
       ...prev,
       possessions: [
         ...(prev.possessions || []),
-        { id: `p_${Date.now()}`, region: 'KR', count: 1, company: '', grade: '', serial: '', notes: '' },
+        { id: `p_${Date.now()}`, count: 1, company: '', grade: '', serial: '', notes: '' },
       ],
     }));
   };
@@ -271,18 +284,28 @@ export default function CardDetailModal({ isOpen, card, appConfig, onClose, onSa
                           <div style={{ flex: '0 0 auto' }}>
                             <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginRight: '0.4rem' }}>보유여부</label>
                           </div>
-                          <div style={{ flex: '0 0 220px' }}>
+                          <div style={{ flex: '0 0 120px' }}>
                             <select name="status" value={editData.status || '미보유'} onChange={handleEditChange} style={{ width: '100%' }}>
                               <option value="미보유">미보유</option>
                               <option value="보유중">보유중</option>
                               <option value="등급카드">등급카드</option>
                             </select>
                           </div>
+                          <div style={{ flex: '0 0 auto', marginLeft: '0.5rem' }}>
+                            <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginRight: '0.4rem' }}>언어</label>
+                          </div>
+                          <div style={{ flex: '0 0 120px' }}>
+                            <select name="language" value={editData.language || '한국'} onChange={handleEditChange} style={{ width: '100%' }}>
+                              <option value="한국">한국</option>
+                              <option value="일본">일본</option>
+                              <option value="미국">미국</option>
+                              <option value="중국">중국</option>
+                            </select>
+                          </div>
                         </div>
 
                         <div className="possession-section">
-                          <div className="possession-header">
-                            <div className="pos-field country">국가</div>
+                          <div className="possession-header" style={{ gridTemplateColumns: '140px 72px 72px minmax(160px, 1fr) auto' }}>
                             <div className="pos-field company">등급 업체</div>
                             <div className="pos-field grade">등급</div>
                             <div className="pos-field count">수량</div>
@@ -291,17 +314,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, onClose, onSa
                           </div>
 
                           {(editData.possessions || []).map((p, idx) => (
-                            <div key={p.id || idx} className="possession-row">
-                              <div className="pos-field country">
-                                <label style={{ display: 'none' }}>국가</label>
-                                <select name={`poss-${idx}-region`} data-pos-field="region" value={p.region || 'KR'} onChange={(e) => updatePossessionField(idx, 'region', e.target.value)}>
-                                  <option value="KR">한국판 (KR)</option>
-                                  <option value="JP">일본판 (JP)</option>
-                                  <option value="US">미국판 (US)</option>
-                                  <option value="CN">중국판 (CN)</option>
-                                </select>
-                              </div>
-
+                            <div key={p.id || idx} className="possession-row" style={{ gridTemplateColumns: '140px 72px 72px minmax(160px, 1fr) auto' }}>
                               <div className="pos-field company">
                                 <label style={{ display: 'none' }}>등급 업체</label>
                                 <select name={`poss-${idx}-company`} data-pos-field="company" value={p.company || ''} onChange={(e) => updatePossessionField(idx, 'company', e.target.value)}>
@@ -356,7 +369,10 @@ export default function CardDetailModal({ isOpen, card, appConfig, onClose, onSa
                 ))}
               </div>
               <div className="modal-actions">
-                {onDelete && <button type="button" className="btn btn-danger" onClick={handleDeleteInternal}>🗑 카드 지우기</button>}
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  {onDelete && <button type="button" className="btn btn-danger" onClick={handleDeleteInternal}>🗑 카드 지우기</button>}
+                  {onDuplicate && !card?.isNew && <button type="button" className="btn btn-secondary" onClick={handleDuplicateInternal}>👯 카드 복제</button>}
+                </div>
                 <button type="submit" className="btn btn-primary" disabled={isSaving}>{isSaving ? "저장 중..." : "수정사항 덮어쓰기"}</button>
               </div>
             </form>
