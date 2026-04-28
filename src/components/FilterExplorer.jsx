@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { collection, deleteDoc, doc, getDocs, updateDoc, addDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { normalizeStatus } from '../utils/statusUtils';
@@ -92,24 +92,24 @@ export default function FilterExplorer({ appConfig }) {
   const [languageFilter, setLanguageFilter] = useState([]);
   const [seriesExpanded, setSeriesExpanded] = useState(false);
 
-  useEffect(() => {
-    async function fetchCards() {
-      setLoading(true);
-      try {
-        const snap = await getDocs(collection(db, 'pokemon_cards'));
-        setCards(snap.docs.map((d) => {
-          const data = d.data();
-          return { id: d.id, ...data, status: normalizeStatus(data.status) };
-        }));
-      } catch (err) {
-        console.error('filter explorer fetch error', err);
-      } finally {
-        setLoading(false);
-      }
+  const fetchCards = useCallback(async () => {
+    setLoading(true);
+    try {
+      const snap = await getDocs(collection(db, 'pokemon_cards'));
+      setCards(snap.docs.map((d) => {
+        const data = d.data();
+        return { id: d.id, ...data, status: normalizeStatus(data.status) };
+      }));
+    } catch (err) {
+      console.error('filter explorer fetch error', err);
+    } finally {
+      setLoading(false);
     }
-
-    fetchCards();
   }, []);
+
+  useEffect(() => {
+    fetchCards();
+  }, [fetchCards]);
 
   const optionSets = useMemo(() => {
     const fromCards = {
@@ -375,6 +375,7 @@ export default function FilterExplorer({ appConfig }) {
           )}
         </div>
         <button type="button" className="btn btn-secondary btn-compact" onClick={clearAllFilters}>필터 초기화</button>
+        <button type="button" className="btn btn-outline btn-compact" onClick={fetchCards} disabled={loading}>{loading ? '로딩중...' : '🔄 데이터 새로고침'}</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(255,255,255,0.05)', padding: '0.3rem 0.8rem', borderRadius: '999px', border: '1px solid var(--border-color)' }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>가로칸수:</span>
           <input type="number" min="2" max="12" value={gridColumns} onChange={(e) => setGridColumns(Number(e.target.value) || 6)} style={{ width: '36px', background: 'transparent', border: 'none', color: 'white', outline: 'none', textAlign: 'center', fontWeight: 'bold', fontSize: '0.9rem' }} />
