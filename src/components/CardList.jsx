@@ -307,7 +307,6 @@ export default function CardList({ appConfig }) {
              <ThumbnailSettings settings={thumbSettings} toggleSetting={toggleThumbSetting} />
              <button type="button" className="btn btn-primary" style={{marginRight: '0.6rem'}} onClick={openCreate}>➕ 카드 추가</button>
              <input type="text" className="search-input" placeholder="🔍 이름, 일련번호, 도감번호 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-             <button type="button" className="btn btn-outline" style={{marginLeft: '0.6rem'}} onClick={fetchCards} disabled={loading}>{loading ? '로딩중...' : '🔄 데이터 새로고침'}</button>
              <div style={{ position: 'relative' }}>
                <button type="button" className="btn btn-secondary" style={{marginLeft: '0.6rem'}} onClick={() => setSortPanelOpen(p => !p)}>정렬 설정</button>
                {sortPanelOpen && (

@@ -375,7 +375,6 @@ export default function FilterExplorer({ appConfig }) {
           )}
         </div>
         <button type="button" className="btn btn-secondary btn-compact" onClick={clearAllFilters}>필터 초기화</button>
-        <button type="button" className="btn btn-outline btn-compact" onClick={fetchCards} disabled={loading}>{loading ? '로딩중...' : '🔄 데이터 새로고침'}</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(255,255,255,0.05)', padding: '0.3rem 0.8rem', borderRadius: '999px', border: '1px solid var(--border-color)' }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>가로칸수:</span>
           <input type="number" min="2" max="12" value={gridColumns} onChange={(e) => setGridColumns(Number(e.target.value) || 6)} style={{ width: '36px', background: 'transparent', border: 'none', color: 'white', outline: 'none', textAlign: 'center', fontWeight: 'bold', fontSize: '0.9rem' }} />
