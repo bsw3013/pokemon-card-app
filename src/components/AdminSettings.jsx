@@ -523,9 +523,16 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
   };
 
   const handleExportTemplate = () => {
-     // 현재 설정된 필드들의 id값만 추출해서 헤더로 사용
-     const headers = config.displayFields.sort((a,b)=>a.order-b.order).map(f => f.id);
-     headers.push("imageUrl"); // 이미지 주소 입력 칸 기본 포함
+     // 사용자가 요청한 신규 카드 등록 전용 항목들만 추출
+     const headers = [
+       'cardName', 
+       'series', 
+       'cardNumber', 
+       'pokedexNumber', 
+       'rarity', 
+       'status', 
+       'language'
+     ];
      
      const csvStr = Papa.unparse([headers, []]);
      downloadCsv(csvStr, "pokemon_cards_template.csv");
