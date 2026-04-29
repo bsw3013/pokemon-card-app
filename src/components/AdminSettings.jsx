@@ -531,7 +531,8 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
        'pokedexNumber', 
        'rarity', 
        'status', 
-       'language'
+       'language',
+       'imageUrl'
      ];
      
      const csvStr = Papa.unparse([headers, []]);
