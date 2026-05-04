@@ -8,6 +8,7 @@ import { normalizePokedexNumber } from '../utils/numberUtils';
 import { formatCardPayload } from '../utils/cardUtils';
 import CardDetailModal from './CardDetailModal';
 import CardThumbnail from './CardThumbnail';
+import FilterExplorer from './FilterExplorer';
 
 const ALBUM_COLLECTION = 'album_plans';
 const DRAFT_STORAGE_PREFIX = 'album_draft_';
@@ -125,6 +126,8 @@ export default function AlbumPlanner({ appConfig }) {
   const [canvasDraggingLocation, setCanvasDraggingLocation] = useState(null);
   const [canvasDragOverLocation, setCanvasDragOverLocation] = useState(null);
   const [albumNameDraft, setAlbumNameDraft] = useState('');
+  const [draggingPageIndex, setDraggingPageIndex] = useState(null);
+  const [dragOverPageIndex, setDragOverPageIndex] = useState(null);
 
   const [allCards, setAllCards] = useState([]);
   const [loadingCards, setLoadingCards] = useState(true);
@@ -139,6 +142,8 @@ export default function AlbumPlanner({ appConfig }) {
 
   const albumRef = useRef(null);
   const autosaveTimerRef = useRef(null);
+
+  const [showCardPicker, setShowCardPicker] = useState(false);
 
   useEffect(() => {
     albumRef.current = editingAlbum;
@@ -429,6 +434,8 @@ export default function AlbumPlanner({ appConfig }) {
     setHistoryFuture([]);
     setSaveStatus('idle');
     setAlbumNameDraft('');
+    setDraggingPageIndex(null);
+    setDragOverPageIndex(null);
   };
 
   const commitAlbumName = () => {
@@ -594,6 +601,44 @@ export default function AlbumPlanner({ appConfig }) {
     }
   };
 
+  const handleBatchAssign = (selectedCards) => {
+    if (!editingAlbum || !selectedCards.length) return;
+
+    applyAlbumUpdate((draft) => {
+      let cardIdx = 0;
+      const pageCount = draft.pages.length;
+      const slotCount = (draft.cols || 0) * (draft.rows || 0);
+
+      // 현재 페이지부터 시작하여 빈 슬롯을 채움
+      for (let offset = 0; offset < pageCount && cardIdx < selectedCards.length; offset++) {
+        const pIdx = (currentPageIndex + offset) % pageCount;
+        const page = draft.pages[pIdx];
+        
+        for (let sIdx = 0; sIdx < slotCount && cardIdx < selectedCards.length; sIdx++) {
+          if (!page.slots[sIdx]) {
+            page.slots[sIdx] = mapCardLite(selectedCards[cardIdx]);
+            cardIdx++;
+          }
+        }
+      }
+
+      // 그래도 남은 카드가 있다면 새 페이지 생성
+      while (cardIdx < selectedCards.length) {
+        const newPage = makeEmptyPage(slotCount);
+        const limit = Math.min(cardIdx + slotCount, selectedCards.length);
+        for (let sIdx = 0; cardIdx < limit; sIdx++, cardIdx++) {
+          newPage.slots[sIdx] = mapCardLite(selectedCards[cardIdx]);
+        }
+        draft.pages.push(newPage);
+      }
+
+      return draft;
+    });
+
+    setShowCardPicker(false);
+    alert(`${selectedCards.length}장의 카드가 배치되었습니다.`);
+  };
+
   const clearDragState = () => {
     setDraggingSlotIndex(null);
     setDragOverSlotIndex(null);
@@ -672,6 +717,38 @@ export default function AlbumPlanner({ appConfig }) {
     setCurrentPageIndex(targetPageIndex);
     setActiveSlotIndex(targetSlotIndex);
     clearCanvasDragState();
+  };
+
+  const handlePageDragOver = (e, index) => {
+    if (draggingPageIndex === null) return;
+    e.preventDefault();
+    setDragOverPageIndex(index);
+  };
+
+  const handlePageDrop = (e, targetIndex) => {
+    e.preventDefault();
+    if (draggingPageIndex === null || draggingPageIndex === targetIndex) {
+      setDraggingPageIndex(null);
+      setDragOverPageIndex(null);
+      return;
+    }
+
+    applyAlbumUpdate((draft) => {
+      const pages = [...draft.pages];
+      const [draggedPage] = pages.splice(draggingPageIndex, 1);
+      pages.splice(targetIndex, 0, draggedPage);
+      draft.pages = pages;
+      return draft;
+    });
+
+    setCurrentPageIndex(targetIndex);
+    setDraggingPageIndex(null);
+    setDragOverPageIndex(null);
+  };
+
+  const handlePageDragEnd = () => {
+    setDraggingPageIndex(null);
+    setDragOverPageIndex(null);
   };
 
   const clearSlotAt = (pageIndex, slotIndex) => {
@@ -1034,16 +1111,33 @@ export default function AlbumPlanner({ appConfig }) {
               {editingAlbum.pages.map((page, pageIndex) => {
                 const filledCount = (page.slots || []).filter(Boolean).length;
                 const totalCount = (page.slots || []).length;
+                const isPageDragging = draggingPageIndex === pageIndex;
+                const isPageDragOver = dragOverPageIndex === pageIndex && !isPageDragging;
+
                 return (
                   <article
                     key={`canvas-page-${pageIndex}`}
-                    className={`album-canvas-page-card ${currentPageIndex === pageIndex ? 'active' : ''}`}
+                    className={`album-canvas-page-card ${currentPageIndex === pageIndex ? 'active' : ''} ${isPageDragging ? 'dragging-page' : ''} ${isPageDragOver ? 'drag-over-page' : ''}`}
                     onClick={() => {
                       setCurrentPageIndex(pageIndex);
                     }}
+                    draggable={draggingPageIndex !== null}
+                    onDragOver={(e) => handlePageDragOver(e, pageIndex)}
+                    onDrop={(e) => handlePageDrop(e, pageIndex)}
+                    onDragEnd={handlePageDragEnd}
                   >
                     <header className="album-canvas-page-header">
-                      <strong>P{pageIndex + 1}</strong>
+                      <div className="album-canvas-page-header-left">
+                         <span 
+                           className="album-page-drag-handle" 
+                           title="페이지 이동 (드래그)"
+                           onMouseDown={() => setDraggingPageIndex(pageIndex)}
+                           onMouseUp={() => draggingPageIndex === pageIndex && setDraggingPageIndex(null)}
+                         >
+                           ⠿
+                         </span>
+                         <strong>P{pageIndex + 1}</strong>
+                      </div>
                       <small>{filledCount}/{totalCount}</small>
                     </header>
                     <div
@@ -1140,6 +1234,14 @@ export default function AlbumPlanner({ appConfig }) {
           <p>슬롯 선택 시 해당 위치에 배치되고, 미선택 시 빈 슬롯에 자동으로 순차 배치됩니다. (캔버스 모드는 전체 페이지 기준)</p>
 
           <div className="album-picker-top-actions">
+            <button 
+              type="button" 
+              className="btn btn-primary" 
+              style={{ width: '100%', marginBottom: '0.5rem', background: 'linear-gradient(135deg, #3b82f6, #6366f1)' }}
+              onClick={() => setShowCardPicker(true)}
+            >
+              🔍 상세 검색으로 한꺼번에 담기
+            </button>
             <input
               type="text"
               className="search-input"
@@ -1184,6 +1286,19 @@ export default function AlbumPlanner({ appConfig }) {
         onSave={handleModalSave}
         onDelete={handleModalDelete}
       />
+
+      {showCardPicker && (
+        <div className="modal-backdrop" style={{ zIndex: 1500 }}>
+          <div className="modal-content" style={{ maxWidth: '95vw', height: '90vh', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <FilterExplorer 
+              appConfig={appConfig} 
+              isPicker={true} 
+              onSelectCards={handleBatchAssign} 
+              onClose={() => setShowCardPicker(false)} 
+            />
+          </div>
+        </div>
+      )}
     </main>
   );
 }

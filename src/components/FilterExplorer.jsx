@@ -59,12 +59,21 @@ function mergeByMasterOrder(masterOptions, cardSet) {
   return result;
 }
 
-export default function FilterExplorer({ appConfig }) {
+export default function FilterExplorer({ appConfig, isPicker = false, onSelectCards, onClose }) {
   const { settings: thumbSettings, toggleSetting: toggleThumbSetting } = useThumbnailSettings();
   const [loading, setLoading] = useState(true);
   const [cards, setCards] = useState([]);
   const SERIES_VISIBLE_COUNT = 12;
   const [selectedCard, setSelectedCard] = useState(null);
+
+  // Picker mode state
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  const toggleSelection = (id) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
 
   const [searchTerm, setSearchTerm] = useState('');
   const [sortPanelOpen, setSortPanelOpen] = useState(false);
@@ -380,6 +389,26 @@ export default function FilterExplorer({ appConfig }) {
           <input type="number" min="2" max="12" value={gridColumns} onChange={(e) => setGridColumns(Number(e.target.value) || 6)} style={{ width: '36px', background: 'transparent', border: 'none', color: 'white', outline: 'none', textAlign: 'center', fontWeight: 'bold', fontSize: '0.9rem' }} />
         </div>
         <ThumbnailSettings settings={thumbSettings} toggleSetting={toggleThumbSetting} />
+        
+        {isPicker && (
+          <div className="picker-actions" style={{ marginLeft: 'auto', display: 'flex', gap: '0.6rem' }}>
+            <button type="button" className="btn btn-secondary" onClick={onClose}>취소</button>
+            <button 
+              type="button" 
+              className="btn btn-primary" 
+              disabled={selectedIds.length === 0}
+              onClick={() => {
+                // 선택된 순서(selectedIds의 순서)대로 카드를 정렬하여 전달
+                const selectedList = selectedIds
+                  .map(id => cards.find(c => c.id === id))
+                  .filter(Boolean);
+                onSelectCards(selectedList);
+              }}
+            >
+              {selectedIds.length}장 앨범에 추가하기
+            </button>
+          </div>
+        )}
       </div>
 
       <section className="selected-filter-summary" aria-live="polite">
@@ -436,22 +465,37 @@ export default function FilterExplorer({ appConfig }) {
               {filteredCards.map((card) => (
                 <article
                   key={card.id}
-                  className={`card-item filter-editable-card ${thumbSettings.hoverMode ? 'hover-mode-active' : ''}`}
-                  onClick={() => openModal(card)}
+                  className={`card-item filter-editable-card ${thumbSettings.hoverMode ? 'hover-mode-active' : ''} ${selectedIds.includes(card.id) ? 'picker-selected' : ''}`}
+                  onClick={() => {
+                    if (isPicker) {
+                      toggleSelection(card.id);
+                    } else {
+                      openModal(card);
+                    }
+                  }}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      openModal(card);
+                      if (isPicker) {
+                        toggleSelection(card.id);
+                      } else {
+                        openModal(card);
+                      }
                     }
                   }}
-                  title="클릭해서 카드 상세 수정"
+                  title={isPicker ? '클릭해서 선택/해제' : '클릭해서 카드 상세 수정'}
                 >
                   <div className={`card-image-wrapper ${(card.status === '미보유' || !card.status) ? 'filter-grayscale' : ''}`}>
                     <CardThumbnail imageUrl={card.imageUrl} alt={card.cardName || 'card'} type="grid" />
                     {card.rarity ? <span className="card-rarity">{card.rarity}</span> : null}
-                    <span className="filter-card-edit-hint">클릭 수정</span>
+                    {isPicker && (
+                      <div className="picker-checkbox">
+                        {selectedIds.includes(card.id) ? '✓' : ''}
+                      </div>
+                    )}
+                    {!isPicker && <span className="filter-card-edit-hint">클릭 수정</span>}
                   </div>
                   <div className="card-info">
                     {thumbSettings.showName && (

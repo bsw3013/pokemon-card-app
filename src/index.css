@@ -1835,3 +1835,125 @@ select.table-input { appearance: none; cursor: pointer; }
 .multi-sort-footer {
   margin-top: 1.2rem;
 }
+
+.album-canvas-page-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.album-page-drag-handle {
+  cursor: grab;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  padding: 0.2rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.album-page-drag-handle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.album-page-drag-handle:active {
+  cursor: grabbing;
+}
+
+.dragging-page {
+  opacity: 0.4;
+  transform: scale(0.98);
+  border: 2px dashed var(--accent-color) !important;
+}
+
+.drag-over-page {
+  border: 2px solid var(--accent-color) !important;
+  background: rgba(59, 130, 246, 0.1) !important;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+}
+
+/* Picker Mode Styles */
+.picker-selected {
+  border-color: var(--accent-color) !important;
+  background: rgba(59, 130, 246, 0.1) !important;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+}
+
+.picker-checkbox {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 26px;
+  height: 26px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 2px solid var(--accent-color);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 900;
+  font-size: 1.1rem;
+  z-index: 20;
+}
+
+.picker-selected .picker-checkbox {
+  background: var(--accent-color);
+}
+
+.picker-actions .btn {
+  padding: 0.6rem 1.2rem;
+  font-size: 0.95rem;
+}
+
+/* 픽커 모달 내부 스크롤 수정 */
+.modal-content .filter-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* 내부 레이아웃이 자체 스크롤하도록 설정 */
+}
+
+.modal-content .filter-layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  overflow: hidden;
+  height: 100%;
+}
+
+.modal-content .filter-results {
+  overflow-y: auto !important;
+  height: 100%;
+  padding-right: 0.5rem;
+  padding-bottom: 2rem; /* 하단 여백 */
+}
+
+.modal-content .filter-panel {
+  position: static !important;
+  max-height: 100% !important;
+  overflow-y: auto !important;
+}
+
+.modal-content .filter-header,
+.modal-content .filter-toolbar,
+.modal-content .selected-filter-summary {
+  flex-shrink: 0;
+  padding: 0.5rem 1.5rem;
+}
+
+.modal-content .filter-header { padding-top: 1.5rem; }
+.modal-content .filter-layout { padding: 1rem 1.5rem; }
+
+/* 모바일 대응 (픽커 모달 내) */
+@media (max-width: 960px) {
+  .modal-content .filter-layout {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+  .modal-content .filter-panel {
+    max-height: 300px;
+  }
+}
