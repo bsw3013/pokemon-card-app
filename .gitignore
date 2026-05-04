@@ -32,4 +32,5 @@ backfill.mjs
 setup_config.mjs
 notion_export/
 temp.html
-ExportBlock-*.zip
+# Firebase
+.firebase/
