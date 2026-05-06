@@ -393,6 +393,17 @@ export default function FilterExplorer({ appConfig, isPicker = false, onSelectCa
         {isPicker && (
           <div className="picker-actions" style={{ marginLeft: 'auto', display: 'flex', gap: '0.6rem' }}>
             <button type="button" className="btn btn-secondary" onClick={onClose}>취소</button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={filteredCards.length === 0}
+              style={{ borderColor: 'rgba(99, 102, 241, 0.5)', color: '#a5b4fc', background: 'rgba(79, 70, 229, 0.1)' }}
+              onClick={() => {
+                onSelectCards(filteredCards);
+              }}
+            >
+              검색된 {filteredCards.length}장 모두 추가
+            </button>
             <button 
               type="button" 
               className="btn btn-primary" 
@@ -405,7 +416,7 @@ export default function FilterExplorer({ appConfig, isPicker = false, onSelectCa
                 onSelectCards(selectedList);
               }}
             >
-              {selectedIds.length}장 앨범에 추가하기
+              선택한 {selectedIds.length}장 추가
             </button>
           </div>
         )}

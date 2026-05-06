@@ -9,6 +9,10 @@ import { formatCardPayload } from '../utils/cardUtils';
 import CardDetailModal from './CardDetailModal';
 import CardThumbnail from './CardThumbnail';
 import FilterExplorer from './FilterExplorer';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 const ALBUM_COLLECTION = 'album_plans';
 const DRAFT_STORAGE_PREFIX = 'album_draft_';
@@ -144,6 +148,8 @@ export default function AlbumPlanner({ appConfig }) {
   const autosaveTimerRef = useRef(null);
 
   const [showCardPicker, setShowCardPicker] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   useEffect(() => {
     albumRef.current = editingAlbum;
@@ -436,6 +442,77 @@ export default function AlbumPlanner({ appConfig }) {
     setAlbumNameDraft('');
     setDraggingPageIndex(null);
     setDragOverPageIndex(null);
+  };
+
+  const handleExportAlbum = async (format) => {
+    setShowExportModal(false);
+    
+    // 강제로 캔버스 모드로 전환하여 모든 페이지 렌더링
+    const prevViewMode = editorViewMode;
+    const prevColumns = canvasColumns;
+    
+    setEditorViewMode('canvas');
+    if (format !== 'full') {
+      // 개별 페이지 단위 캡처를 위해 1열 강제 변경
+      setCanvasColumns(1);
+    }
+    setIsExporting(true);
+
+    setTimeout(async () => {
+      try {
+        if (format === 'full') {
+          const board = document.querySelector('.album-canvas-board');
+          if (!board) {
+            alert('내보낼 앨범 영역을 찾을 수 없습니다.');
+            return;
+          }
+          // 전체 캔버스는 너무 클 수 있으므로 scale을 1.2로 낮춰 용량/메모리 절약
+          const canvas = await html2canvas(board, { scale: 1.2, useCORS: true, backgroundColor: '#1e293b' });
+          canvas.toBlob((blob) => {
+            saveAs(blob, `${editingAlbum.name || '앨범'}_전체보기.jpg`);
+          }, 'image/jpeg', 0.85);
+        } else {
+          const pages = document.querySelectorAll('.album-canvas-page-card');
+          if (pages.length === 0) {
+            alert('내보낼 앨범 페이지가 없습니다.');
+            return;
+          }
+
+          if (format === 'pdf') {
+            const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true });
+            for (let i = 0; i < pages.length; i++) {
+              // PDF용 개별 페이지 캡처 해상도를 2에서 1.5로 낮추고 JPEG 품질 80%
+              const canvas = await html2canvas(pages[i], { scale: 1.5, useCORS: true, backgroundColor: '#1e293b' });
+              const imgData = canvas.toDataURL('image/jpeg', 0.8);
+              
+              const pdfWidth = pdf.internal.pageSize.getWidth();
+              const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+              
+              if (i > 0) pdf.addPage();
+              pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+            }
+            pdf.save(`${editingAlbum.name || '앨범'}.pdf`);
+          } else if (format === 'zip') {
+            const zip = new JSZip();
+            for (let i = 0; i < pages.length; i++) {
+              // ZIP용 개별 페이지 캡처 해상도 1.5, 품질 85%
+              const canvas = await html2canvas(pages[i], { scale: 1.5, useCORS: true, backgroundColor: '#1e293b' });
+              const imgData = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+              zip.file(`page_${i + 1}.jpg`, imgData, { base64: true });
+            }
+            const content = await zip.generateAsync({ type: 'blob' });
+            saveAs(content, `${editingAlbum.name || '앨범'}.zip`);
+          }
+        }
+      } catch (err) {
+        console.error('Export error:', err);
+        alert('내보내기 중 오류가 발생했습니다. (외부 이미지 접근 차단일 수 있습니다)');
+      } finally {
+        setIsExporting(false);
+        setEditorViewMode(prevViewMode);
+        setCanvasColumns(prevColumns);
+      }
+    }, 800); // UI 렌더링 대기
   };
 
   const commitAlbumName = () => {
@@ -988,11 +1065,26 @@ export default function AlbumPlanner({ appConfig }) {
           <button type="button" className="btn btn-secondary" onClick={addNewPage}>＋ 페이지 추가</button>
           <button type="button" className="btn btn-secondary" onClick={duplicateCurrentPage}>📄 페이지 복제</button>
           <button type="button" className="btn btn-danger" onClick={removeCurrentPage}>현재 페이지 삭제</button>
+          <div style={{ position: 'relative' }}>
+            <button type="button" className="btn btn-primary" onClick={() => setShowExportModal(p => !p)} disabled={isExporting}>
+              {isExporting ? '캡처 중...' : '📥 앨범 내보내기'}
+            </button>
+            {showExportModal && (
+              <div className="multi-sort-panel" style={{ width: '220px', right: 0, top: '100%', padding: '1rem', zIndex: 1000 }}>
+                <h4 style={{ marginBottom: '0.8rem', fontSize: '1rem' }}>앨범 내보내기</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <button type="button" className="btn btn-secondary" onClick={() => handleExportAlbum('pdf')}>📄 PDF로 저장</button>
+                  <button type="button" className="btn btn-secondary" onClick={() => handleExportAlbum('zip')}>🖼️ 이미지(ZIP) 저장</button>
+                  <button type="button" className="btn btn-secondary" style={{ borderColor: 'rgba(99, 102, 241, 0.5)', color: '#a5b4fc', background: 'rgba(79, 70, 229, 0.1)' }} onClick={() => handleExportAlbum('full')}>📸 캔버스 한장으로 저장 (JPG)</button>
+                </div>
+              </div>
+            )}
+          </div>
           <span className={`album-save-status ${saveStatus}`}>{saveStatus === 'saving' ? '자동 저장 중...' : saveStatus === 'saved' ? '자동 저장됨' : saveStatus === 'error' ? '저장 실패' : '편집 대기'}</span>
         </div>
       </div>
 
-      <div className="album-editor-layout">
+      <div className={`album-editor-layout ${isExporting ? 'exporting-mode' : ''}`}>
         <section className="album-page-preview-wrap">
           {editorViewMode === 'page' && (
             <>

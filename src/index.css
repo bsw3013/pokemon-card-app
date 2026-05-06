@@ -174,7 +174,7 @@ body { margin: 0; font-family: 'Outfit', sans-serif; background-color: var(--bg-
 .hero h1 { font-size: 3.5rem; font-weight: 800; margin-bottom: 1rem; line-height: 1.2; }
 .hero p { font-size: 1.2rem; color: var(--text-muted); max-width: 600px; margin-bottom: 3rem; }
 .btn-group { display: flex; gap: 0.9rem; }
-.btn { padding: 0.62rem 1.15rem; border-radius: 999px; font-family: inherit; font-weight: 700; font-size: 0.92rem; cursor: pointer; border: none; transition: all 0.2s ease; line-height: 1.1; }
+.btn { padding: 0.62rem 1.15rem; border-radius: 999px; font-family: inherit; font-weight: 700; font-size: 0.92rem; cursor: pointer; border: none; transition: all 0.2s ease; line-height: 1.1; white-space: nowrap; flex-shrink: 0; }
 .btn-primary { background-color: var(--primary-color); color: white; box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3); }
 .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5); background-color: var(--primary-hover);}
 .btn-secondary { background-color: transparent; color: var(--text-main); border: 2px solid var(--surface-color); }
@@ -488,8 +488,8 @@ body { margin: 0; font-family: 'Outfit', sans-serif; background-color: var(--bg-
 /* -------------------------------------
    관리자 뷰 (Admin Table / Spreadsheet) CSS
 -------------------------------------- */
-.view-toggle { display: flex; background: rgba(0,0,0,0.3); border-radius: 999px; padding: 4px; }
-.btn-toggle { background: transparent; color: var(--text-muted); border: none; padding: 0.42rem 0.88rem; border-radius: 999px; font-weight: bold; cursor: pointer; transition: 0.3s; font-family: inherit; font-size: 0.84rem; }
+.view-toggle { display: flex; background: rgba(0,0,0,0.3); border-radius: 999px; padding: 4px; flex-shrink: 0; }
+.btn-toggle { background: transparent; color: var(--text-muted); border: none; padding: 0.42rem 0.88rem; border-radius: 999px; font-weight: bold; cursor: pointer; transition: 0.3s; font-family: inherit; font-size: 0.84rem; white-space: nowrap; flex-shrink: 0; }
 .btn-toggle:hover { color: white; }
 .btn-toggle.active { background: var(--surface-color-hover); color: white; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
 
@@ -1167,6 +1167,11 @@ select.table-input { appearance: none; cursor: pointer; }
    gap: 0.5rem;
    align-items: center;
    margin-bottom: 0.45rem;
+}
+
+.album-name-edit-row button {
+   flex-shrink: 0;
+   white-space: nowrap;
 }
 
 .album-name-input {
@@ -1957,3 +1962,45 @@ select.table-input { appearance: none; cursor: pointer; }
     max-height: 300px;
   }
 }
+
+/* -------------------------------------
+   앨범 내보내기 캡처용 스타일 (Export Mode)
+-------------------------------------- */
+.exporting-mode .album-page-drag-handle,
+.exporting-mode .album-slot-remove {
+  display: none !important;
+}
+
+.exporting-mode .album-canvas-page-card {
+  box-shadow: none !important;
+  border-color: transparent !important;
+  background: transparent !important;
+}
+
+.exporting-mode .album-slot {
+  border-color: transparent !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.exporting-mode .album-slot-empty {
+  color: transparent !important;
+  background: transparent !important;
+}
+
+/* html2canvas object-fit 버그 해결: 캡처 시 강제로 자연스러운 비율 유지 */
+.exporting-mode .album-slot-visual {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.exporting-mode .album-slot img {
+  object-fit: unset !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  width: auto !important;
+  height: auto !important;
+}
+
+
