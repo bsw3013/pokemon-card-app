@@ -54,6 +54,26 @@ function App() {
   const [isNavPinned, setIsNavPinned] = useState(false);
   const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 960 : false));
   const closeTimerRef = useRef(null);
+  
+  // 맨 위로 가기 버튼(Back to top) 제어 상태
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleScroll = () => {
+      if (window.scrollY > 400) {
+        setShowScrollBtn(true);
+      } else {
+        setShowScrollBtn(false);
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const clearCloseTimer = () => {
     if (closeTimerRef.current) {
@@ -325,6 +345,18 @@ function App() {
         </main>
       )}
       </>
+      )}
+
+      {showScrollBtn && (
+        <button 
+          type="button" 
+          className="scroll-to-top-btn" 
+          onClick={scrollToTop} 
+          title="맨 위로 이동"
+          aria-label="맨 위로 이동"
+        >
+          ▲
+        </button>
       )}
     </>
   );
