@@ -1118,13 +1118,39 @@ export default function AlbumPlanner({ appConfig }) {
             const completion = countOwnedAndPlacedSlots(album);
             return (
               <article key={album.id} className={`album-card ${albumViewMode}`}>
-                <div className="album-card-main" onClick={() => !showTrash && openAlbumEditor(album)} style={{ cursor: showTrash ? 'default' : 'pointer' }}>
-                  <h3>{album.name} {showTrash && <span style={{fontSize: '0.8rem', color: 'var(--danger-color)'}}>(삭제됨)</span>}</h3>
-                  <p>레이아웃: {album.layoutKey} · 페이지 {album.pageCount || album.pages?.length || 1}장</p>
-                  <p>완성도(보유중/배치): {completion.ownedPlaced}/{completion.placed}</p>
-                  <small>배치 현황: {filled}/{total}</small>
-                  <small>최근 수정: {String(album.updatedAt || '').replace('T', ' ').slice(0, 16) || '-'}</small>
-                </div>
+                {albumViewMode === 'list' ? (
+                  <div className="album-card-main list" onClick={() => !showTrash && openAlbumEditor(album)} style={{ cursor: showTrash ? 'default' : 'pointer' }}>
+                    <div className="album-info-title">
+                      <h3>{album.name} {showTrash && <span style={{fontSize: '0.8rem', color: 'var(--danger-color)'}}>(삭제됨)</span>}</h3>
+                    </div>
+                    <div className="album-info-details">
+                      <span className="info-item">
+                        <span className="info-label">레이아웃</span>
+                        <span className="info-val">{album.layoutKey} ({album.pageCount || album.pages?.length || 1}장)</span>
+                      </span>
+                      <span className="info-item">
+                        <span className="info-label">완성도</span>
+                        <span className="info-val">{completion.ownedPlaced}/{completion.placed}</span>
+                      </span>
+                      <span className="info-item">
+                        <span className="info-label">배치 현황</span>
+                        <span className="info-val">{filled}/{total}</span>
+                      </span>
+                      <span className="info-item">
+                        <span className="info-label">최근 수정</span>
+                        <span className="info-val">{String(album.updatedAt || '').replace('T', ' ').slice(0, 16) || '-'}</span>
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="album-card-main" onClick={() => !showTrash && openAlbumEditor(album)} style={{ cursor: showTrash ? 'default' : 'pointer' }}>
+                    <h3>{album.name} {showTrash && <span style={{fontSize: '0.8rem', color: 'var(--danger-color)'}}>(삭제됨)</span>}</h3>
+                    <p>레이아웃: {album.layoutKey} · 페이지 {album.pageCount || album.pages?.length || 1}장</p>
+                    <p>완성도(보유중/배치): {completion.ownedPlaced}/{completion.placed}</p>
+                    <small>배치 현황: {filled}/{total}</small>
+                    <small>최근 수정: {String(album.updatedAt || '').replace('T', ' ').slice(0, 16) || '-'}</small>
+                  </div>
+                )}
                 {showTrash ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     <button type="button" className="btn btn-secondary" onClick={() => handleRestoreAlbum(album.id)}>복구하기</button>

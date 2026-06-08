@@ -1144,6 +1144,17 @@ select.table-input { appearance: none; cursor: pointer; }
    justify-content: space-between;
    gap: 1rem;
    align-items: center;
+   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.album-card:hover {
+   transform: translateY(-2px);
+   border-color: rgba(99, 102, 241, 0.4);
+   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.album-card.list {
+   padding: 0.75rem 1.25rem;
 }
 
 .album-card.grid {
@@ -1156,6 +1167,56 @@ select.table-input { appearance: none; cursor: pointer; }
    display: flex;
    flex-direction: column;
    gap: 0.35rem;
+}
+
+.album-card-main.list {
+   display: flex;
+   flex-direction: row;
+   justify-content: space-between;
+   align-items: center;
+   flex: 1;
+   gap: 2rem;
+   margin-right: 1.5rem;
+}
+
+.album-info-title {
+   flex: 1;
+   min-width: 180px;
+}
+
+.album-info-title h3 {
+   margin: 0;
+   font-size: 1.15rem;
+   font-weight: 600;
+   color: #f8fafc;
+}
+
+.album-info-details {
+   display: flex;
+   align-items: center;
+   gap: 1rem;
+   flex-wrap: wrap;
+}
+
+.info-item {
+   display: inline-flex;
+   align-items: center;
+   gap: 0.4rem;
+   font-size: 0.82rem;
+   background: rgba(255, 255, 255, 0.03);
+   padding: 0.2rem 0.5rem;
+   border-radius: 6px;
+   border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.info-label {
+   color: var(--text-muted);
+   font-weight: 500;
+}
+
+.info-val {
+   color: #e2e8f0;
+   font-weight: 600;
 }
 
 .album-card-main h3 {
