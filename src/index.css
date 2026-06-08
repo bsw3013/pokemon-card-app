@@ -1192,21 +1192,24 @@ select.table-input { appearance: none; cursor: pointer; }
 }
 
 .album-info-details {
-   display: flex;
+   display: grid;
+   grid-template-columns: 140px 100px 125px 190px;
+   gap: 0.75rem;
    align-items: center;
-   gap: 1rem;
-   flex-wrap: wrap;
 }
 
 .info-item {
-   display: inline-flex;
+   display: flex;
    align-items: center;
-   gap: 0.4rem;
+   justify-content: space-between; /* 양끝 정렬로 정보 구분성 극대화 */
+   gap: 0.5rem;
    font-size: 0.82rem;
    background: rgba(255, 255, 255, 0.03);
-   padding: 0.2rem 0.5rem;
+   padding: 0.25rem 0.6rem;
    border-radius: 6px;
    border: 1px solid rgba(255, 255, 255, 0.05);
+   box-sizing: border-box;
+   width: 100%;
 }
 
 .info-label {
