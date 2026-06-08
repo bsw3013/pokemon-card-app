@@ -1143,7 +1143,7 @@ export default function AlbumPlanner({ appConfig }) {
             const total = totalSlots(album);
             const completion = countOwnedAndPlacedSlots(album);
             return (
-              <article key={album.id} className={`album-card ${albumViewMode}`} style={{ borderLeft: `6px solid ${album.coverColor || '#334155'}` }}>
+              <article key={album.id} className={`album-card ${albumViewMode}`}>
                 {albumViewMode === 'list' ? (
                   <div className="album-card-main list" onClick={() => !showTrash && openAlbumEditor(album)} style={{ cursor: showTrash ? 'default' : 'pointer' }}>
                     <div className="album-info-title">
@@ -1220,31 +1220,6 @@ export default function AlbumPlanner({ appConfig }) {
                 <input type="number" min={1} max={30} value={newPageCount} onChange={(e) => setNewPageCount(Number(e.target.value) || 1)} />
               </div>
 
-              <div className="form-group">
-                <label>앨범 테마 색상</label>
-                <div className="color-palette-picker" style={{ display: 'flex', gap: '0.6rem', padding: '0.2rem 0' }}>
-                  {SIGNATURE_COLORS.map((color) => (
-                    <button
-                      type="button"
-                      key={color.hex}
-                      className={`color-picker-chip ${newCoverColor === color.hex ? 'active' : ''}`}
-                      style={{
-                        width: '32px',
-                        height: '32px',
-                        borderRadius: '50%',
-                        border: newCoverColor === color.hex ? '3px solid #6366f1' : '1px solid rgba(255,255,255,0.2)',
-                        backgroundColor: color.hex,
-                        cursor: 'pointer',
-                        transform: newCoverColor === color.hex ? 'scale(1.15)' : 'scale(1)',
-                        transition: 'transform 0.2s ease, border 0.2s ease',
-                      }}
-                      onClick={() => setNewCoverColor(color.hex)}
-                      title={color.label}
-                    />
-                  ))}
-                </div>
-              </div>
-
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowCreate(false)}>취소</button>
                 <button type="button" className="btn btn-primary" onClick={handleCreateAlbum}>생성</button>
@@ -1277,28 +1252,6 @@ export default function AlbumPlanner({ appConfig }) {
               placeholder="앨범 이름"
             />
             <button type="button" className="btn btn-secondary" onClick={commitAlbumName}>이름 저장</button>
-
-            <div className="mini-color-picker" style={{ display: 'flex', gap: '0.4rem', marginLeft: '1rem', alignItems: 'center' }}>
-              {SIGNATURE_COLORS.map((color) => (
-                <button
-                  type="button"
-                  key={color.hex}
-                  className={`mini-color-chip ${editingAlbum.coverColor === color.hex ? 'active' : ''}`}
-                  style={{
-                    width: '20px',
-                    height: '20px',
-                    borderRadius: '50%',
-                    border: editingAlbum.coverColor === color.hex ? '2.5px solid #818cf8' : '1px solid rgba(255,255,255,0.2)',
-                    backgroundColor: color.hex,
-                    cursor: 'pointer',
-                    transform: editingAlbum.coverColor === color.hex ? 'scale(1.15)' : 'scale(1)',
-                    transition: 'transform 0.15s ease, border 0.15s ease',
-                  }}
-                  onClick={() => handleUpdateCoverColor(color.hex)}
-                  title={`앨범 색상 변경: ${color.label}`}
-                />
-              ))}
-            </div>
           </div>
           <p>레이아웃 {editingAlbum.layoutKey} · 페이지 {currentPageIndex + 1}/{editingAlbum.pages.length} · 보기 {editorViewMode === 'page' ? '페이지' : editorViewMode === 'canvas' ? '전체 캔버스' : '앨범 넘겨보기'}</p>
         </div>
@@ -1642,9 +1595,6 @@ export default function AlbumPlanner({ appConfig }) {
 
               return (
                 <div className="album-book-page-content">
-                  <header className="book-page-num-header">
-                    <strong>P{pageIndex + 1}</strong>
-                  </header>
                   <div 
                     className="album-book-grid" 
                     style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
@@ -1655,27 +1605,20 @@ export default function AlbumPlanner({ appConfig }) {
                       return (
                         <div
                           key={`book-slot-${pageIndex}-${slotIdx}`}
-                          className={`album-slot ${isEmpty ? 'empty' : ''}`}
+                          className={`book-slot-pocket ${isEmpty ? 'empty' : 'filled'}`}
                           onClick={() => {
                             if (isEmpty) return;
                             openSlotCardEditor(resolvedSlot, pageIndex, slotIdx);
                           }}
                           title={isEmpty ? '빈 슬롯' : `${resolvedSlot.cardName || '카드'} 슬롯`}
-                          style={{ cursor: isEmpty ? 'default' : 'pointer' }}
                         >
-                          <div className="album-slot-visual">
-                            <CardThumbnail imageUrl={resolvedSlot?.imageUrl} alt={resolvedSlot?.cardName || 'card'} type="album-slot" />
-                            {!isEmpty && (
-                              <div className="album-slot-details">
-                                <small>{resolvedSlot?.series || '-'}</small>
-                                <small>{resolvedSlot?.cardNumber || '-'}</small>
-                              </div>
-                            )}
-                          </div>
-                          <div className="album-slot-meta">
-                            <strong>{resolvedSlot?.cardName || `슬롯 ${slotIdx + 1}`}</strong>
-                            <span className={`album-slot-status ${getStatusTone(resolvedSlot?.status)}`}>{resolvedSlot?.status || '미배치'}</span>
-                          </div>
+                          {!isEmpty && (
+                            <img 
+                              src={resolvedSlot.imageUrl} 
+                              alt={resolvedSlot.cardName || 'card'} 
+                              className="book-slot-pocket-img"
+                            />
+                          )}
                         </div>
                       );
                     })}

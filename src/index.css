@@ -2202,7 +2202,7 @@ select.table-input { appearance: none; cursor: pointer; }
 }
 
 .album-book-container {
-  perspective: 1800px;
+  perspective: 2000px;
   width: 100%;
   max-width: 1100px;
   aspect-ratio: 1.6 / 1;
@@ -2212,15 +2212,15 @@ select.table-input { appearance: none; cursor: pointer; }
   position: relative;
 }
 
-/* 책 래퍼 */
+/* 책 래퍼 (기본 검정색 가죽 바인더 질감 고정) */
 .book-wrapper {
   position: relative;
   height: 100%;
   transform-style: preserve-3d;
   transition: transform 0.6s cubic-bezier(0.645, 0.045, 0.355, 1), width 0.6s ease;
   border-radius: 16px;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.65);
-  background-color: var(--theme-color);
+  box-shadow: 0 30px 85px rgba(0, 0, 0, 0.85);
+  background-color: #0c0f17;
   box-sizing: border-box;
 }
 
@@ -2240,14 +2240,14 @@ select.table-input { appearance: none; cursor: pointer; }
   transform: translateX(0) rotateY(0deg);
 }
 
-/* 책 표지 */
+/* 책 표지 (블랙 가죽 테마 고정) */
 .book-cover {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.07), rgba(0, 0, 0, 0.35)), var(--theme-color);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.5)), #0c0f17;
   border-radius: 16px;
   display: flex;
   flex-direction: column;
@@ -2255,8 +2255,8 @@ select.table-input { appearance: none; cursor: pointer; }
   align-items: center;
   cursor: pointer;
   user-select: none;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: inset 0 2px 5px rgba(255, 255, 255, 0.1), inset 0 -2px 5px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 2px 5px rgba(255, 255, 255, 0.05), inset 0 -2px 5px rgba(0, 0, 0, 0.3);
   box-sizing: border-box;
   overflow: hidden;
   z-index: 10;
@@ -2268,31 +2268,31 @@ select.table-input { appearance: none; cursor: pointer; }
   top: 0;
   bottom: 0;
   width: 35px;
-  background: rgba(0, 0, 0, 0.4);
-  border-right: 2.5px dashed rgba(255, 255, 255, 0.15);
-  box-shadow: inset -5px 0 10px rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.5);
+  border-right: 2.5px dashed rgba(255, 255, 255, 0.1);
+  box-shadow: inset -5px 0 10px rgba(0, 0, 0, 0.7);
 }
 
 .cover-spine-binding.right {
   left: auto;
   right: 0;
-  border-left: 2.5px dashed rgba(255, 255, 255, 0.15);
+  border-left: 2.5px dashed rgba(255, 255, 255, 0.1);
   border-right: none;
-  box-shadow: inset 5px 0 10px rgba(0, 0, 0, 0.5);
+  box-shadow: inset 5px 0 10px rgba(0, 0, 0, 0.7);
 }
 
 .cover-title-badge {
-  background: rgba(15, 23, 42, 0.88);
+  background: rgba(10, 10, 15, 0.93);
   padding: 2.5rem 3.5rem;
   border-radius: 12px;
-  border: 2px solid rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.05);
   text-align: center;
   color: white;
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
   align-items: center;
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   max-width: 80%;
@@ -2302,15 +2302,15 @@ select.table-input { appearance: none; cursor: pointer; }
   font-size: 2.4rem;
   margin: 0;
   font-weight: 800;
-  background: linear-gradient(135deg, #ffffff, #cbd5e1);
+  background: linear-gradient(135deg, #ffffff, #94a3b8);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
 .cover-title-badge p {
   font-size: 1rem;
-  color: #a5b4fc;
+  color: #818cf8;
   letter-spacing: 0.15em;
   text-transform: uppercase;
   margin: 0;
@@ -2325,22 +2325,22 @@ select.table-input { appearance: none; cursor: pointer; }
 .cover-open-hint {
   margin-top: 1.5rem;
   font-size: 0.95rem;
-  color: #818cf8;
+  color: #6366f1;
   font-weight: 700;
   letter-spacing: 0.05em;
   animation: pulse 1.8s infinite;
 }
 
-/* 펼쳐진 양면 레이아웃 */
+/* 펼쳐진 양면 레이아웃 (블랙 가죽 바인더 안감 고정) */
 .book-spread-inner {
   display: flex;
   width: 100%;
   height: 100%;
-  background: linear-gradient(to right, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.05) 8%, rgba(255, 255, 255, 0.01) 45%, rgba(0, 0, 0, 0.65) 50%, rgba(255, 255, 255, 0.01) 55%, rgba(0, 0, 0, 0.05) 92%, rgba(0, 0, 0, 0.35)), var(--theme-color);
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.1) 8%, rgba(255, 255, 255, 0.01) 45%, rgba(0, 0, 0, 0.75) 50%, rgba(255, 255, 255, 0.01) 55%, rgba(0, 0, 0, 0.1) 92%, rgba(0, 0, 0, 0.4)), #0c0f17;
   border-radius: 16px;
   overflow: hidden;
   position: relative;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   box-sizing: border-box;
 }
 
@@ -2349,7 +2349,7 @@ select.table-input { appearance: none; cursor: pointer; }
   flex: 1;
   height: 100%;
   overflow-y: auto;
-  padding: 1.5rem 2rem;
+  padding: 1.5rem 1.8rem;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
@@ -2364,23 +2364,23 @@ select.table-input { appearance: none; cursor: pointer; }
   background: transparent;
 }
 .book-page::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 3px;
 }
 .book-page::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .book-page.left-page {
-  background: rgba(15, 23, 42, 0.28);
-  border-right: 1.5px solid rgba(0, 0, 0, 0.45);
-  padding-right: 2.2rem;
+  background: rgba(10, 10, 15, 0.45);
+  border-right: 1.5px solid rgba(0, 0, 0, 0.5);
+  padding-right: 2rem;
 }
 
 .book-page.right-page {
-  background: rgba(15, 23, 42, 0.28);
-  border-left: 1.5px solid rgba(0, 0, 0, 0.45);
-  padding-left: 2.2rem;
+  background: rgba(10, 10, 15, 0.45);
+  border-left: 1.5px solid rgba(0, 0, 0, 0.5);
+  padding-left: 2rem;
 }
 
 /* 표지 안쪽 빈 안감 질감 */
@@ -2390,9 +2390,9 @@ select.table-input { appearance: none; cursor: pointer; }
   display: flex;
   justify-content: center;
   align-items: center;
-  background: linear-gradient(135deg, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.65));
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.8));
   border-radius: 8px;
-  box-shadow: inset 0 5px 20px rgba(0, 0, 0, 0.8);
+  box-shadow: inset 0 5px 25px rgba(0, 0, 0, 0.9);
   position: relative;
   overflow: hidden;
 }
@@ -2403,43 +2403,67 @@ select.table-input { appearance: none; cursor: pointer; }
   left: 0;
   right: 0;
   bottom: 0;
-  opacity: 0.06;
+  opacity: 0.04;
   background-image: radial-gradient(rgba(255, 255, 255, 0.5) 1.5px, transparent 0);
   background-size: 10px 10px;
 }
 
-/* 페이지 번호 헤더 */
-.book-page-num-header {
-  display: flex;
-  justify-content: flex-end;
-  padding-bottom: 0.6rem;
-  border-bottom: 1.5px solid rgba(255, 255, 255, 0.08);
-  margin-bottom: 1.2rem;
-}
-
-.book-page-num-header strong {
-  font-size: 0.95rem;
-  color: rgba(255, 255, 255, 0.45);
-  letter-spacing: 0.08em;
-}
-
-.left-page .book-page-num-header {
-  justify-content: flex-start;
-}
-
-/* 책 내부 격자 */
-.album-book-page-content {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  width: 100%;
-}
-
+/* 넘겨보기 모드 격자 - 카드 꽉 차게 */
 .album-book-grid {
   display: grid;
-  gap: 0.85rem;
+  gap: 0.6rem;
   width: 100%;
   margin: 0 auto;
+}
+
+/* 넘겨보기 전용 포켓 정의 (실물 비닐 바인더 포켓 느낌 시뮬레이션) */
+.book-slot-pocket {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1.4;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  overflow: hidden;
+  box-sizing: border-box;
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.25s, box-shadow 0.25s;
+}
+
+/* 카드가 꼽혀 있는 슬롯 */
+.book-slot-pocket.filled {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.book-slot-pocket.filled:hover {
+  transform: scale(1.05) translateY(-2px);
+  border-color: rgba(99, 102, 241, 0.5);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.75);
+  z-index: 10;
+}
+
+/* 카드 이미지 꽉 채우기 */
+.book-slot-pocket-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  user-select: none;
+}
+
+/* 포켓 위로 비닐 광택 코팅 연출 */
+.book-slot-pocket::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 60%, rgba(0, 0, 0, 0.08) 100%);
+  pointer-events: none;
+  z-index: 2;
 }
 
 /* 중앙 스프링 바인더 고리 */
@@ -2461,9 +2485,9 @@ select.table-input { appearance: none; cursor: pointer; }
 .ring-coil {
   width: 34px;
   height: 12px;
-  background: linear-gradient(to bottom, #f1f5f9 20%, #94a3b8 50%, #475569 80%);
+  background: linear-gradient(to bottom, #f1f5f9 20%, #94a3b8 50%, #334155 80%);
   border-radius: 6px;
-  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.65), inset 0 1px 2px rgba(255, 255, 255, 0.9);
+  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.7), inset 0 1px 2px rgba(255, 255, 255, 0.9);
   transform: rotate(-6deg);
 }
 
@@ -2482,13 +2506,13 @@ select.table-input { appearance: none; cursor: pointer; }
 
 @keyframes book-flip-next {
   0% { transform: rotateY(0deg); opacity: 1; }
-  50% { opacity: 0.4; }
+  50% { opacity: 0.3; }
   100% { transform: rotateY(-180deg); opacity: 0; }
 }
 
 @keyframes book-flip-prev {
   0% { transform: rotateY(0deg); opacity: 1; }
-  50% { opacity: 0.4; }
+  50% { opacity: 0.3; }
   100% { transform: rotateY(180deg); opacity: 0; }
 }
 
@@ -2501,12 +2525,12 @@ select.table-input { appearance: none; cursor: pointer; }
   width: 100%;
   max-width: 620px;
   padding: 0.6rem 1.5rem;
-  background: rgba(15, 23, 42, 0.72);
+  background: rgba(10, 10, 15, 0.85);
   border-radius: 50px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 .book-controls-nav button {
