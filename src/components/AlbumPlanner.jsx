@@ -24,6 +24,16 @@ const LAYOUT_OPTIONS = [
   { key: '4x3', cols: 4, rows: 3, label: '4 x 3 (12칸)' },
 ];
 
+const SIGNATURE_COLORS = [
+  { hex: '#334155', label: '차콜' },
+  { hex: '#ef4444', label: '레드' },
+  { hex: '#3b82f6', label: '블루' },
+  { hex: '#10b981', label: '그린' },
+  { hex: '#f59e0b', label: '옐로우' },
+  { hex: '#8b5cf6', label: '퍼플' },
+];
+
+
 const MAX_HISTORY = 80;
 
 const { krToEn, krToJa } = pokemonMapAll;
@@ -38,7 +48,7 @@ function makeEmptyPage(slotCount) {
   };
 }
 
-function createNewAlbumPayload(name, layoutKey, pageCount = 1) {
+function createNewAlbumPayload(name, layoutKey, pageCount = 1, coverColor = '#334155') {
   const layout = LAYOUT_OPTIONS.find((item) => item.key === layoutKey) || LAYOUT_OPTIONS[1];
   const slotCount = layout.cols * layout.rows;
   const pages = Array.from({ length: Math.max(1, pageCount) }, () => makeEmptyPage(slotCount));
@@ -51,6 +61,7 @@ function createNewAlbumPayload(name, layoutKey, pageCount = 1) {
     rows: layout.rows,
     pages,
     pageCount: pages.length,
+    coverColor: coverColor || '#334155',
     createdAt: now,
     updatedAt: now,
   };
@@ -119,6 +130,10 @@ export default function AlbumPlanner({ appConfig }) {
   const [newAlbumName, setNewAlbumName] = useState('');
   const [newLayout, setNewLayout] = useState('3x3');
   const [newPageCount, setNewPageCount] = useState(1);
+  const [newCoverColor, setNewCoverColor] = useState('#334155');
+  const [bookStep, setBookStep] = useState(0);
+  const [isFlipping, setIsFlipping] = useState(false);
+  const [flipDirection, setFlipDirection] = useState('next');
 
   const [editingAlbum, setEditingAlbum] = useState(null);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
@@ -526,6 +541,7 @@ export default function AlbumPlanner({ appConfig }) {
 
     setCurrentPageIndex(0);
     setEditorViewMode('canvas');
+    setBookStep(0);
     setActiveSlotIndex(null);
     setHistoryPast([]);
     setHistoryFuture([]);
@@ -538,6 +554,7 @@ export default function AlbumPlanner({ appConfig }) {
     setEditingAlbum(null);
     setCurrentPageIndex(0);
     setEditorViewMode('canvas');
+    setBookStep(0);
     setActiveSlotIndex(null);
     setDraggingSlotIndex(null);
     setDragOverSlotIndex(null);
@@ -689,8 +706,16 @@ export default function AlbumPlanner({ appConfig }) {
     });
   };
 
+  const handleUpdateCoverColor = (color) => {
+    if (!editingAlbum) return;
+    applyAlbumUpdate((draft) => {
+      draft.coverColor = color;
+      return draft;
+    });
+  };
+
   const handleCreateAlbum = async () => {
-    const payload = createNewAlbumPayload(newAlbumName, newLayout, Number(newPageCount) || 1);
+    const payload = createNewAlbumPayload(newAlbumName, newLayout, Number(newPageCount) || 1, newCoverColor);
 
     try {
       const ref = await addDoc(collection(db, ALBUM_COLLECTION), payload);
@@ -700,6 +725,7 @@ export default function AlbumPlanner({ appConfig }) {
       setNewAlbumName('');
       setNewLayout('3x3');
       setNewPageCount(1);
+      setNewCoverColor('#334155');
       openAlbumEditor(newAlbum);
     } catch (err) {
       console.error('create album error', err);
@@ -1117,7 +1143,7 @@ export default function AlbumPlanner({ appConfig }) {
             const total = totalSlots(album);
             const completion = countOwnedAndPlacedSlots(album);
             return (
-              <article key={album.id} className={`album-card ${albumViewMode}`}>
+              <article key={album.id} className={`album-card ${albumViewMode}`} style={{ borderLeft: `6px solid ${album.coverColor || '#334155'}` }}>
                 {albumViewMode === 'list' ? (
                   <div className="album-card-main list" onClick={() => !showTrash && openAlbumEditor(album)} style={{ cursor: showTrash ? 'default' : 'pointer' }}>
                     <div className="album-info-title">
@@ -1194,6 +1220,31 @@ export default function AlbumPlanner({ appConfig }) {
                 <input type="number" min={1} max={30} value={newPageCount} onChange={(e) => setNewPageCount(Number(e.target.value) || 1)} />
               </div>
 
+              <div className="form-group">
+                <label>앨범 테마 색상</label>
+                <div className="color-palette-picker" style={{ display: 'flex', gap: '0.6rem', padding: '0.2rem 0' }}>
+                  {SIGNATURE_COLORS.map((color) => (
+                    <button
+                      type="button"
+                      key={color.hex}
+                      className={`color-picker-chip ${newCoverColor === color.hex ? 'active' : ''}`}
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '50%',
+                        border: newCoverColor === color.hex ? '3px solid #6366f1' : '1px solid rgba(255,255,255,0.2)',
+                        backgroundColor: color.hex,
+                        cursor: 'pointer',
+                        transform: newCoverColor === color.hex ? 'scale(1.15)' : 'scale(1)',
+                        transition: 'transform 0.2s ease, border 0.2s ease',
+                      }}
+                      onClick={() => setNewCoverColor(color.hex)}
+                      title={color.label}
+                    />
+                  ))}
+                </div>
+              </div>
+
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowCreate(false)}>취소</button>
                 <button type="button" className="btn btn-primary" onClick={handleCreateAlbum}>생성</button>
@@ -1226,14 +1277,37 @@ export default function AlbumPlanner({ appConfig }) {
               placeholder="앨범 이름"
             />
             <button type="button" className="btn btn-secondary" onClick={commitAlbumName}>이름 저장</button>
+
+            <div className="mini-color-picker" style={{ display: 'flex', gap: '0.4rem', marginLeft: '1rem', alignItems: 'center' }}>
+              {SIGNATURE_COLORS.map((color) => (
+                <button
+                  type="button"
+                  key={color.hex}
+                  className={`mini-color-chip ${editingAlbum.coverColor === color.hex ? 'active' : ''}`}
+                  style={{
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    border: editingAlbum.coverColor === color.hex ? '2.5px solid #818cf8' : '1px solid rgba(255,255,255,0.2)',
+                    backgroundColor: color.hex,
+                    cursor: 'pointer',
+                    transform: editingAlbum.coverColor === color.hex ? 'scale(1.15)' : 'scale(1)',
+                    transition: 'transform 0.15s ease, border 0.15s ease',
+                  }}
+                  onClick={() => handleUpdateCoverColor(color.hex)}
+                  title={`앨범 색상 변경: ${color.label}`}
+                />
+              ))}
+            </div>
           </div>
-          <p>레이아웃 {editingAlbum.layoutKey} · 페이지 {currentPageIndex + 1}/{editingAlbum.pages.length} · 보기 {editorViewMode === 'page' ? '페이지' : '캔버스'}</p>
+          <p>레이아웃 {editingAlbum.layoutKey} · 페이지 {currentPageIndex + 1}/{editingAlbum.pages.length} · 보기 {editorViewMode === 'page' ? '페이지' : editorViewMode === 'canvas' ? '전체 캔버스' : '앨범 넘겨보기'}</p>
         </div>
         <div className="album-editor-actions">
           <button type="button" className="btn btn-secondary" onClick={closeEditor}>목록으로</button>
           <div className="view-toggle">
-            <button type="button" className={`btn-toggle ${editorViewMode === 'page' ? 'active' : ''}`} onClick={() => setEditorViewMode('page')}>페이지 보기</button>
-            <button type="button" className={`btn-toggle ${editorViewMode === 'canvas' ? 'active' : ''}`} onClick={() => setEditorViewMode('canvas')}>전체 캔버스</button>
+            <button type="button" className={`btn-toggle ${editorViewMode === 'page' ? 'active' : ''}`} onClick={() => { setEditorViewMode('page'); setActiveSlotIndex(null); }}>페이지 보기</button>
+            <button type="button" className={`btn-toggle ${editorViewMode === 'canvas' ? 'active' : ''}`} onClick={() => { setEditorViewMode('canvas'); setActiveSlotIndex(null); }}>전체 캔버스</button>
+            <button type="button" className={`btn-toggle ${editorViewMode === 'book' ? 'active' : ''}`} onClick={() => { setEditorViewMode('book'); setBookStep(0); setActiveSlotIndex(null); }}>📖 앨범 넘겨보기</button>
           </div>
           {editorViewMode === 'canvas' && (
             <div className="canvas-columns-control" title="캔버스 페이지 열 수 선택">
@@ -1270,7 +1344,7 @@ export default function AlbumPlanner({ appConfig }) {
         </div>
       </div>
 
-      <div className={`album-editor-layout ${isExporting ? 'exporting-mode' : ''}`}>
+      <div className={`album-editor-layout ${isExporting ? 'exporting-mode' : ''} ${editorViewMode === 'book' ? 'book-mode' : ''}`}>
         <section className="album-page-preview-wrap">
           {editorViewMode === 'page' && (
             <>
@@ -1526,9 +1600,188 @@ export default function AlbumPlanner({ appConfig }) {
               })}
             </div>
           )}
+
+          {editorViewMode === 'book' && (() => {
+            const pageCount = editingAlbum.pages?.length || 0;
+            const maxStep = Math.ceil((pageCount + 1) / 2);
+            const totalSteps = maxStep + 1;
+
+            const leftPageIndex = 2 * bookStep - 3;
+            const rightPageIndex = 2 * bookStep - 2;
+
+            const handleBookPageFlip = (direction) => {
+              if (isFlipping) return;
+              let nextStep = bookStep;
+              if (direction === 'next' && bookStep < totalSteps) {
+                nextStep = bookStep + 1;
+              } else if (direction === 'prev' && bookStep > 0) {
+                nextStep = bookStep - 1;
+              } else {
+                return;
+              }
+              setFlipDirection(direction);
+              setIsFlipping(true);
+              setTimeout(() => {
+                setBookStep(nextStep);
+                setIsFlipping(false);
+              }, 450);
+            };
+
+            const renderBookPageGrid = (pageIndex) => {
+              const page = editingAlbum.pages?.[pageIndex];
+              if (!page) {
+                return (
+                  <div className="book-page-inside-empty">
+                    <div className="inside-empty-fabric"></div>
+                  </div>
+                );
+              }
+              
+              const slots = page.slots || [];
+              const cols = selectedLayout?.cols || editingAlbum.cols || 3;
+
+              return (
+                <div className="album-book-page-content">
+                  <header className="book-page-num-header">
+                    <strong>P{pageIndex + 1}</strong>
+                  </header>
+                  <div 
+                    className="album-book-grid" 
+                    style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+                  >
+                    {slots.map((slot, slotIdx) => {
+                      const resolvedSlot = resolveSlotCard(slot);
+                      const isEmpty = !resolvedSlot;
+                      return (
+                        <div
+                          key={`book-slot-${pageIndex}-${slotIdx}`}
+                          className={`album-slot ${isEmpty ? 'empty' : ''}`}
+                          onClick={() => {
+                            if (isEmpty) return;
+                            openSlotCardEditor(resolvedSlot, pageIndex, slotIdx);
+                          }}
+                          title={isEmpty ? '빈 슬롯' : `${resolvedSlot.cardName || '카드'} 슬롯`}
+                          style={{ cursor: isEmpty ? 'default' : 'pointer' }}
+                        >
+                          <div className="album-slot-visual">
+                            <CardThumbnail imageUrl={resolvedSlot?.imageUrl} alt={resolvedSlot?.cardName || 'card'} type="album-slot" />
+                            {!isEmpty && (
+                              <div className="album-slot-details">
+                                <small>{resolvedSlot?.series || '-'}</small>
+                                <small>{resolvedSlot?.cardNumber || '-'}</small>
+                              </div>
+                            )}
+                          </div>
+                          <div className="album-slot-meta">
+                            <strong>{resolvedSlot?.cardName || `슬롯 ${slotIdx + 1}`}</strong>
+                            <span className={`album-slot-status ${getStatusTone(resolvedSlot?.status)}`}>{resolvedSlot?.status || '미배치'}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            };
+
+            return (
+              <div className="album-book-mode-wrapper" style={{ '--theme-color': editingAlbum.coverColor || '#334155' }}>
+                <div className="album-book-container">
+                  <div className={`book-wrapper ${bookStep === 0 ? 'closed-front' : bookStep === totalSteps ? 'closed-back' : 'opened'}`}>
+                    
+                    {/* 앞표지 닫힘 상태 */}
+                    {bookStep === 0 && (
+                      <div className="book-cover front-cover" onClick={() => handleBookPageFlip('next')}>
+                        <div className="cover-spine-binding"></div>
+                        <div className="cover-title-badge">
+                          <h1>{editingAlbum.name || '새 앨범'}</h1>
+                          <p>{editingAlbum.layoutKey} CARD COLLECTOR</p>
+                          <small>총 {pageCount} 페이지 · {totalSlots(editingAlbum)} 슬롯</small>
+                          <span className="cover-open-hint">앨범 열기 ➔</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 뒷표지 닫힘 상태 */}
+                    {bookStep === totalSteps && (
+                      <div className="book-cover back-cover" onClick={() => handleBookPageFlip('prev')}>
+                        <div className="cover-spine-binding right"></div>
+                        <div className="cover-title-badge">
+                          <h1>COLLECTION</h1>
+                          <p>THANK YOU</p>
+                          <button type="button" className="btn btn-secondary" onClick={(e) => { e.stopPropagation(); setBookStep(0); }}>첫 표지로 이동</button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 본문 양면 상태 */}
+                    {bookStep > 0 && bookStep < totalSteps && (
+                      <div className={`book-spread-inner ${isFlipping ? `flipping-${flipDirection}` : ''}`}>
+                        {/* 왼쪽 페이지 */}
+                        <div className="book-page left-page">
+                          {renderBookPageGrid(leftPageIndex)}
+                        </div>
+
+                        {/* 중앙 바인더 링 */}
+                        <div className="book-spine-rings">
+                          <div className="ring-coil"></div>
+                          <div className="ring-coil"></div>
+                          <div className="ring-coil"></div>
+                          <div className="ring-coil"></div>
+                          <div className="ring-coil"></div>
+                        </div>
+
+                        {/* 오른쪽 페이지 */}
+                        <div className="book-page right-page">
+                          {renderBookPageGrid(rightPageIndex)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 하단 내비게이션 바 */}
+                <div className="book-controls-nav">
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    onClick={() => handleBookPageFlip('prev')}
+                    disabled={bookStep === 0 || isFlipping}
+                  >
+                    ◀ 이전 장
+                  </button>
+                  
+                  <div className="book-nav-status">
+                    <span className="nav-step-label">
+                      {bookStep === 0 ? '앞 표지' : bookStep === totalSteps ? '뒤 표지' : `Page ${leftPageIndex + 1} - ${rightPageIndex + 1 < pageCount ? rightPageIndex + 1 : '마지막'}`}
+                    </span>
+                    <input 
+                      type="range"
+                      min={0}
+                      max={totalSteps}
+                      value={bookStep}
+                      onChange={(e) => !isFlipping && setBookStep(Number(e.target.value))}
+                      className="book-nav-slider"
+                      style={{ cursor: isFlipping ? 'not-allowed' : 'pointer' }}
+                    />
+                  </div>
+
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    onClick={() => handleBookPageFlip('next')}
+                    disabled={bookStep === totalSteps || isFlipping}
+                  >
+                    다음 장 ▶
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </section>
 
-        <aside className="album-card-picker">
+        {editorViewMode !== 'book' && (
+          <aside className="album-card-picker">
           <h3>카드 배치 패널</h3>
           <p>슬롯 선택 시 해당 위치에 배치되고, 미선택 시 빈 슬롯에 자동으로 순차 배치됩니다. (캔버스 모드는 전체 페이지 기준)</p>
 
@@ -1575,6 +1828,7 @@ export default function AlbumPlanner({ appConfig }) {
             </div>
           )}
         </aside>
+        )}
       </div>
 
       <CardDetailModal 
