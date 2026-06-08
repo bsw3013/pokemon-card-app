@@ -2196,31 +2196,105 @@ select.table-input { appearance: none; cursor: pointer; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2rem;
-  padding: 1.5rem 0;
+  gap: 0;
+  padding: 0.5rem 0;
   box-sizing: border-box;
 }
 
-.album-book-container {
-  perspective: 2000px;
+.book-viewer-viewport {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
-  max-width: 1100px;
-  aspect-ratio: 1.6 / 1;
+  gap: 2.5rem;
+  position: relative;
+  min-height: 80vh;
+  box-sizing: border-box;
+  /* 앨범 뒷배경에 은은하게 퍼지는 남빛 방사형 백라이트 효과를 추가하여 앨범의 경계선이 칼같이 돋보이게 함 */
+  background: radial-gradient(circle at center, rgba(99, 102, 241, 0.15) 0%, rgba(15, 23, 42, 0.05) 50%, transparent 80%);
+  border-radius: 24px;
+}
+
+/* 좌우 이전/다음 버튼 스타일 */
+.book-nav-btn {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f8fafc;
+  padding: 0.8rem 1.4rem;
+  border-radius: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 30;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.book-nav-btn .nav-arrow {
+  font-size: 1.2rem;
+  transition: transform 0.2s ease;
+}
+
+.book-nav-btn .nav-text {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.book-nav-btn.prev-btn:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.9);
+  border-color: rgba(99, 102, 241, 0.6);
+  box-shadow: 0 0 25px rgba(99, 102, 241, 0.55);
+  transform: translateX(-4px);
+}
+
+.book-nav-btn.next-btn:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.9);
+  border-color: rgba(99, 102, 241, 0.6);
+  box-shadow: 0 0 25px rgba(99, 102, 241, 0.55);
+  transform: translateX(4px);
+}
+
+.book-nav-btn:disabled {
+  opacity: 0.15;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* 3D 앨범 컨테이너 - 화면 크기에 따라 비율을 지키며 최대한 꽉 채움 */
+.album-book-container {
+  perspective: 2500px;
+  width: 100%;
+  max-width: 1450px; /* 최대 가로 폭 대폭 확장 */
+  aspect-ratio: 1.62 / 1;
+  max-height: 82vh; /* 세로 화면을 다 쓰도록 늘림 */
   display: flex;
   justify-content: center;
   align-items: center;
   position: relative;
 }
 
-/* 책 래퍼 (기본 검정색 가죽 바인더 질감 고정) */
+/* 책 래퍼 (배경과 대비가 두드러지는 메탈릭 블랙 가죽 바인더 질감 고정) */
 .book-wrapper {
   position: relative;
+  width: 100%;
   height: 100%;
   transform-style: preserve-3d;
   transition: transform 0.6s cubic-bezier(0.645, 0.045, 0.355, 1), width 0.6s ease;
   border-radius: 16px;
-  box-shadow: 0 30px 85px rgba(0, 0, 0, 0.85);
-  background-color: #0c0f17;
+  /* 부드러운 하단 섀도우 위에 은은한 블루 네온 글로우를 중첩하여 경계를 확실히 강조 */
+  box-shadow: 
+    0 40px 110px rgba(0, 0, 0, 0.95), 
+    0 0 50px rgba(99, 102, 241, 0.12),
+    inset 0 1px 2px rgba(255, 255, 255, 0.15);
+  background-color: #0c0e15; /* 앨범 외곽 가죽 톤을 #05070a에서 약간 밝은 #0c0e15로 인상 */
+  border: 1px solid rgba(255, 255, 255, 0.14); /* 앨범 바깥 테두리 윤곽선을 더 명확하게 */
   box-sizing: border-box;
 }
 
@@ -2240,14 +2314,14 @@ select.table-input { appearance: none; cursor: pointer; }
   transform: translateX(0) rotateY(0deg);
 }
 
-/* 책 표지 (블랙 가죽 테마 고정) */
+/* 책 표지 (블랙 가죽 테마 고정 및 경계 강화) */
 .book-cover {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.5)), #0c0f17;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.7)), #0c0e15;
   border-radius: 16px;
   display: flex;
   flex-direction: column;
@@ -2255,8 +2329,8 @@ select.table-input { appearance: none; cursor: pointer; }
   align-items: center;
   cursor: pointer;
   user-select: none;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 2px 5px rgba(255, 255, 255, 0.05), inset 0 -2px 5px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.14); /* 1px 테두리 선명화 */
+  box-shadow: inset 0 2px 6px rgba(255, 255, 255, 0.08), inset 0 -2px 6px rgba(0, 0, 0, 0.5);
   box-sizing: border-box;
   overflow: hidden;
   z-index: 10;
@@ -2268,9 +2342,9 @@ select.table-input { appearance: none; cursor: pointer; }
   top: 0;
   bottom: 0;
   width: 35px;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
   border-right: 2.5px dashed rgba(255, 255, 255, 0.1);
-  box-shadow: inset -5px 0 10px rgba(0, 0, 0, 0.7);
+  box-shadow: inset -5px 0 10px rgba(0, 0, 0, 0.8);
 }
 
 .cover-spine-binding.right {
@@ -2278,11 +2352,11 @@ select.table-input { appearance: none; cursor: pointer; }
   right: 0;
   border-left: 2.5px dashed rgba(255, 255, 255, 0.1);
   border-right: none;
-  box-shadow: inset 5px 0 10px rgba(0, 0, 0, 0.7);
+  box-shadow: inset 5px 0 10px rgba(0, 0, 0, 0.8);
 }
 
 .cover-title-badge {
-  background: rgba(10, 10, 15, 0.93);
+  background: rgba(8, 8, 12, 0.95);
   padding: 2.5rem 3.5rem;
   border-radius: 12px;
   border: 2px solid rgba(255, 255, 255, 0.05);
@@ -2292,7 +2366,7 @@ select.table-input { appearance: none; cursor: pointer; }
   flex-direction: column;
   gap: 0.6rem;
   align-items: center;
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.8);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   max-width: 80%;
@@ -2331,16 +2405,17 @@ select.table-input { appearance: none; cursor: pointer; }
   animation: pulse 1.8s infinite;
 }
 
-/* 펼쳐진 양면 레이아웃 (블랙 가죽 바인더 안감 고정) */
+/* 펼쳐진 양면 레이아웃 (어두운 가죽 바인더 안감 고정 및 대비 최적화) */
 .book-spread-inner {
   display: flex;
   width: 100%;
   height: 100%;
-  background: linear-gradient(to right, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.1) 8%, rgba(255, 255, 255, 0.01) 45%, rgba(0, 0, 0, 0.75) 50%, rgba(255, 255, 255, 0.01) 55%, rgba(0, 0, 0, 0.1) 92%, rgba(0, 0, 0, 0.4)), #0c0f17;
+  /* 앨범 내지 메인 컬러를 #141724로 약간 밝히고 입체감이 살도록 리얼 입체 그라데이션 삽입 */
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.2) 6%, rgba(255, 255, 255, 0.02) 42%, rgba(0, 0, 0, 0.95) 50%, rgba(255, 255, 255, 0.02) 58%, rgba(0, 0, 0, 0.2) 94%, rgba(0, 0, 0, 0.6) 100%), #141724;
   border-radius: 16px;
   overflow: hidden;
   position: relative;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   box-sizing: border-box;
 }
 
@@ -2349,7 +2424,7 @@ select.table-input { appearance: none; cursor: pointer; }
   flex: 1;
   height: 100%;
   overflow-y: auto;
-  padding: 1.5rem 1.8rem;
+  padding: 1rem 1.2rem; /* 카드가 더 크게 표시되도록 여백 줄임 */
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
@@ -2372,15 +2447,15 @@ select.table-input { appearance: none; cursor: pointer; }
 }
 
 .book-page.left-page {
-  background: rgba(10, 10, 15, 0.45);
-  border-right: 1.5px solid rgba(0, 0, 0, 0.5);
-  padding-right: 2rem;
+  background: rgba(10, 12, 18, 0.55); /* 내지 배경 대비 최적화 */
+  border-right: 1.5px solid rgba(0, 0, 0, 0.7);
+  padding-right: 1.4rem;
 }
 
 .book-page.right-page {
-  background: rgba(10, 10, 15, 0.45);
-  border-left: 1.5px solid rgba(0, 0, 0, 0.5);
-  padding-left: 2rem;
+  background: rgba(10, 12, 18, 0.55);
+  border-left: 1.5px solid rgba(0, 0, 0, 0.7);
+  padding-left: 1.4rem;
 }
 
 /* 표지 안쪽 빈 안감 질감 */
@@ -2390,9 +2465,9 @@ select.table-input { appearance: none; cursor: pointer; }
   display: flex;
   justify-content: center;
   align-items: center;
-  background: linear-gradient(135deg, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.8));
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.9));
   border-radius: 8px;
-  box-shadow: inset 0 5px 25px rgba(0, 0, 0, 0.9);
+  box-shadow: inset 0 5px 25px rgba(0, 0, 0, 0.95);
   position: relative;
   overflow: hidden;
 }
@@ -2411,36 +2486,41 @@ select.table-input { appearance: none; cursor: pointer; }
 /* 넘겨보기 모드 격자 - 카드 꽉 차게 */
 .album-book-grid {
   display: grid;
-  gap: 0.6rem;
+  gap: 0.5rem; /* 그리드 간격을 좁혀 카드를 더 꽉 채워 보여줌 */
   width: 100%;
   margin: 0 auto;
 }
 
-/* 넘겨보기 전용 포켓 정의 (실물 비닐 바인더 포켓 느낌 시뮬레이션) */
+/* 넘겨보기 전용 포켓 정의 - 실제 앨범에서 보는듯한 테두리 제거 버전 */
 .book-slot-pocket {
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1.4;
-  background: rgba(255, 255, 255, 0.015);
-  border: 1px dashed rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   overflow: hidden;
   box-sizing: border-box;
   transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.25s, box-shadow 0.25s;
 }
 
+/* 빈 슬롯은 테두리 및 배경을 완전히 없애고 투명화 */
+.book-slot-pocket.empty {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
 /* 카드가 꼽혀 있는 슬롯 */
 .book-slot-pocket.filled {
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.3);
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
 }
 
 .book-slot-pocket.filled:hover {
-  transform: scale(1.05) translateY(-2px);
-  border-color: rgba(99, 102, 241, 0.5);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.75);
+  transform: scale(1.06) translateY(-4px);
+  border-color: rgba(99, 102, 241, 0.7);
+  box-shadow: 0 16px 35px rgba(0, 0, 0, 0.85);
   z-index: 10;
 }
 
@@ -2461,7 +2541,7 @@ select.table-input { appearance: none; cursor: pointer; }
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 60%, rgba(0, 0, 0, 0.08) 100%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 65%, rgba(0, 0, 0, 0.08) 100%);
   pointer-events: none;
   z-index: 2;
 }
@@ -2516,91 +2596,7 @@ select.table-input { appearance: none; cursor: pointer; }
   100% { transform: rotateY(180deg); opacity: 0; }
 }
 
-/* 하단 내비게이션 컨트롤러 */
-.book-controls-nav {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2rem;
-  width: 100%;
-  max-width: 620px;
-  padding: 0.6rem 1.5rem;
-  background: rgba(10, 10, 15, 0.85);
-  border-radius: 50px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-}
-
-.book-controls-nav button {
-  padding: 0.5rem 1.2rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  border-radius: 20px;
-}
-
-.book-nav-status {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.3rem;
-  flex: 1;
-}
-
-.nav-step-label {
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: #cbd5e1;
-  letter-spacing: 0.05em;
-}
-
-.book-nav-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 4px;
-  outline: none;
-  cursor: pointer;
-}
-
-.book-nav-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #6366f1;
-  cursor: pointer;
-  border: 2px solid white;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
-  transition: transform 0.15s ease;
-}
-
-.book-nav-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.25);
-  background: #4f46e5;
-}
-
-.book-nav-slider::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #6366f1;
-  cursor: pointer;
-  border: 2px solid white;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
-  transition: transform 0.15s ease;
-}
-
-.book-nav-slider::-moz-range-thumb:hover {
-  transform: scale(1.25);
-  background: #4f46e5;
-}
-
-/* 책 뷰어 모드에서의 전체 화면 정렬 */
+/* 책 뷰어 모드에서의 전체 화면 정렬 - 외부 프레임을 모두 지워 화면에 바인더만 크게 플로팅 */
 .album-editor-layout.book-mode {
   display: block;
   width: 100%;
@@ -2610,7 +2606,10 @@ select.table-input { appearance: none; cursor: pointer; }
   width: 100%;
   flex: none;
   max-width: 100%;
-  padding: 0 1.5rem;
+  padding: 0 0.5rem;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 

@@ -1584,7 +1584,14 @@ export default function AlbumPlanner({ appConfig }) {
               const page = editingAlbum.pages?.[pageIndex];
               if (!page) {
                 return (
-                  <div className="book-page-inside-empty">
+                  <div className="book-page-inside-empty" onClick={(e) => {
+                    e.stopPropagation();
+                    if (pageIndex === leftPageIndex) {
+                      handleBookPageFlip('prev');
+                    } else {
+                      handleBookPageFlip('next');
+                    }
+                  }}>
                     <div className="inside-empty-fabric"></div>
                   </div>
                 );
@@ -1594,7 +1601,14 @@ export default function AlbumPlanner({ appConfig }) {
               const cols = selectedLayout?.cols || editingAlbum.cols || 3;
 
               return (
-                <div className="album-book-page-content">
+                <div className="album-book-page-content" onClick={(e) => {
+                  e.stopPropagation();
+                  if (pageIndex === leftPageIndex) {
+                    handleBookPageFlip('prev');
+                  } else {
+                    handleBookPageFlip('next');
+                  }
+                }}>
                   <div 
                     className="album-book-grid" 
                     style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
@@ -1606,8 +1620,9 @@ export default function AlbumPlanner({ appConfig }) {
                         <div
                           key={`book-slot-${pageIndex}-${slotIdx}`}
                           className={`book-slot-pocket ${isEmpty ? 'empty' : 'filled'}`}
-                          onClick={() => {
+                          onClick={(e) => {
                             if (isEmpty) return;
+                            e.stopPropagation(); // 책장이 넘어가버리는 현상 방지
                             openSlotCardEditor(resolvedSlot, pageIndex, slotIdx);
                           }}
                           title={isEmpty ? '빈 슬롯' : `${resolvedSlot.cardName || '카드'} 슬롯`}
@@ -1628,94 +1643,86 @@ export default function AlbumPlanner({ appConfig }) {
             };
 
             return (
-              <div className="album-book-mode-wrapper" style={{ '--theme-color': editingAlbum.coverColor || '#334155' }}>
-                <div className="album-book-container">
-                  <div className={`book-wrapper ${bookStep === 0 ? 'closed-front' : bookStep === totalSteps ? 'closed-back' : 'opened'}`}>
-                    
-                    {/* 앞표지 닫힘 상태 */}
-                    {bookStep === 0 && (
-                      <div className="book-cover front-cover" onClick={() => handleBookPageFlip('next')}>
-                        <div className="cover-spine-binding"></div>
-                        <div className="cover-title-badge">
-                          <h1>{editingAlbum.name || '새 앨범'}</h1>
-                          <p>{editingAlbum.layoutKey} CARD COLLECTOR</p>
-                          <small>총 {pageCount} 페이지 · {totalSlots(editingAlbum)} 슬롯</small>
-                          <span className="cover-open-hint">앨범 열기 ➔</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 뒷표지 닫힘 상태 */}
-                    {bookStep === totalSteps && (
-                      <div className="book-cover back-cover" onClick={() => handleBookPageFlip('prev')}>
-                        <div className="cover-spine-binding right"></div>
-                        <div className="cover-title-badge">
-                          <h1>COLLECTION</h1>
-                          <p>THANK YOU</p>
-                          <button type="button" className="btn btn-secondary" onClick={(e) => { e.stopPropagation(); setBookStep(0); }}>첫 표지로 이동</button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 본문 양면 상태 */}
-                    {bookStep > 0 && bookStep < totalSteps && (
-                      <div className={`book-spread-inner ${isFlipping ? `flipping-${flipDirection}` : ''}`}>
-                        {/* 왼쪽 페이지 */}
-                        <div className="book-page left-page">
-                          {renderBookPageGrid(leftPageIndex)}
-                        </div>
-
-                        {/* 중앙 바인더 링 */}
-                        <div className="book-spine-rings">
-                          <div className="ring-coil"></div>
-                          <div className="ring-coil"></div>
-                          <div className="ring-coil"></div>
-                          <div className="ring-coil"></div>
-                          <div className="ring-coil"></div>
-                        </div>
-
-                        {/* 오른쪽 페이지 */}
-                        <div className="book-page right-page">
-                          {renderBookPageGrid(rightPageIndex)}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 하단 내비게이션 바 */}
-                <div className="book-controls-nav">
+              <div className="album-book-mode-wrapper">
+                <div className="book-viewer-viewport">
+                  
+                  {/* 좌측 이전 페이지 버튼 */}
                   <button 
                     type="button" 
-                    className="btn btn-secondary" 
+                    className="book-nav-btn prev-btn" 
                     onClick={() => handleBookPageFlip('prev')}
                     disabled={bookStep === 0 || isFlipping}
+                    title="이전 페이지"
                   >
-                    ◀ 이전 장
+                    <span className="nav-arrow">◀</span>
+                    <span className="nav-text">이전장</span>
                   </button>
-                  
-                  <div className="book-nav-status">
-                    <span className="nav-step-label">
-                      {bookStep === 0 ? '앞 표지' : bookStep === totalSteps ? '뒤 표지' : `Page ${leftPageIndex + 1} - ${rightPageIndex + 1 < pageCount ? rightPageIndex + 1 : '마지막'}`}
-                    </span>
-                    <input 
-                      type="range"
-                      min={0}
-                      max={totalSteps}
-                      value={bookStep}
-                      onChange={(e) => !isFlipping && setBookStep(Number(e.target.value))}
-                      className="book-nav-slider"
-                      style={{ cursor: isFlipping ? 'not-allowed' : 'pointer' }}
-                    />
+
+                  {/* 3D 바인더 본체 */}
+                  <div className="album-book-container">
+                    <div className={`book-wrapper ${bookStep === 0 ? 'closed-front' : bookStep === totalSteps ? 'closed-back' : 'opened'}`}>
+                      
+                      {/* 앞표지 닫힘 상태 */}
+                      {bookStep === 0 && (
+                        <div className="book-cover front-cover" onClick={() => handleBookPageFlip('next')}>
+                          <div className="cover-spine-binding"></div>
+                          <div className="cover-title-badge">
+                            <h1>{editingAlbum.name || '새 앨범'}</h1>
+                            <p>{editingAlbum.layoutKey} CARD COLLECTOR</p>
+                            <small>총 {pageCount} 페이지 · {totalSlots(editingAlbum)} 슬롯</small>
+                            <span className="cover-open-hint">앨범 열기 ➔</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 뒷표지 닫힘 상태 */}
+                      {bookStep === totalSteps && (
+                        <div className="book-cover back-cover" onClick={() => handleBookPageFlip('prev')}>
+                          <div className="cover-spine-binding right"></div>
+                          <div className="cover-title-badge">
+                            <h1>COLLECTION</h1>
+                            <p>THANK YOU</p>
+                            <button type="button" className="btn btn-secondary" onClick={(e) => { e.stopPropagation(); setBookStep(0); }}>첫 표지로 이동</button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 본문 양면 상태 */}
+                      {bookStep > 0 && bookStep < totalSteps && (
+                        <div className={`book-spread-inner ${isFlipping ? `flipping-${flipDirection}` : ''}`}>
+                          {/* 왼쪽 페이지 */}
+                          <div className="book-page left-page">
+                            {renderBookPageGrid(leftPageIndex)}
+                          </div>
+
+                          {/* 중앙 바인더 링 */}
+                          <div className="book-spine-rings">
+                            <div className="ring-coil"></div>
+                            <div className="ring-coil"></div>
+                            <div className="ring-coil"></div>
+                            <div className="ring-coil"></div>
+                            <div className="ring-coil"></div>
+                          </div>
+
+                          {/* 오른쪽 페이지 */}
+                          <div className="book-page right-page">
+                            {renderBookPageGrid(rightPageIndex)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
+                  {/* 우측 다음 페이지 버튼 */}
                   <button 
                     type="button" 
-                    className="btn btn-secondary" 
+                    className="book-nav-btn next-btn" 
                     onClick={() => handleBookPageFlip('next')}
                     disabled={bookStep === totalSteps || isFlipping}
+                    title="다음 페이지"
                   >
-                    다음 장 ▶
+                    <span className="nav-text">다음장</span>
+                    <span className="nav-arrow">▶</span>
                   </button>
                 </div>
               </div>
