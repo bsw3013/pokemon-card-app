@@ -150,6 +150,9 @@ export default function AlbumPlanner({ appConfig }) {
   const [showCardPicker, setShowCardPicker] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importSourceAlbumId, setImportSourceAlbumId] = useState('');
+  const [importSelectedPageIndex, setImportSelectedPageIndex] = useState(null);
 
   useEffect(() => {
     albumRef.current = editingAlbum;
@@ -390,6 +393,109 @@ export default function AlbumPlanner({ appConfig }) {
     });
   };
 
+  const updateHashQueryParams = (params, options = {}) => {
+    const currentHash = window.location.hash;
+    const path = currentHash.split('?')[0] || '#album';
+    const searchParams = new URLSearchParams(currentHash.split('?')[1] || '');
+    
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === null || value === undefined || value === false) {
+        searchParams.delete(key);
+      } else {
+        searchParams.set(key, String(value));
+      }
+    });
+    
+    const qs = searchParams.toString();
+    const nextHash = qs ? `${path}?${qs}` : path;
+    if (window.location.hash !== nextHash) {
+      if (options.replace) {
+        window.history.replaceState(null, '', nextHash);
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+      } else {
+        window.location.hash = nextHash;
+      }
+    }
+  };
+
+  const openCreateModal = () => {
+    setShowCreate(true);
+    updateHashQueryParams({ action: 'createAlbum' });
+  };
+  const closeCreateModal = () => {
+    setShowCreate(false);
+    updateHashQueryParams({ action: null }, { replace: true });
+  };
+
+  const openCardPicker = () => {
+    setShowCardPicker(true);
+    updateHashQueryParams({ action: 'cardPicker' });
+  };
+  const closeCardPicker = () => {
+    setShowCardPicker(false);
+    updateHashQueryParams({ action: null }, { replace: true });
+  };
+
+  const openExportModalPopup = () => {
+    setShowExportModal(true);
+    updateHashQueryParams({ action: 'exportAlbum' });
+  };
+  const closeExportModalPopup = () => {
+    setShowExportModal(false);
+    updateHashQueryParams({ action: null }, { replace: true });
+  };
+
+  const openImportModal = () => {
+    setShowImportModal(true);
+    setImportSourceAlbumId('');
+    setImportSelectedPageIndex(null);
+    updateHashQueryParams({ action: 'importPage' });
+  };
+  const closeImportModal = () => {
+    setShowImportModal(false);
+    setImportSourceAlbumId('');
+    setImportSelectedPageIndex(null);
+    updateHashQueryParams({ action: null }, { replace: true });
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      const searchParams = new URLSearchParams(hash.split('?')[1] || '');
+      
+      const albumId = searchParams.get('albumId');
+      const action = searchParams.get('action');
+      
+      if (albumId) {
+        if (!editingAlbum || editingAlbum.id !== albumId) {
+          const matchedAlbum = albums.find(a => a.id === albumId);
+          if (matchedAlbum) {
+            const normalized = deepCopy(matchedAlbum);
+            normalized.pageCount = normalized.pages?.length || normalized.pageCount || 1;
+            setEditingAlbum(normalized);
+            setAlbumNameDraft((normalized.name || '').trim());
+          }
+        }
+      } else {
+        if (editingAlbum) {
+          setEditingAlbum(null);
+        }
+      }
+      
+      setShowCreate(action === 'createAlbum');
+      setShowCardPicker(action === 'cardPicker');
+      setShowExportModal(action === 'exportAlbum');
+      setShowImportModal(action === 'importPage');
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    if (albums.length > 0) {
+      handleHashChange();
+    }
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [albums, editingAlbum]);
+
   const openAlbumEditor = (album) => {
     if (!album) return;
     const normalized = deepCopy(album);
@@ -425,6 +531,7 @@ export default function AlbumPlanner({ appConfig }) {
     setHistoryFuture([]);
     setSaveStatus('idle');
     setAlbumNameDraft((album.name || '').trim());
+    updateHashQueryParams({ albumId: album.id });
   };
 
   const closeEditor = () => {
@@ -442,10 +549,62 @@ export default function AlbumPlanner({ appConfig }) {
     setAlbumNameDraft('');
     setDraggingPageIndex(null);
     setDragOverPageIndex(null);
+    updateHashQueryParams({ albumId: null, action: null }, { replace: true });
+  };
+
+  const handleImportPage = () => {
+    if (!editingAlbum || !importSourceAlbumId || importSelectedPageIndex === null) return;
+    
+    const sourceAlbum = albums.find(a => a.id === importSourceAlbumId);
+    if (!sourceAlbum) {
+      alert('가져올 대상 앨범을 찾을 수 없습니다.');
+      return;
+    }
+    
+    const sourcePage = sourceAlbum.pages?.[importSelectedPageIndex];
+    if (!sourcePage) {
+      alert('선택한 페이지의 정보가 유효하지 않습니다.');
+      return;
+    }
+    
+    const slotsCopy = deepCopy(sourcePage.slots);
+    
+    const targetCols = editingAlbum.cols || 3;
+    const targetRows = editingAlbum.rows || 3;
+    const targetSlotCount = targetCols * targetRows;
+    
+    const chunks = [];
+    for (let i = 0; i < slotsCopy.length; i += targetSlotCount) {
+      const chunk = slotsCopy.slice(i, i + targetSlotCount);
+      while (chunk.length < targetSlotCount) {
+        chunk.push(null);
+      }
+      chunks.push(chunk);
+    }
+    
+    const originalPageCount = editingAlbum.pages?.length || 0;
+    
+    applyAlbumUpdate((draft) => {
+      chunks.forEach((chunk) => {
+        draft.pages.push({ slots: chunk });
+      });
+      return draft;
+    });
+    
+    setCurrentPageIndex(originalPageCount);
+    setActiveSlotIndex(null);
+    
+    closeImportModal();
+    
+    if (chunks.length > 1) {
+      alert(`'${sourceAlbum.name}' 앨범의 ${importSelectedPageIndex + 1}페이지를 가져왔습니다.\n(슬롯 초과로 인해 새로운 페이지 ${chunks.length}개가 추가되었습니다.)`);
+    } else {
+      alert(`'${sourceAlbum.name}' 앨범의 ${importSelectedPageIndex + 1}페이지를 성공적으로 가져왔습니다.`);
+    }
   };
 
   const handleExportAlbum = async (format) => {
-    setShowExportModal(false);
+    closeExportModalPopup();
     
     // 강제로 캔버스 모드로 전환하여 모든 페이지 렌더링
     const prevViewMode = editorViewMode;
@@ -537,7 +696,7 @@ export default function AlbumPlanner({ appConfig }) {
       const ref = await addDoc(collection(db, ALBUM_COLLECTION), payload);
       const newAlbum = { id: ref.id, ...payload };
       setAlbums((prev) => [newAlbum, ...prev]);
-      setShowCreate(false);
+      closeCreateModal();
       setNewAlbumName('');
       setNewLayout('3x3');
       setNewPageCount(1);
@@ -712,7 +871,7 @@ export default function AlbumPlanner({ appConfig }) {
       return draft;
     });
 
-    setShowCardPicker(false);
+    closeCardPicker();
     alert(`${selectedCards.length}장의 카드가 배치되었습니다.`);
   };
 
@@ -948,7 +1107,7 @@ export default function AlbumPlanner({ appConfig }) {
               <button type="button" className={`btn-toggle ${albumViewMode === 'grid' ? 'active' : ''}`} onClick={() => setAlbumViewMode('grid')}>앨범형</button>
               <button type="button" className={`btn-toggle ${albumViewMode === 'list' ? 'active' : ''}`} onClick={() => setAlbumViewMode('list')}>목록형</button>
             </div>
-            {!showTrash && <button type="button" className="btn btn-primary" onClick={() => setShowCreate(true)}>➕ 새 앨범 만들기</button>}
+            {!showTrash && <button type="button" className="btn btn-primary" onClick={openCreateModal}>➕ 새 앨범 만들기</button>}
           </div>
         </div>
 
@@ -985,9 +1144,9 @@ export default function AlbumPlanner({ appConfig }) {
         </section>
 
         {showCreate && (
-          <div className="modal-backdrop" onClick={() => setShowCreate(false)}>
+          <div className="modal-backdrop" onClick={closeCreateModal}>
             <div className="modal-content" style={{ maxWidth: '520px' }} onClick={(e) => e.stopPropagation()}>
-              <button type="button" className="modal-close" onClick={() => setShowCreate(false)}>✕</button>
+              <button type="button" className="modal-close" onClick={closeCreateModal}>✕</button>
               <h2 className="modal-title">새 앨범 만들기</h2>
 
               <div className="form-group">
@@ -1064,9 +1223,10 @@ export default function AlbumPlanner({ appConfig }) {
           <button type="button" className="btn btn-secondary" onClick={handleRedo} disabled={!canRedo}>↷ 다시 실행</button>
           <button type="button" className="btn btn-secondary" onClick={addNewPage}>＋ 페이지 추가</button>
           <button type="button" className="btn btn-secondary" onClick={duplicateCurrentPage}>📄 페이지 복제</button>
+          <button type="button" className="btn btn-secondary" onClick={openImportModal}>📥 다른 앨범에서 페이지 가져오기</button>
           <button type="button" className="btn btn-danger" onClick={removeCurrentPage}>현재 페이지 삭제</button>
           <div style={{ position: 'relative' }}>
-            <button type="button" className="btn btn-primary" onClick={() => setShowExportModal(p => !p)} disabled={isExporting}>
+            <button type="button" className="btn btn-primary" onClick={() => showExportModal ? closeExportModalPopup() : openExportModalPopup()} disabled={isExporting}>
               {isExporting ? '캡처 중...' : '📥 앨범 내보내기'}
             </button>
             {showExportModal && (
@@ -1118,8 +1278,9 @@ export default function AlbumPlanner({ appConfig }) {
               const isDragging = draggingSlotIndex === index;
               const isDragOver = dragOverSlotIndex === index && draggingSlotIndex !== index;
               return (
-                <button
-                  type="button"
+                <div
+                  role="button"
+                  tabIndex={0}
                   key={`slot-${index}`}
                   className={`album-slot ${isActive ? 'active' : ''} ${isEmpty ? 'empty' : ''} ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''}`}
                   onClick={() => {
@@ -1128,6 +1289,16 @@ export default function AlbumPlanner({ appConfig }) {
                       return;
                     }
                     openSlotCardEditor(resolvedSlot, currentPageIndex, index);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      if (isEmpty) {
+                        setActiveSlotIndex(index);
+                        return;
+                      }
+                      openSlotCardEditor(resolvedSlot, currentPageIndex, index);
+                    }
                   }}
                   title={isEmpty ? '빈 슬롯' : `${resolvedSlot.cardName || '카드'} 슬롯`}
                   draggable={!isEmpty}
@@ -1186,7 +1357,7 @@ export default function AlbumPlanner({ appConfig }) {
                     <strong>{resolvedSlot?.cardName || `슬롯 ${index + 1}`}</strong>
                     <span className={`album-slot-status ${getStatusTone(resolvedSlot?.status)}`}>{resolvedSlot?.status || '미배치'}</span>
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
@@ -1244,8 +1415,9 @@ export default function AlbumPlanner({ appConfig }) {
                         const isDragging = canvasDraggingLocation?.pageIndex === pageIndex && canvasDraggingLocation?.slotIndex === slotIndex;
                         const isDragOver = canvasDragOverLocation?.pageIndex === pageIndex && canvasDragOverLocation?.slotIndex === slotIndex && !isDragging;
                         return (
-                          <button
-                            type="button"
+                          <div
+                            role="button"
+                            tabIndex={0}
                             key={`canvas-slot-${pageIndex}-${slotIndex}`}
                             className={`album-slot ${isEmpty ? 'empty' : ''} ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''}`}
                             onClick={() => {
@@ -1253,6 +1425,15 @@ export default function AlbumPlanner({ appConfig }) {
                               setActiveSlotIndex(slotIndex);
                               if (!resolvedSlot) return;
                               openSlotCardEditor(resolvedSlot, pageIndex, slotIndex);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setCurrentPageIndex(pageIndex);
+                                setActiveSlotIndex(slotIndex);
+                                if (!resolvedSlot) return;
+                                openSlotCardEditor(resolvedSlot, pageIndex, slotIndex);
+                              }
                             }}
                             title={isEmpty ? '빈 슬롯' : `${resolvedSlot.cardName || '카드'} 슬롯`}
                             draggable={!isEmpty}
@@ -1310,7 +1491,7 @@ export default function AlbumPlanner({ appConfig }) {
                               <strong>{resolvedSlot?.cardName || `슬롯 ${slotIndex + 1}`}</strong>
                               <span className={`album-slot-status ${getStatusTone(resolvedSlot?.status)}`}>{resolvedSlot?.status || '미배치'}</span>
                             </div>
-                          </button>
+                          </div>
                         );
                       })}
                     </div>
@@ -1330,7 +1511,7 @@ export default function AlbumPlanner({ appConfig }) {
               type="button" 
               className="btn btn-primary" 
               style={{ width: '100%', marginBottom: '0.5rem', background: 'linear-gradient(135deg, #3b82f6, #6366f1)' }}
-              onClick={() => setShowCardPicker(true)}
+              onClick={openCardPicker}
             >
               🔍 상세 검색으로 한꺼번에 담기
             </button>
@@ -1386,8 +1567,126 @@ export default function AlbumPlanner({ appConfig }) {
               appConfig={appConfig} 
               isPicker={true} 
               onSelectCards={handleBatchAssign} 
-              onClose={() => setShowCardPicker(false)} 
+              onClose={closeCardPicker} 
             />
+          </div>
+        </div>
+      )}
+
+      {showImportModal && (
+        <div className="modal-backdrop" style={{ zIndex: 1500 }} onClick={closeImportModal}>
+          <div className="modal-content" style={{ maxWidth: '850px', height: '80vh', display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="modal-close" onClick={closeImportModal}>✕</button>
+            <h2 className="modal-title">다른 앨범에서 페이지 가져오기</h2>
+            
+            <div className="import-select-group" style={{ marginBottom: '1.5rem', flex: 'none' }}>
+              <label style={{ fontSize: '1rem', fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>대상 앨범 선택</label>
+              <select 
+                value={importSourceAlbumId} 
+                onChange={(e) => {
+                  setImportSourceAlbumId(e.target.value);
+                  setImportSelectedPageIndex(null);
+                }}
+                style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', background: 'var(--bg-lighter)', color: 'white', border: '1px solid var(--border-color)' }}
+              >
+                <option value="" style={{ background: '#1e293b', color: 'white' }}>-- 복사해 올 대상 앨범을 골라주세요 --</option>
+                {albums.filter(a => a.id !== editingAlbum.id && !a.isDeleted).map(album => (
+                  <option key={album.id} value={album.id} style={{ background: '#1e293b', color: 'white' }}>{album.name} ({album.layoutKey} · 페이지 {album.pages?.length || 1}장)</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', paddingRight: '0.5rem' }}>
+              {importSourceAlbumId ? (
+                (() => {
+                  const source = albums.find(a => a.id === importSourceAlbumId);
+                  if (!source || !source.pages?.length) {
+                    return <div className="album-empty">해당 앨범에 페이지가 없습니다.</div>;
+                  }
+                  return (
+                    <div className="album-import-grid">
+                      {source.pages.map((page, pageIdx) => {
+                        const isSelected = importSelectedPageIndex === pageIdx;
+                        return (
+                          <div 
+                            key={`import-page-${pageIdx}`}
+                            className={`page-preview-card ${isSelected ? 'selected' : ''}`}
+                            onClick={() => setImportSelectedPageIndex(pageIdx)}
+                          >
+                            <div className="preview-card-header">
+                              <input 
+                                type="radio" 
+                                name="importPageIndex" 
+                                checked={isSelected} 
+                                onChange={() => setImportSelectedPageIndex(pageIdx)} 
+                              />
+                              <strong>페이지 {pageIdx + 1}</strong>
+                            </div>
+                            
+                            <div 
+                              className="mini-page-preview"
+                              style={{
+                                display: 'grid',
+                                gridTemplateColumns: `repeat(${source.cols || 3}, minmax(0, 1fr))`,
+                                gap: '4px',
+                                padding: '6px',
+                                background: 'rgba(0, 0, 0, 0.4)',
+                                borderRadius: '8px',
+                                border: '1px solid rgba(255, 255, 255, 0.05)',
+                                aspectRatio: `${source.cols} / ${source.rows}`
+                              }}
+                            >
+                              {(page.slots || []).map((slot, slotIdx) => {
+                                const resolvedSlot = resolveSlotCard(slot);
+                                const isEmpty = !resolvedSlot;
+                                return (
+                                  <div 
+                                    key={`mini-slot-${pageIdx}-${slotIdx}`}
+                                    className={`mini-slot ${isEmpty ? 'empty' : ''}`}
+                                    style={{
+                                      position: 'relative',
+                                      borderRadius: '4px',
+                                      background: isEmpty ? 'rgba(255, 255, 255, 0.02)' : 'var(--bg-lighter)',
+                                      border: isEmpty ? '1px dashed rgba(255, 255, 255, 0.1)' : 'none',
+                                      overflow: 'hidden',
+                                      aspectRatio: '2.5 / 3.5'
+                                    }}
+                                  >
+                                    {!isEmpty && resolvedSlot.imageUrl && (
+                                      <img 
+                                        src={resolvedSlot.imageUrl} 
+                                        alt={resolvedSlot.cardName} 
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                                      />
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()
+              ) : (
+                <div className="album-empty" style={{ padding: '3rem' }}>
+                  💡 대상 앨범을 선택하시면 각 페이지의 카드 배치 그림이 여기에 나타납니다.
+                </div>
+              )}
+            </div>
+
+            <div className="modal-actions" style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+              <button type="button" className="btn btn-secondary" onClick={closeImportModal}>취소</button>
+              <button 
+                type="button" 
+                className="btn btn-primary" 
+                onClick={handleImportPage}
+                disabled={!importSourceAlbumId || importSelectedPageIndex === null}
+              >
+                📥 이 페이지 배치 복사해오기
+              </button>
+            </div>
           </div>
         </div>
       )}

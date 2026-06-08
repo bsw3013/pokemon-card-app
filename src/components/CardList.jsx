@@ -155,60 +155,107 @@ export default function CardList({ appConfig }) {
       }
   };
 
+  // 메인 모달 닫기 (URL 해시에서 쿼리 제거 및 상태 해제)
+  const closeModal = () => {
+     setSelectedCard(null);
+     const currentHash = window.location.hash.split('?')[0];
+     if (window.location.hash !== currentHash) {
+        window.history.replaceState(null, '', currentHash);
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+     }
+  };
 
-
-  // 메인 모달
+  // 메인 모달 열기
   const openModal = (card) => {
      setSelectedCard(card);
+     const currentHash = window.location.hash.split('?')[0];
+     window.location.hash = `${currentHash}?cardId=${card.id}`;
   };
-   const openCreate = () => {
-      setSelectedCard({ isNew: true });
-   };
 
-   const handleModalSave = async (payload) => {
-      try {
-         const updatePayload = formatCardPayload(payload);
+  const openCreate = () => {
+     setSelectedCard({ isNew: true });
+     const currentHash = window.location.hash.split('?')[0];
+     window.location.hash = `${currentHash}?cardId=new`;
+  };
 
-         if (selectedCard && selectedCard.isNew) {
-            const ref = await addDoc(collection(db, 'pokemon_cards'), updatePayload);
-            setCards(prev => [{ id: ref.id, ...updatePayload }, ...prev]);
-         } else if (selectedCard && selectedCard.id) {
-            const cardRef = doc(db, "pokemon_cards", selectedCard.id);
-            await updateDoc(cardRef, updatePayload);
-            setCards(prev => prev.map(c => c.id === selectedCard.id ? { ...c, ...updatePayload } : c));
-         }
-         setSelectedCard(null);
-      } catch(err) {
-         console.error(err);
-         alert("저장 중 오류가 발생했습니다.");
-         throw err;
+  // URL 해시 변화를 감지하여 모달 상태를 동기화하는 Effect (뒤로가기/딥링크 대응)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      const match = hash.match(/\?cardId=([^&]+)/);
+      if (match) {
+        const id = match[1];
+        if (id === 'new') {
+          if (!selectedCard || !selectedCard.isNew) {
+            setSelectedCard({ isNew: true });
+          }
+        } else {
+          const matchedCard = cards.find(c => c.id === id);
+          if (matchedCard) {
+            if (!selectedCard || selectedCard.id !== id) {
+              setSelectedCard(matchedCard);
+            }
+          }
+        }
+      } else {
+        if (selectedCard) {
+          setSelectedCard(null);
+        }
       }
-   };
+    };
 
-   const handleModalDuplicate = async (payload) => {
-      try {
-         const duplicatePayload = formatCardPayload(payload);
-         const ref = await addDoc(collection(db, 'pokemon_cards'), duplicatePayload);
-         setCards(prev => [{ id: ref.id, ...duplicatePayload }, ...prev]);
-         setSelectedCard(null);
-      } catch(err) {
-         console.error(err);
-         alert("복제 중 오류가 발생했습니다.");
-         throw err;
-      }
-   };
+    window.addEventListener('hashchange', handleHashChange);
+    if (cards.length > 0) {
+      handleHashChange();
+    }
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [cards, selectedCard]);
 
-   const handleModalDelete = async () => {
-      try {
-         await deleteDoc(doc(db, "pokemon_cards", selectedCard.id));
-         setCards(prev => prev.filter(c => c.id !== selectedCard.id));
-         setSelectedCard(null);
-      } catch(err) {
-         console.error(err);
-         alert("삭제 실패");
-         throw err;
-      }
-   };
+  const handleModalSave = async (payload) => {
+     try {
+        const updatePayload = formatCardPayload(payload);
+
+        if (selectedCard && selectedCard.isNew) {
+           const ref = await addDoc(collection(db, 'pokemon_cards'), updatePayload);
+           setCards(prev => [{ id: ref.id, ...updatePayload }, ...prev]);
+        } else if (selectedCard && selectedCard.id) {
+           const cardRef = doc(db, "pokemon_cards", selectedCard.id);
+           await updateDoc(cardRef, updatePayload);
+           setCards(prev => prev.map(c => c.id === selectedCard.id ? { ...c, ...updatePayload } : c));
+        }
+        closeModal();
+     } catch(err) {
+        console.error(err);
+        alert("저장 중 오류가 발생했습니다.");
+        throw err;
+     }
+  };
+
+  const handleModalDuplicate = async (payload) => {
+     try {
+        const duplicatePayload = formatCardPayload(payload);
+        const ref = await addDoc(collection(db, 'pokemon_cards'), duplicatePayload);
+        setCards(prev => [{ id: ref.id, ...duplicatePayload }, ...prev]);
+        closeModal();
+     } catch(err) {
+        console.error(err);
+        alert("복제 중 오류가 발생했습니다.");
+        throw err;
+     }
+  };
+
+  const handleModalDelete = async () => {
+     try {
+        await deleteDoc(doc(db, "pokemon_cards", selectedCard.id));
+        setCards(prev => prev.filter(c => c.id !== selectedCard.id));
+        closeModal();
+     } catch(err) {
+        console.error(err);
+        alert("삭제 실패");
+        throw err;
+     }
+  };
 
   const handleDeleteSub = async (id) => {
     if(!window.confirm("정말로 이 카드를 창고에서 삭제할까요?")) return;
@@ -431,7 +478,7 @@ export default function CardList({ appConfig }) {
          isOpen={!!selectedCard}
          card={selectedCard}
          appConfig={appConfig}
-         onClose={() => setSelectedCard(null)}
+         onClose={closeModal}
          onSave={handleModalSave}
          onDelete={!selectedCard?.isNew ? handleModalDelete : undefined}
          onDuplicate={!selectedCard?.isNew ? handleModalDuplicate : undefined}

@@ -164,9 +164,48 @@ export default function FilterExplorer({ appConfig, isPicker = false, onSelectCa
     setLanguageFilter([]);
   };
 
+  const closeModal = () => {
+    setSelectedCard(null);
+    const currentHash = window.location.hash.split('?')[0];
+    if (window.location.hash !== currentHash) {
+      window.history.replaceState(null, '', currentHash);
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    }
+  };
+
   const openModal = (card) => {
     setSelectedCard(card);
+    const currentHash = window.location.hash.split('?')[0];
+    window.location.hash = `${currentHash}?cardId=${card.id}`;
   };
+
+  // URL 해시 변화를 감지하여 모달 상태를 동기화하는 Effect (뒤로가기/딥링크 대응)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      const match = hash.match(/\?cardId=([^&]+)/);
+      if (match) {
+        const id = match[1];
+        const matchedCard = cards.find(c => c.id === id);
+        if (matchedCard) {
+          if (!selectedCard || selectedCard.id !== id) {
+            setSelectedCard(matchedCard);
+          }
+        }
+      } else {
+        if (selectedCard) {
+          setSelectedCard(null);
+        }
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    if (cards.length > 0) {
+      handleHashChange();
+    }
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [cards, selectedCard]);
 
   const handleModalSave = async (payload) => {
     if (!selectedCard?.id) return;
@@ -180,7 +219,7 @@ export default function FilterExplorer({ appConfig, isPicker = false, onSelectCa
           ? { ...card, ...updatePayload, status: normalizeStatus(updatePayload.status) }
           : card
       )));
-      setSelectedCard(null);
+      closeModal();
     } catch (err) {
       console.error('filter explorer save error', err);
       alert('저장 중 오류가 발생했습니다.');
@@ -193,7 +232,7 @@ export default function FilterExplorer({ appConfig, isPicker = false, onSelectCa
       const duplicatePayload = formatCardPayload(payload);
       const ref = await addDoc(collection(db, 'pokemon_cards'), duplicatePayload);
       setCards((prev) => [{ id: ref.id, ...duplicatePayload, status: normalizeStatus(duplicatePayload.status) }, ...prev]);
-      setSelectedCard(null);
+      closeModal();
     } catch (err) {
       console.error('filter explorer duplicate error', err);
       alert('복제 중 오류가 발생했습니다.');
@@ -207,7 +246,7 @@ export default function FilterExplorer({ appConfig, isPicker = false, onSelectCa
     try {
       await deleteDoc(doc(db, 'pokemon_cards', selectedCard.id));
       setCards((prev) => prev.filter((card) => card.id !== selectedCard.id));
-      setSelectedCard(null);
+      closeModal();
     } catch (err) {
       console.error('filter explorer delete error', err);
       alert('삭제 중 오류가 발생했습니다.');
@@ -544,7 +583,7 @@ export default function FilterExplorer({ appConfig, isPicker = false, onSelectCa
         isOpen={!!selectedCard}
         card={selectedCard}
         appConfig={appConfig}
-        onClose={() => setSelectedCard(null)}
+        onClose={closeModal}
         onSave={handleModalSave}
         onDelete={handleModalDelete}
         onDuplicate={handleModalDuplicate}

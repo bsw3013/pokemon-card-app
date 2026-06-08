@@ -121,9 +121,35 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
 
 
 
+  const updateHashQueryParams = (params, options = {}) => {
+    const currentHash = window.location.hash;
+    const path = currentHash.split('?')[0] || '#admin';
+    const searchParams = new URLSearchParams(currentHash.split('?')[1] || '');
+    
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === null || value === undefined || value === false) {
+        searchParams.delete(key);
+      } else {
+        searchParams.set(key, String(value));
+      }
+    });
+    
+    const qs = searchParams.toString();
+    const nextHash = qs ? `${path}?${qs}` : path;
+    if (window.location.hash !== nextHash) {
+      if (options.replace) {
+        window.history.replaceState(null, '', nextHash);
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+      } else {
+        window.location.hash = nextHash;
+      }
+    }
+  };
+
   const fetchRawDb = async () => {
      if (showRawDb) {
         setShowRawDb(false);
+        updateHashQueryParams({ showRawDb: null }, { replace: true });
         return;
      }
      setRawSortConfig({ key: null, direction: 'asc' });
@@ -191,6 +217,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
        
        setRawDbData(sortedData);
        setShowRawDb(true);
+       updateHashQueryParams({ showRawDb: true });
      } catch (err) {
        console.error(err);
        alert("데이터베이스 로드에 실패했습니다.");
@@ -198,6 +225,28 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
        setLoadingRaw(false);
      }
   };
+
+  useEffect(() => {
+     if (typeof window === 'undefined') return;
+     const handleHashChange = () => {
+        const hash = window.location.hash;
+        const searchParams = new URLSearchParams(hash.split('?')[1] || '');
+        const showRaw = searchParams.get('showRawDb') === 'true';
+        
+        if (showRaw) {
+           if (!showRawDb) {
+              fetchRawDb();
+           }
+        } else {
+           if (showRawDb) {
+              setShowRawDb(false);
+           }
+        }
+     };
+     window.addEventListener('hashchange', handleHashChange);
+     handleHashChange();
+     return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [showRawDb]);
 
   const rawSaveTimeoutRef = React.useRef({});
   const [rawDbSaving, setRawDbSaving] = useState({});

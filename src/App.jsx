@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import './index.css';
-import CardUpload from './components/CardUpload';
 import CardList from './components/CardList';
 import FilterExplorer from './components/FilterExplorer';
 import AdminSettings from './components/AdminSettings';
@@ -13,7 +12,6 @@ import { sanitizeStatusOptions } from './utils/statusUtils';
 
 const NAV_ITEMS = [
   { id: 'home', label: '홈', description: '메인 대시보드' },
-  { id: 'upload', label: '카드 등록', description: 'AI 이미지 분석 등록' },
   { id: 'gallery', label: '도감 갤러리', description: '보유 카드 조회/편집' },
   { id: 'filter', label: '필터 탐색기', description: '시리즈/레어도/종류 탐색' },
   { id: 'album', label: '앨범 꾸미기', description: '페이지 배치 시뮬레이션' },
@@ -291,17 +289,7 @@ function App() {
         </div>
       ) : (
         <>
-          {currentView === 'upload' && (
-        <main className="upload-page slide-up">
-          <div className="upload-header">
-              <h2>📸 보유 카드 AI 등록</h2>
-              <p className="subtitle">스마트폰 갤러리의 사진이나 카메라로 바로 찍어서 올리세요.</p>
-          </div>
-          <CardUpload />
-        </main>
-      )}
-
-      {currentView === 'gallery' && (
+        {currentView === 'gallery' && (
          <main className="gallery-page">
             <CardList appConfig={appConfig} />
          </main>
@@ -329,12 +317,11 @@ function App() {
 
       {currentView === 'home' && (
         <main className="hero fade-in">
-          <h1>세상에서 가장 똑똑한<br />포켓몬 카드 도감 관리자</h1>
-          <p>카드를 사진으로 찍기만 하세요. 구글 Gemini AI가 복잡한 카드 이름, 번호, 확장팩 시리즈 정보를 모두 찾아 노션 도감 형태로 자동 기록합니다.</p>
+          <h1>편리하고 아름다운<br />포켓몬 카드 도감 관리자</h1>
+          <p>소중한 포켓몬 카드를 일목요연하게 등록 및 관리하고, 앨범 기획기 시뮬레이션을 통해 나만의 컬렉션을 아름답게 배치해 보세요.</p>
           
           <div className="btn-group">
-            <button type="button" className="btn btn-primary" onClick={() => navigateTo('upload')}>➕ AI로 카드 등록하기</button>
-            <button type="button" className="btn btn-secondary" onClick={() => navigateTo('gallery')}>내 도감 갤러리 입장 ({">"}) </button>
+            <button type="button" className="btn btn-primary" onClick={() => navigateTo('gallery')}>내 도감 갤러리 입장 (🔀)</button>
           </div>
 
           <div className="ai-preview-card">
