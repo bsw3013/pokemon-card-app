@@ -2554,6 +2554,18 @@ select.table-input { appearance: none; cursor: pointer; }
   background-size: 10px 10px;
 }
 
+/* 앨범 넘겨보기 뷰어 페이지 콘텐츠 영역 고정 */
+.album-book-page-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  box-sizing: border-box;
+  overflow: hidden; /* 강제 한계 설정 */
+}
+
 /* 넘겨보기 모드 격자 - 카드 꽉 차게 */
 .album-book-grid {
   display: grid;
@@ -2566,12 +2578,14 @@ select.table-input { appearance: none; cursor: pointer; }
   justify-items: center;
   align-items: center;
   margin: 0 auto;
+  box-sizing: border-box;
 }
 
 /* 넘겨보기 전용 포켓 정의 - 실제 앨범에서 보는듯한 테두리 제거 버전 */
 .book-slot-pocket {
   position: relative;
-  width: 100%;
+  width: auto; /* 가로세로 등 제한에 맞춰 자동 스케일되도록 수정! */
+  height: auto;
   max-width: 100%; /* 셀 가로 폭 초과 방지 */
   max-height: 100%; /* 셀 세로 높이 초과 방지 */
   aspect-ratio: 1 / 1.4; /* 카드 비율 유지 */
