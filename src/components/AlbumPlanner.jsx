@@ -1651,6 +1651,37 @@ export default function AlbumPlanner({ appConfig }) {
 
             return (
               <div className="album-book-mode-wrapper">
+                {/* 앨범 뷰어 몰입 모드 제어 상단 컨트롤바 */}
+                <div className="book-viewer-top-controlbar">
+                  <button 
+                    type="button" 
+                    className="top-control-btn fullscreen-toggle-btn"
+                    onClick={() => {
+                      if (!document.fullscreenElement) {
+                        document.documentElement.requestFullscreen().catch(() => {});
+                      } else {
+                        document.exitFullscreen().catch(() => {});
+                      }
+                    }}
+                    title="전체화면 토글"
+                  >
+                    🖥️ 전체화면
+                  </button>
+                  <button 
+                    type="button" 
+                    className="top-control-btn close-book-btn"
+                    onClick={() => {
+                      if (document.fullscreenElement) {
+                        document.exitFullscreen().catch(() => {});
+                      }
+                      setEditorViewMode('page');
+                    }}
+                    title="앨범 닫기"
+                  >
+                    ✕ 닫기
+                  </button>
+                </div>
+
                 <div className="book-viewer-viewport">
                   
                   {/* 좌측 이전 페이지 버튼 */}
