@@ -1697,7 +1697,7 @@ export default function AlbumPlanner({ appConfig }) {
                   </button>
 
                   {/* 3D 바인더 본체 */}
-                  <div className="album-book-container">
+                  <div className="album-book-container" style={{ aspectRatio: `${albumAspectRatio}` }}>
                     <div className={`book-wrapper ${bookStep === 0 ? 'closed-front' : bookStep === totalSteps ? 'closed-back' : 'opened'}`}>
                       
                       {/* 앞표지 닫힘 상태 */}

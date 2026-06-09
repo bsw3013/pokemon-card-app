@@ -2341,7 +2341,6 @@ select.table-input { appearance: none; cursor: pointer; }
   perspective: 2500px;
   width: 100%;
   max-width: 1450px; /* 최대 가로 폭 대폭 확장 */
-  aspect-ratio: 1.62 / 1;
   max-height: 82vh; /* 세로 화면을 다 쓰도록 늘림 */
   display: flex;
   justify-content: center;
@@ -2493,7 +2492,7 @@ select.table-input { appearance: none; cursor: pointer; }
   flex: 1;
   height: 100%;
   overflow: hidden; /* 페이지 밖으로 카드가 잘려 스크롤되는 문제 완벽 방지 */
-  padding: 1rem 1.2rem; /* 카드가 더 크게 표시되도록 여백 줄임 */
+  padding: 0.4rem; /* 카드가 최대한 꽉 차게 여백 최소화 */
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -2520,13 +2519,13 @@ select.table-input { appearance: none; cursor: pointer; }
 .book-page.left-page {
   background: rgba(10, 12, 18, 0.55); /* 내지 배경 대비 최적화 */
   border-right: 1.5px solid rgba(0, 0, 0, 0.7);
-  padding-right: 1.4rem;
+  padding-right: 0.6rem; /* 우측 링 공간만 살짝 여백 남김 */
 }
 
 .book-page.right-page {
   background: rgba(10, 12, 18, 0.55);
   border-left: 1.5px solid rgba(0, 0, 0, 0.7);
-  padding-left: 1.4rem;
+  padding-left: 0.6rem; /* 좌측 링 공간만 살짝 여백 남김 */
 }
 
 /* 표지 안쪽 빈 안감 질감 */
@@ -2584,8 +2583,8 @@ select.table-input { appearance: none; cursor: pointer; }
 /* 넘겨보기 전용 포켓 정의 - 실제 앨범에서 보는듯한 테두리 제거 버전 */
 .book-slot-pocket {
   position: relative;
-  width: auto; /* 가로세로 등 제한에 맞춰 자동 스케일되도록 수정! */
-  height: auto;
+  width: 100%; /* 셀 영역에 빈틈 없이 100% 가로 채우기 */
+  height: 100%; /* 셀 영역에 빈틈 없이 100% 세로 채우기 */
   max-width: 100%; /* 셀 가로 폭 초과 방지 */
   max-height: 100%; /* 셀 세로 높이 초과 방지 */
   aspect-ratio: 1 / 1.4; /* 카드 비율 유지 */
