@@ -2584,8 +2584,8 @@ select.table-input { appearance: none; cursor: pointer; }
 /* 넘겨보기 전용 포켓 정의 - 실제 앨범에서 보는듯한 테두리 제거 버전 */
 .book-slot-pocket {
   position: relative;
-  width: 100%; /* 셀 영역에 빈틈 없이 100% 가로 채우기 */
-  height: 100%; /* 셀 영역에 빈틈 없이 100% 세로 채우기 */
+  width: auto; /* 오버플로우 및 잘림 방지를 위해 auto로 변경 */
+  height: auto; /* 오버플로우 및 잘림 방지를 위해 auto로 변경 */
   max-width: 100%; /* 셀 가로 폭 초과 방지 */
   max-height: 100%; /* 셀 세로 높이 초과 방지 */
   aspect-ratio: 1 / 1.4; /* 카드 비율 유지 */
