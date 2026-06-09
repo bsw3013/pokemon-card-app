@@ -138,6 +138,7 @@ export default function AlbumPlanner({ appConfig }) {
   const [editingAlbum, setEditingAlbum] = useState(null);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [editorViewMode, setEditorViewMode] = useState('canvas');
+  const [preBookViewMode, setPreBookViewMode] = useState('canvas');
   const [canvasColumns, setCanvasColumns] = useState(3);
   const [activeSlotIndex, setActiveSlotIndex] = useState(null);
   const [draggingSlotIndex, setDraggingSlotIndex] = useState(null);
@@ -1260,7 +1261,7 @@ export default function AlbumPlanner({ appConfig }) {
           <div className="view-toggle">
             <button type="button" className={`btn-toggle ${editorViewMode === 'page' ? 'active' : ''}`} onClick={() => { setEditorViewMode('page'); setActiveSlotIndex(null); }}>페이지 보기</button>
             <button type="button" className={`btn-toggle ${editorViewMode === 'canvas' ? 'active' : ''}`} onClick={() => { setEditorViewMode('canvas'); setActiveSlotIndex(null); }}>전체 캔버스</button>
-            <button type="button" className={`btn-toggle ${editorViewMode === 'book' ? 'active' : ''}`} onClick={() => { setEditorViewMode('book'); setBookStep(0); setActiveSlotIndex(null); }}>📖 앨범 넘겨보기</button>
+            <button type="button" className={`btn-toggle ${editorViewMode === 'book' ? 'active' : ''}`} onClick={() => { setPreBookViewMode(editorViewMode); setEditorViewMode('book'); setBookStep(0); setActiveSlotIndex(null); }}>📖 앨범 넘겨보기</button>
           </div>
           {editorViewMode === 'canvas' && (
             <div className="canvas-columns-control" title="캔버스 페이지 열 수 선택">
@@ -1675,7 +1676,7 @@ export default function AlbumPlanner({ appConfig }) {
                       if (document.fullscreenElement) {
                         document.exitFullscreen().catch(() => {});
                       }
-                      setEditorViewMode('page');
+                      setEditorViewMode(preBookViewMode);
                     }}
                     title="앨범 닫기"
                   >
