@@ -1565,6 +1565,10 @@ export default function AlbumPlanner({ appConfig }) {
             const nextLeftIndex = 2 * nextBookStep - 3;
             const nextRightIndex = 2 * nextBookStep - 2;
 
+            const cols = selectedLayout?.cols || editingAlbum.cols || 3;
+            const rows = selectedLayout?.rows || editingAlbum.rows || 3;
+            const albumAspectRatio = (cols * 2) / (rows * 1.4);
+
             const handleBookPageFlip = (direction) => {
               if (isFlipping) return;
               let nextStep = bookStep;
@@ -1601,8 +1605,6 @@ export default function AlbumPlanner({ appConfig }) {
               }
               
               const slots = page.slots || [];
-              const cols = selectedLayout?.cols || editingAlbum.cols || 3;
-              const rows = selectedLayout?.rows || editingAlbum.rows || 3;
 
               return (
                 <div className="album-book-page-content" onClick={(e) => {

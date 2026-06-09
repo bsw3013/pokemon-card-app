@@ -2340,8 +2340,9 @@ select.table-input { appearance: none; cursor: pointer; }
 .album-book-container {
   perspective: 2500px;
   width: 100%;
-  max-width: 1450px; /* 최대 가로 폭 대폭 확장 */
-  max-height: 82vh; /* 세로 화면을 다 쓰도록 늘림 */
+  height: auto;
+  max-width: 94vw; /* 화면 좌우 내비게이션 버튼을 침범하지 않는 선에서 최대화 */
+  max-height: 82vh; /* 상단 컨트롤바 등을 고려하여 세로 화면을 가득 채움 */
   display: flex;
   justify-content: center;
   align-items: center;
