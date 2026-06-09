@@ -2423,15 +2423,17 @@ select.table-input { appearance: none; cursor: pointer; }
 .book-page {
   flex: 1;
   height: 100%;
-  overflow-y: auto;
+  overflow: hidden; /* 페이지 밖으로 카드가 잘려 스크롤되는 문제 완벽 방지 */
   padding: 1rem 1.2rem; /* 카드가 더 크게 표시되도록 여백 줄임 */
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  align-items: center;
   box-sizing: border-box;
   position: relative;
 }
 
-/* 페이지 내부 스크롤바 디자인 */
+/* 페이지 내부 스크롤바 디자인 (overflow: hidden으로 일반적으로는 안 보이나 예외 대비 유지) */
 .book-page::-webkit-scrollbar {
   width: 6px;
 }
@@ -2488,6 +2490,12 @@ select.table-input { appearance: none; cursor: pointer; }
   display: grid;
   gap: 0.5rem; /* 그리드 간격을 좁혀 카드를 더 꽉 채워 보여줌 */
   width: 100%;
+  height: 100%; /* 페이지 전체 높이를 가득 활용 */
+  max-height: 100%; /* 페이지 높이를 절대 뚫고 나가지 않게 제한 */
+  align-content: center; /* 종횡비 유지 상태에서 가로세로 중앙 정렬 */
+  justify-content: center;
+  justify-items: center;
+  align-items: center;
   margin: 0 auto;
 }
 
@@ -2495,7 +2503,11 @@ select.table-input { appearance: none; cursor: pointer; }
 .book-slot-pocket {
   position: relative;
   width: 100%;
-  aspect-ratio: 1 / 1.4;
+  max-width: 100%; /* 셀 가로 폭 초과 방지 */
+  max-height: 100%; /* 셀 세로 높이 초과 방지 */
+  aspect-ratio: 1 / 1.4; /* 카드 비율 유지 */
+  align-self: center; /* 셀 내부 정중앙 안착 */
+  justify-self: center;
   border-radius: 8px;
   overflow: hidden;
   box-sizing: border-box;

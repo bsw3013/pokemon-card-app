@@ -1602,6 +1602,7 @@ export default function AlbumPlanner({ appConfig }) {
               
               const slots = page.slots || [];
               const cols = selectedLayout?.cols || editingAlbum.cols || 3;
+              const rows = selectedLayout?.rows || editingAlbum.rows || 3;
 
               return (
                 <div className="album-book-page-content" onClick={(e) => {
@@ -1614,7 +1615,10 @@ export default function AlbumPlanner({ appConfig }) {
                 }}>
                   <div 
                     className="album-book-grid" 
-                    style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+                    style={{ 
+                      gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+                      gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`
+                    }}
                   >
                     {slots.map((slot, slotIdx) => {
                       const resolvedSlot = resolveSlotCard(slot);
