@@ -2339,14 +2339,37 @@ select.table-input { appearance: none; cursor: pointer; }
 /* 3D 앨범 컨테이너 - 화면 크기에 따라 비율을 지키며 최대한 꽉 채움 */
 .album-book-container {
   perspective: 2500px;
-  width: 100%;
-  height: auto;
-  max-width: 94vw; /* 화면 좌우 내비게이션 버튼을 침범하지 않는 선에서 최대화 */
-  max-height: 82vh; /* 상단 컨트롤바 등을 고려하여 세로 화면을 가득 채움 */
   display: flex;
   justify-content: center;
   align-items: center;
   position: relative;
+  
+  /* cols, rows 값을 React inline style(--cols, --rows)로부터 주입받음 */
+  --cols-val: var(--cols, 3);
+  --rows-val: var(--rows, 3);
+  
+  /* 레이아웃 패딩 및 갭 계산 */
+  --p-w: 1.4rem; /* 페이지 좌우 패딩 합산 */
+  --p-h: 0.8rem; /* 페이지 상하 패딩 합산 */
+  --g-w: calc((var(--cols-val) - 1) * 0.5rem); /* 그리드 가로 갭 총합 */
+  --g-h: calc((var(--rows-val) - 1) * 0.5rem); /* 그리드 세로 갭 총합 */
+  
+  /* 화면 가용한 최대 한계 안에서, 카드(1:1.4 비율)가 가질 수 있는 최적의 너비 w 계산 */
+  /* 가로 한계: 94vw (좌우 펼침이므로 한 페이지당 47vw 한계) */
+  /* 세로 한계: 82vh */
+  --w-by-vw: calc((47vw - var(--g-w) - var(--p-w)) / var(--cols-val));
+  --w-by-vh: calc((82vh - var(--g-h) - var(--p-h)) / (var(--rows-val) * 1.4));
+  
+  /* 두 한계값 중 최솟값을 최적의 카드 단일 너비로 결정 */
+  --card-w: min(var(--w-by-vw), var(--w-by-vh));
+  --card-h: calc(var(--card-w) * 1.4);
+  
+  /* 계산된 카드 크기에 기반하여 앨범(바인더) 전체의 가로/세로 크기를 동적 맞춤 결정 */
+  --album-w: calc(2 * (var(--cols-val) * var(--card-w) + var(--g-w) + var(--p-w)));
+  --album-h: calc(var(--rows-val) * var(--card-h) + var(--g-h) + var(--p-h));
+  
+  width: var(--album-w);
+  height: var(--album-h);
 }
 
 /* 책 래퍼 (배경과 대비가 두드러지는 메탈릭 블랙 가죽 바인더 질감 고정) */
@@ -2584,11 +2607,10 @@ select.table-input { appearance: none; cursor: pointer; }
 /* 넘겨보기 전용 포켓 정의 - 실제 앨범에서 보는듯한 테두리 제거 버전 */
 .book-slot-pocket {
   position: relative;
-  width: auto; /* 오버플로우 및 잘림 방지를 위해 auto로 변경 */
-  height: auto; /* 오버플로우 및 잘림 방지를 위해 auto로 변경 */
+  width: var(--card-w); /* 최적 계산된 카드 너비 적용 */
+  height: var(--card-h); /* 최적 계산된 카드 높이 적용 */
   max-width: 100%; /* 셀 가로 폭 초과 방지 */
   max-height: 100%; /* 셀 세로 높이 초과 방지 */
-  aspect-ratio: 1 / 1.4; /* 카드 비율 유지 */
   align-self: center; /* 셀 내부 정중앙 안착 */
   justify-self: center;
   border-radius: 8px;

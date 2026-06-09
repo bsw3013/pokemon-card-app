@@ -1556,27 +1556,17 @@ export default function AlbumPlanner({ appConfig }) {
 
           {editorViewMode === 'book' && (() => {
             const pageCount = editingAlbum.pages?.length || 0;
-            const maxStep = Math.ceil(pageCount / 2);
+            const maxStep = Math.ceil((pageCount + 1) / 2);
             const totalSteps = maxStep + 1;
 
-            const leftPageIndex = 2 * bookStep - 2;
-            const rightPageIndex = 2 * bookStep - 1;
+            const leftPageIndex = 2 * bookStep - 3;
+            const rightPageIndex = 2 * bookStep - 2;
             const nextBookStep = isFlipping ? (flipDirection === 'next' ? bookStep + 1 : bookStep - 1) : bookStep;
-            const nextLeftIndex = 2 * nextBookStep - 2;
-            const nextRightIndex = 2 * nextBookStep - 1;
+            const nextLeftIndex = 2 * nextBookStep - 3;
+            const nextRightIndex = 2 * nextBookStep - 2;
 
             const cols = selectedLayout?.cols || editingAlbum.cols || 3;
             const rows = selectedLayout?.rows || editingAlbum.rows || 3;
-            
-            // 실제 패딩과 그리드 갭으로 인한 가로세로 비율 오차 정밀 보정
-            let albumAspectRatio = (cols * 2) / (rows * 1.4);
-            if (cols === 3 && rows === 3) {
-              albumAspectRatio = 1.485;
-            } else if (cols === 4 && rows === 3) {
-              albumAspectRatio = 1.96;
-            } else if (cols === 2 && rows === 2) {
-              albumAspectRatio = 1.48;
-            }
 
             const handleBookPageFlip = (direction) => {
               if (isFlipping) return;
@@ -1708,7 +1698,7 @@ export default function AlbumPlanner({ appConfig }) {
                   </button>
 
                   {/* 3D 바인더 본체 */}
-                  <div className="album-book-container" style={{ aspectRatio: `${albumAspectRatio}` }}>
+                  <div className="album-book-container" style={{ '--cols': cols, '--rows': rows }}>
                     <div className={`book-wrapper ${bookStep === 0 ? 'closed-front' : bookStep === totalSteps ? 'closed-back' : 'opened'}`}>
                       
                       {/* 앞표지 닫힘 상태 */}
