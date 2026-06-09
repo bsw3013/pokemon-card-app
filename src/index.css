@@ -2571,29 +2571,127 @@ select.table-input { appearance: none; cursor: pointer; }
   transform: rotate(-6deg);
 }
 
-/* 3D 책장 플립 애니메이션 */
-.book-spread-inner.flipping-next .right-page {
-  animation: book-flip-next 0.45s cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards;
+/* 3D 책장 플립 애니메이션 - 리얼 3D 더블 사이드 시트 공중 회전 모션 */
+
+/* 1. 플립 중 정적으로 아래에 깔려 있는 좌/우 페이지 */
+.book-page.static-left,
+.book-page.static-right {
+  position: relative;
+  z-index: 1; /* 회전하는 시트보다 아래에 깔려 있도록 낮은 z-index 할당 */
+  pointer-events: none; /* 플립 중 입력 차단 */
+}
+
+/* 2. 공중에서 뒤집히는 3D 독립 페이지 시트 */
+.book-page-flip-sheet {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  height: 100%;
+  transform-style: preserve-3d; /* 3D 공간 보존 */
+  z-index: 100; /* 정적 고정 레이어보다 확고하게 위에 뜨도록 z-index 극대화 */
+  pointer-events: none;
+}
+
+/* 오른쪽에서 왼쪽으로 넘어갈 때 (다음장) */
+.book-page-flip-sheet.flip-to-left {
+  right: 0;
+  left: auto;
   transform-origin: left center;
-  z-index: 50;
+  animation: book-sheet-flip-next 0.6s cubic-bezier(0.645, 0.045, 0.355, 1) forwards;
 }
 
-.book-spread-inner.flipping-prev .left-page {
-  animation: book-flip-prev 0.45s cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards;
+/* 왼쪽에서 오른쪽으로 넘어갈 때 (이전장) */
+.book-page-flip-sheet.flip-to-right {
+  left: 0;
+  right: auto;
   transform-origin: right center;
-  z-index: 50;
+  animation: book-sheet-flip-prev 0.6s cubic-bezier(0.645, 0.045, 0.355, 1) forwards;
 }
 
-@keyframes book-flip-next {
-  0% { transform: rotateY(0deg); opacity: 1; }
-  50% { opacity: 0.3; }
-  100% { transform: rotateY(-180deg); opacity: 0; }
+/* 3. 뒤집히는 시트 안의 앞면과 뒷면 */
+.book-page-flip-sheet .sheet-side {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden; /* 뒤집혔을 때 뒷면 내용물 숨김 */
+  -webkit-backface-visibility: hidden;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: 0 16px 16px 0; /* 우측 페이지 둥글기 기본 적용 */
+  box-shadow: inset 0 2px 6px rgba(255, 255, 255, 0.05), inset 0 -2px 6px rgba(0, 0, 0, 0.4);
 }
 
-@keyframes book-flip-prev {
-  0% { transform: rotateY(0deg); opacity: 1; }
-  50% { opacity: 0.3; }
-  100% { transform: rotateY(180deg); opacity: 0; }
+/* flip-to-left 일 때 앞면은 우측 페이지 스타일, 뒷면은 좌측 페이지 스타일 */
+.book-page-flip-sheet.flip-to-left .sheet-front {
+  background: rgba(10, 12, 18, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: none;
+  padding: 1rem 1.2rem 1rem 1.4rem;
+  z-index: 2;
+  transform: rotateY(0deg);
+}
+
+.book-page-flip-sheet.flip-to-left .sheet-back {
+  background: rgba(10, 12, 18, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-right: none;
+  padding: 1rem 1.4rem 1rem 1.2rem;
+  z-index: 1;
+  transform: rotateY(180deg); /* 180도 뒤집어서 앞면이 90도를 돌 때 뒷면이 똑바로 보이게 세팅 */
+  border-radius: 16px 0 0 16px; /* 좌측 페이지 둥글기 보정 */
+}
+
+/* flip-to-right 일 때 앞면은 좌측 페이지 스타일, 뒷면은 우측 페이지 스타일 */
+.book-page-flip-sheet.flip-to-right .sheet-front {
+  background: rgba(10, 12, 18, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-right: none;
+  padding: 1rem 1.4rem 1rem 1.2rem;
+  z-index: 2;
+  transform: rotateY(0deg);
+  border-radius: 16px 0 0 16px;
+}
+
+.book-page-flip-sheet.flip-to-right .sheet-back {
+  background: rgba(10, 12, 18, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: none;
+  padding: 1rem 1.2rem 1rem 1.4rem;
+  z-index: 1;
+  transform: rotateY(-180deg);
+  border-radius: 0 16px 16px 0;
+}
+
+/* Y축 회전 Keyframes */
+@keyframes book-sheet-flip-next {
+  0% { 
+    transform: rotateY(0deg); 
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+  }
+  50% {
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.75);
+  }
+  100% { 
+    transform: rotateY(-180deg); 
+    box-shadow: -15px 15px 35px rgba(0, 0, 0, 0.5);
+  }
+}
+
+@keyframes book-sheet-flip-prev {
+  0% { 
+    transform: rotateY(0deg); 
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+  }
+  50% {
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.75);
+  }
+  100% { 
+    transform: rotateY(180deg); 
+    box-shadow: 15px 15px 35px rgba(0, 0, 0, 0.5);
+  }
 }
 
 /* 책 뷰어 모드에서의 전체 화면 정렬 - 외부 프레임을 모두 지워 화면에 바인더만 크게 플로팅 */

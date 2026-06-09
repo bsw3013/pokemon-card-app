@@ -1561,6 +1561,9 @@ export default function AlbumPlanner({ appConfig }) {
 
             const leftPageIndex = 2 * bookStep - 3;
             const rightPageIndex = 2 * bookStep - 2;
+            const nextBookStep = isFlipping ? (flipDirection === 'next' ? bookStep + 1 : bookStep - 1) : bookStep;
+            const nextLeftIndex = 2 * nextBookStep - 3;
+            const nextRightIndex = 2 * nextBookStep - 2;
 
             const handleBookPageFlip = (direction) => {
               if (isFlipping) return;
@@ -1577,7 +1580,7 @@ export default function AlbumPlanner({ appConfig }) {
               setTimeout(() => {
                 setBookStep(nextStep);
                 setIsFlipping(false);
-              }, 450);
+              }, 600); // 3D 회전 애니메이션의 완성도를 높이기 위해 600ms로 조절
             };
 
             const renderBookPageGrid = (pageIndex) => {
@@ -1690,24 +1693,62 @@ export default function AlbumPlanner({ appConfig }) {
                       {/* 본문 양면 상태 */}
                       {bookStep > 0 && bookStep < totalSteps && (
                         <div className={`book-spread-inner ${isFlipping ? `flipping-${flipDirection}` : ''}`}>
-                          {/* 왼쪽 페이지 */}
-                          <div className="book-page left-page">
-                            {renderBookPageGrid(leftPageIndex)}
-                          </div>
+                          {isFlipping ? (
+                            <>
+                              {/* 1. 바닥 배경 고정 레이어 (Static Underneath) */}
+                              <div className="book-page static-left">
+                                {renderBookPageGrid(flipDirection === 'next' ? leftPageIndex : nextLeftIndex)}
+                              </div>
+                              <div className="book-spine-rings">
+                                <div className="ring-coil"></div>
+                                <div className="ring-coil"></div>
+                                <div className="ring-coil"></div>
+                                <div className="ring-coil"></div>
+                                <div className="ring-coil"></div>
+                              </div>
+                              <div className="book-page static-right">
+                                {renderBookPageGrid(flipDirection === 'next' ? nextRightIndex : rightPageIndex)}
+                              </div>
 
-                          {/* 중앙 바인더 링 */}
-                          <div className="book-spine-rings">
-                            <div className="ring-coil"></div>
-                            <div className="ring-coil"></div>
-                            <div className="ring-coil"></div>
-                            <div className="ring-coil"></div>
-                            <div className="ring-coil"></div>
-                          </div>
-
-                          {/* 오른쪽 페이지 */}
-                          <div className="book-page right-page">
-                            {renderBookPageGrid(rightPageIndex)}
-                          </div>
+                              {/* 2. 실제 3D 회전하는 공중 페이지 시트 (Flipping Page Layer) */}
+                              {flipDirection === 'next' ? (
+                                <div className="book-page-flip-sheet flip-to-left">
+                                  <div className="sheet-side sheet-front">
+                                    {renderBookPageGrid(rightPageIndex)}
+                                  </div>
+                                  <div className="sheet-side sheet-back">
+                                    {renderBookPageGrid(nextLeftIndex)}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="book-page-flip-sheet flip-to-right">
+                                  <div className="sheet-side sheet-front">
+                                    {renderBookPageGrid(leftPageIndex)}
+                                  </div>
+                                  <div className="sheet-side sheet-back">
+                                    {renderBookPageGrid(nextRightIndex)}
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              {/* 기본 정적 양면 화면 */}
+                              <div className="book-page left-page">
+                                {renderBookPageGrid(leftPageIndex)}
+                              </div>
+                              <div className="book-spine-rings">
+                                <div className="ring-coil"></div>
+                                <div className="ring-coil"></div>
+                                <div className="ring-coil"></div>
+                                <div className="ring-coil"></div>
+                                <div className="ring-coil"></div>
+                              </div>
+                              <div className="book-page right-page">
+                                {renderBookPageGrid(rightPageIndex)}
+                              </div>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
