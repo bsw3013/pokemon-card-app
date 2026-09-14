@@ -55,6 +55,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
   const [pendingAdd, setPendingAdd] = useState(null); // {cardKey, cardName, series, cardNumber, imageUrl, query}
   const [manualAddOpen, setManualAddOpen] = useState(false);
   const [manualAddForm, setManualAddForm] = useState({ cardName: '', series: '', cardNumber: '' });
+  const [editingListing, setEditingListing] = useState(null); // {id, price, url, memo, language, conditionType, gradingCompany, grade}
 
   const [selectedCard, setSelectedCard] = useState(null); // {cardKey, cardName, series, cardNumber, imageUrl}
   const [listings, setListings] = useState([]);
@@ -485,11 +486,38 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
     }
   }
 
-  async function handleReclassify(listingId, classification) {
-    await updateDoc(doc(db, 'marketListings', listingId), {
-      classification,
-      classificationOverride: true,
+  function openEditListing(listing) {
+    if (!user) { signInWithGoogle(); return; }
+    setEditingListing({
+      id: listing.id,
+      price: listing.price ?? '',
+      url: listing.url || '',
+      memo: listing.memo || '',
+      language: listing.language || '한국',
+      conditionType: listing.conditionType || 'raw',
+      gradingCompany: listing.gradingCompany || '',
+      grade: listing.grade || '',
     });
+  }
+
+  async function handleUpdateListing(e) {
+    e.preventDefault();
+    if (!editingListing) return;
+    if (!user) { signInWithGoogle(); return; }
+    const price = parseInt(editingListing.price, 10);
+    if (Number.isNaN(price)) return;
+    const gradingCompany = editingListing.conditionType === 'graded' ? editingListing.gradingCompany : '';
+    const grade = editingListing.conditionType === 'graded' ? editingListing.grade : '';
+    await updateDoc(doc(db, 'marketListings', editingListing.id), {
+      price,
+      url: editingListing.url.trim() || null,
+      memo: editingListing.memo,
+      language: editingListing.language,
+      conditionType: editingListing.conditionType,
+      gradingCompany,
+      grade,
+    });
+    setEditingListing(null);
     refreshCardAndDashboard(selectedCard.cardKey);
   }
 
@@ -659,6 +687,42 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                 <button type="button" className="btn btn-primary" onClick={handleConfirmAddWatchlist}>⭐ 관심카드로 추가</button>
                 <button type="button" className="btn" onClick={() => setPendingAdd(null)}>취소</button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingListing && (
+        <div className="market-confirm-backdrop" onClick={() => setEditingListing(null)}>
+          <div className="market-confirm-card" onClick={(e) => e.stopPropagation()}>
+            <div className="market-confirm-body">
+              <h4>매물 정보 수정</h4>
+              <form className="market-manual-form" onSubmit={handleUpdateListing}>
+                <input type="number" placeholder="가격(원)" value={editingListing.price} onChange={(e) => setEditingListing((l) => ({ ...l, price: e.target.value }))} required />
+                <select value={editingListing.language} onChange={(e) => setEditingListing((l) => ({ ...l, language: e.target.value }))}>
+                  {LANGUAGE_OPTIONS.map((lang) => <option key={lang} value={lang}>{lang}판</option>)}
+                </select>
+                <select value={editingListing.conditionType} onChange={(e) => setEditingListing((l) => ({ ...l, conditionType: e.target.value }))}>
+                  <option value="raw">싱글(미등급)</option>
+                  <option value="graded">등급카드</option>
+                </select>
+                {editingListing.conditionType === 'graded' && (
+                  <>
+                    <select value={editingListing.gradingCompany} onChange={(e) => setEditingListing((l) => ({ ...l, gradingCompany: e.target.value }))} required>
+                      <option value="">등급사</option>
+                      {gradingCompanies.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <select value={editingListing.grade} onChange={(e) => setEditingListing((l) => ({ ...l, grade: e.target.value }))} required>
+                      <option value="">등급</option>
+                      {gradingScale.map((g) => <option key={g} value={g}>{g}</option>)}
+                    </select>
+                  </>
+                )}
+                <input type="text" placeholder="메모" value={editingListing.memo} onChange={(e) => setEditingListing((l) => ({ ...l, memo: e.target.value }))} />
+                <input type="url" placeholder="원본 링크" value={editingListing.url} onChange={(e) => setEditingListing((l) => ({ ...l, url: e.target.value }))} />
+                <button type="submit" className="btn btn-primary">저장</button>
+                <button type="button" className="btn" onClick={() => setEditingListing(null)}>취소</button>
+              </form>
             </div>
           </div>
         </div>
@@ -889,7 +953,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                 title="현재 판매중"
                 listings={activeNormal}
                 emptyText="현재 판매중인 매물이 없습니다."
-                onReclassify={handleReclassify}
+                onEdit={openEditListing}
                 onToggleStatus={handleStatusToggle}
                 onDelete={handleDeleteListing}
                 onPhotoCheck={PHOTO_CHECK_ENABLED ? handlePhotoCheck : undefined}
@@ -901,7 +965,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                 title="판매완료 표시됨"
                 listings={soldEstimated}
                 emptyText="판매완료로 표시한 매물이 없습니다."
-                onReclassify={handleReclassify}
+                onEdit={openEditListing}
                 onToggleStatus={handleStatusToggle}
                 onDelete={handleDeleteListing}
                 photoChecks={photoChecks}
@@ -917,7 +981,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                   <ListingSection
                     listings={bundleOutlier}
                     emptyText="묶음/이상치로 분류된 매물이 없습니다."
-                    onReclassify={handleReclassify}
+                    onEdit={openEditListing}
                     onDelete={handleDeleteListing}
                     photoChecks={photoChecks}
                     showClassificationBadge
@@ -951,7 +1015,7 @@ function CardTile({ card, onClick, active, onRemove, subLabel }) {
   );
 }
 
-function ListingSection({ title, listings, emptyText, onReclassify, onToggleStatus, onDelete, onPhotoCheck, photoChecks, statusActionLabel, dateField = 'firstSeen', showClassificationBadge }) {
+function ListingSection({ title, listings, emptyText, onEdit, onToggleStatus, onDelete, onPhotoCheck, photoChecks, statusActionLabel, dateField = 'firstSeen', showClassificationBadge }) {
   return (
     <div className="market-section">
       {title && <h4>{title} ({listings.length})</h4>}
@@ -986,12 +1050,8 @@ function ListingSection({ title, listings, emptyText, onReclassify, onToggleStat
                   {onToggleStatus && (
                     <button type="button" className="btn" onClick={() => onToggleStatus(l)}>{statusActionLabel}</button>
                   )}
-                  {onReclassify && (
-                    <select value={l.classification} onChange={(e) => onReclassify(l.id, e.target.value)}>
-                      {Object.entries(CLASSIFICATION_LABELS).map(([value, label]) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
+                  {onEdit && (
+                    <button type="button" className="btn" onClick={() => onEdit(l)}>✏️ 수정</button>
                   )}
                   {onDelete && (
                     <button type="button" className="btn btn-danger" onClick={() => onDelete(l)}>🗑 삭제</button>
