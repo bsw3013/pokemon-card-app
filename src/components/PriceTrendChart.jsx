@@ -1,15 +1,19 @@
 import React, { useMemo } from 'react';
 
-const SOURCE_COLORS = {
-  bunjang: '#f97316',
-  danggeun: '#22c55e',
-  manual: '#3b82f6',
+const KNOWN_MARKETPLACE_COLORS = {
+  번개장터: '#f97316',
+  당근마켓: '#22c55e',
+  직접입력: '#3b82f6',
 };
-const SOURCE_LABELS = {
-  bunjang: '번개장터',
-  danggeun: '당근마켓',
-  manual: '직접입력',
-};
+const FALLBACK_PALETTE = ['#a855f7', '#ec4899', '#eab308', '#14b8a6', '#f43f5e', '#6366f1', '#84cc16', '#0ea5e9'];
+
+function marketplaceLabelFor(point) {
+  if (point.marketplace) return point.marketplace;
+  if (point.source === 'bunjang') return '번개장터';
+  if (point.source === 'danggeun') return '당근마켓';
+  if (point.source === 'manual') return '직접입력';
+  return point.source || '기타';
+}
 
 const WIDTH = 640;
 const HEIGHT = 220;
@@ -25,14 +29,30 @@ export default function PriceTrendChart({ history }) {
     () => (history || []).filter((h) => typeof h.price === 'number').slice().sort((a, b) => new Date(a.recordedAt) - new Date(b.recordedAt)),
     [history]
   );
-  const bySource = useMemo(() => {
+  // 판매처(사용자가 직접 입력한 이름 포함)별로 묶어서 선/범례를 그린다.
+  const byMarketplace = useMemo(() => {
     const map = {};
     for (const p of points) {
-      if (!map[p.source]) map[p.source] = [];
-      map[p.source].push(p);
+      const label = marketplaceLabelFor(p);
+      if (!map[label]) map[label] = [];
+      map[label].push(p);
     }
     return map;
   }, [points]);
+
+  const colorByLabel = useMemo(() => {
+    const colors = {};
+    let fallbackIdx = 0;
+    Object.keys(byMarketplace).forEach((label) => {
+      if (KNOWN_MARKETPLACE_COLORS[label]) {
+        colors[label] = KNOWN_MARKETPLACE_COLORS[label];
+      } else {
+        colors[label] = FALLBACK_PALETTE[fallbackIdx % FALLBACK_PALETTE.length];
+        fallbackIdx += 1;
+      }
+    });
+    return colors;
+  }, [byMarketplace]);
 
   if (points.length < 2) {
     return (
@@ -69,11 +89,11 @@ export default function PriceTrendChart({ history }) {
         <text x={PAD.left} y={HEIGHT - 6} className="market-chart-axis-label">{formatDate(points[0].recordedAt)}</text>
         <text x={WIDTH - PAD.right - 28} y={HEIGHT - 6} className="market-chart-axis-label">{formatDate(points[points.length - 1].recordedAt)}</text>
 
-        {Object.entries(bySource).map(([source, pts]) => {
+        {Object.entries(byMarketplace).map(([label, pts]) => {
           const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xFor(p.recordedAt)} ${yFor(p.price)}`).join(' ');
-          const color = SOURCE_COLORS[source] || '#94a3b8';
+          const color = colorByLabel[label] || '#94a3b8';
           return (
-            <g key={source}>
+            <g key={label}>
               <path d={path} fill="none" stroke={color} strokeWidth="2" />
               {pts.map((p, i) => (
                 <circle key={i} cx={xFor(p.recordedAt)} cy={yFor(p.price)} r="3" fill={color} />
@@ -83,10 +103,10 @@ export default function PriceTrendChart({ history }) {
         })}
       </svg>
       <div className="market-chart-legend">
-        {Object.keys(bySource).map((source) => (
-          <span key={source} className="market-chart-legend-item">
-            <i style={{ background: SOURCE_COLORS[source] || '#94a3b8' }} />
-            {SOURCE_LABELS[source] || source}
+        {Object.keys(byMarketplace).map((label) => (
+          <span key={label} className="market-chart-legend-item">
+            <i style={{ background: colorByLabel[label] || '#94a3b8' }} />
+            {label}
           </span>
         ))}
       </div>

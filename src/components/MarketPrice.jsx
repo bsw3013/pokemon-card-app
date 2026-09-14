@@ -67,7 +67,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
 
   const [manualFormOpen, setManualFormOpen] = useState(false);
   const [manualForm, setManualForm] = useState({
-    price: '', date: new Date().toISOString().slice(0, 10), memo: '', url: '',
+    price: '', date: new Date().toISOString().slice(0, 10), memo: '', url: '', marketplace: '',
     language: '한국', conditionType: 'raw', gradingCompany: '', grade: '',
   });
 
@@ -414,6 +414,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
     const conditionType = manualForm.conditionType || 'raw';
     const gradingCompany = conditionType === 'graded' ? (manualForm.gradingCompany || '') : '';
     const grade = conditionType === 'graded' ? (manualForm.grade || '') : '';
+    const marketplace = manualForm.marketplace.trim() || null;
 
     await addDoc(collection(db, 'marketListings'), {
       cardKey: selectedCard.cardKey,
@@ -421,6 +422,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
       series: selectedCard.series || '',
       cardNumber: selectedCard.cardNumber || '',
       source: 'manual',
+      marketplace,
       externalId,
       title: manualForm.memo || '직접 입력한 시세',
       price,
@@ -444,6 +446,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
     await addDoc(collection(db, 'marketPriceHistory'), {
       cardKey: selectedCard.cardKey,
       source: 'manual',
+      marketplace,
       externalId,
       price,
       recordedAt,
@@ -455,7 +458,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
     });
 
     setManualForm({
-      price: '', date: new Date().toISOString().slice(0, 10), memo: '', url: '',
+      price: '', date: new Date().toISOString().slice(0, 10), memo: '', url: '', marketplace: '',
       language: '한국', conditionType: 'raw', gradingCompany: '', grade: '',
     });
     setManualFormOpen(false);
@@ -495,12 +498,14 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
       const recordedBy = buildRecordedBy();
       const gradingCompany = importConditionType === 'graded' ? importGradingCompany : '';
       const grade = importConditionType === 'graded' ? importGrade : '';
+      const marketplace = existing?.marketplace || SOURCE_LABELS[result.source] || result.source;
       await setDoc(doc(db, 'marketListings', importKey), {
         cardKey: selectedCard.cardKey,
         cardName: selectedCard.cardName,
         series: selectedCard.series || '',
         cardNumber: selectedCard.cardNumber || '',
         source: result.source,
+        marketplace,
         externalId: result.externalId,
         title: result.title,
         price: result.price,
@@ -523,6 +528,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
       await addDoc(collection(db, 'marketPriceHistory'), {
         cardKey: selectedCard.cardKey,
         source: result.source,
+        marketplace,
         externalId: result.externalId,
         price: result.price,
         recordedAt: now,
@@ -545,6 +551,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
       price: listing.price ?? '',
       url: listing.url || '',
       memo: listing.memo || '',
+      marketplace: listing.marketplace || SOURCE_LABELS[listing.source] || '',
       language: listing.language || '한국',
       conditionType: listing.conditionType || 'raw',
       gradingCompany: listing.gradingCompany || '',
@@ -564,6 +571,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
       price,
       url: editingListing.url.trim() || null,
       memo: editingListing.memo,
+      marketplace: editingListing.marketplace.trim() || null,
       language: editingListing.language,
       conditionType: editingListing.conditionType,
       gradingCompany,
@@ -770,6 +778,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                     </select>
                   </>
                 )}
+                <input type="text" placeholder="판매처 (예: 번개장터, 트위터, 지인거래 등)" value={editingListing.marketplace} onChange={(e) => setEditingListing((l) => ({ ...l, marketplace: e.target.value }))} />
                 <input type="text" placeholder="메모" value={editingListing.memo} onChange={(e) => setEditingListing((l) => ({ ...l, memo: e.target.value }))} />
                 <input type="url" placeholder="원본 링크" value={editingListing.url} onChange={(e) => setEditingListing((l) => ({ ...l, url: e.target.value }))} />
                 <button type="submit" className="btn btn-primary">저장</button>
@@ -974,7 +983,8 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                         </select>
                       </>
                     )}
-                    <input type="text" placeholder="메모 (예: 직거래, 트위터 등)" value={manualForm.memo} onChange={(e) => setManualForm((f) => ({ ...f, memo: e.target.value }))} />
+                    <input type="text" placeholder="판매처 (예: 트위터, 카페, 지인거래 등)" value={manualForm.marketplace} onChange={(e) => setManualForm((f) => ({ ...f, marketplace: e.target.value }))} />
+                    <input type="text" placeholder="메모 (예: 직거래 등)" value={manualForm.memo} onChange={(e) => setManualForm((f) => ({ ...f, memo: e.target.value }))} />
                     <input type="url" placeholder="원본 링크 (선택, 예: 트윗/카페글 주소)" value={manualForm.url} onChange={(e) => setManualForm((f) => ({ ...f, url: e.target.value }))} />
                     <button type="submit" className="btn btn-primary">저장</button>
                     <button type="button" className="btn" onClick={() => setManualFormOpen(false)}>취소</button>
@@ -1155,7 +1165,7 @@ function ListingSection({ title, listings, emptyText, onEdit, onToggleStatus, on
             const check = photoChecks?.[l.id];
             return (
               <div key={l.id} className="market-listing-row">
-                <span className={`badge-source badge-source-${l.source}`}>{SOURCE_LABELS[l.source] || l.source}</span>
+                <span className={`badge-source badge-source-${l.source}`}>{l.marketplace || SOURCE_LABELS[l.source] || l.source}</span>
                 {l.language && <span className="badge-classification">{l.language}판</span>}
                 {l.conditionType === 'graded' && (
                   <span className="badge-classification">{[l.gradingCompany, l.grade].filter(Boolean).join(' ') || '등급카드'}</span>
