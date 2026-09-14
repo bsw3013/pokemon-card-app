@@ -51,11 +51,66 @@ export const analyzePokemonCard = async (file) => {
   try {
     const result = await model.generateContent([prompt, imagePart]);
     const responseText = result.response.text();
-    
+
     // JSON 모드를 켰으므로 안전하게 바로 파싱 가능
     return JSON.parse(responseText);
   } catch(e) {
     console.error("Gemini API Error:", e);
     throw new Error("에러 원인: " + (e.message || "알 수 없는 에러"));
+  }
+};
+
+/**
+ * 매물 사진 URL을 분석해서 실제로 어떤 카드가 찍혀있는지, 여러 장(묶음)인지 판단한다.
+ * 번개장터/당근마켓 등 CDN이 CORS를 막아둔 경우 이미지를 직접 불러올 수 없어 실패할 수 있다.
+ */
+export const analyzeListingImage = async (imageUrl, expectedCardName) => {
+  if (!apiKey || apiKey === "여기에_발급받은_Gemini_API_키를_붙여넣으세요") {
+    throw new Error("Gemini API 키가 설정되지 않았습니다. .env.local 파일을 확인해주세요.");
+  }
+
+  let base64Data;
+  let mimeType;
+  try {
+    const imgResp = await fetch(imageUrl);
+    if (!imgResp.ok) throw new Error(`이미지를 불러오지 못했습니다 (${imgResp.status})`);
+    const blob = await imgResp.blob();
+    mimeType = blob.type || 'image/jpeg';
+    base64Data = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    throw new Error('이 사이트의 이미지는 브라우저에서 직접 불러올 수 없어 사진분석이 불가합니다. (' + (e.message || 'CORS 차단') + ')');
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-1.5-flash',
+    generationConfig: { responseMimeType: 'application/json' },
+  });
+
+  const prompt = `
+    당신은 포켓몬 카드 중고거래 사진을 감정하는 전문가입니다.
+    이 사진을 보고 아래 JSON 형식으로만 답변하세요.
+    {
+      "cardCount": 사진에 보이는 개별 카드 장수(숫자, 여러 장이면 묶음판매일 가능성이 큼),
+      "cardName": "가장 크게/명확하게 보이는 카드의 포켓몬 한글 이름 (모르면 빈칸)",
+      "matchesExpected": ${JSON.stringify(expectedCardName || '')} 이름과 사진 속 카드가 같은 카드인지 (true/false),
+      "confidence": 0~100 사이 확신도 숫자,
+      "note": "판단 근거를 한 문장으로"
+    }
+  `;
+
+  const imagePart = { inlineData: { data: base64Data, mimeType } };
+
+  try {
+    const result = await model.generateContent([prompt, imagePart]);
+    return JSON.parse(result.response.text());
+  } catch (e) {
+    console.error('Gemini 사진분석 오류:', e);
+    throw new Error('사진 분석 실패: ' + (e.message || '알 수 없는 에러'));
   }
 };

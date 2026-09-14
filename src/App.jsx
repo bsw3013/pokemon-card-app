@@ -7,6 +7,7 @@ import FilterExplorer from './components/FilterExplorer';
 import AdminSettings from './components/AdminSettings';
 import StatsDashboard from './components/StatsDashboard';
 import AlbumPlanner from './components/AlbumPlanner';
+import MarketPrice from './components/MarketPrice';
 import { defaultConfig } from './defaultConfig';
 import { sanitizeStatusOptions } from './utils/statusUtils';
 
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
   { id: 'filter', label: '필터 탐색기', description: '시리즈/레어도/종류 탐색' },
   { id: 'album', label: '앨범 꾸미기', description: '페이지 배치 시뮬레이션' },
   { id: 'stats', label: '통계', description: '레어도/상태 집계' },
+  { id: 'market', label: '시세 조회', description: '실시간 중고 시세 확인' },
   { id: 'admin', label: '마스터 설정', description: '환경설정/백업/복원' },
 ];
 
@@ -313,6 +315,10 @@ function App() {
 
       {currentView === 'album' && (
         <AlbumPlanner appConfig={appConfig} />
+      )}
+
+      {currentView === 'market' && (
+        <MarketPrice />
       )}
 
       {currentView === 'home' && (

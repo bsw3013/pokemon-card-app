@@ -7,7 +7,8 @@
     "dev": "vite --host --port 5173 --strictPort",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "market-server": "node scripts/market-server.cjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
