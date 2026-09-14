@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut } from 'firebase/auth';
-import { auth, googleProvider } from './firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, googleProvider, db } from './firebase';
 import { isAdminEmail } from './config/admins';
 
 const AuthContext = createContext(null);
@@ -9,6 +10,8 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [nickname, setNicknameState] = useState(null);
+  const [nicknameLoading, setNicknameLoading] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
@@ -17,6 +20,36 @@ export function AuthProvider({ children }) {
     });
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (!user) { setNicknameState(null); return; }
+    let cancelled = false;
+    setNicknameLoading(true);
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'userProfiles', user.uid));
+        if (cancelled) return;
+        setNicknameState(snap.exists() ? (snap.data().nickname || '') : '');
+      } catch (err) {
+        console.error('닉네임 로드 실패', err);
+        if (!cancelled) setNicknameState('');
+      } finally {
+        if (!cancelled) setNicknameLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  const setNickname = async (nextNickname) => {
+    if (!user) return;
+    const trimmed = String(nextNickname || '').trim().slice(0, 20);
+    if (!trimmed) throw new Error('닉네임을 입력해주세요.');
+    await setDoc(doc(db, 'userProfiles', user.uid), {
+      nickname: trimmed,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+    setNicknameState(trimmed);
+  };
 
   const signInWithGoogle = async () => {
     setError('');
@@ -41,6 +74,10 @@ export function AuthProvider({ children }) {
     loading,
     error,
     isAdmin: isAdminEmail(user?.email),
+    nickname,
+    nicknameLoading,
+    needsNickname: !!user && !nicknameLoading && nickname === '',
+    setNickname,
     signInWithGoogle,
     signOut: signOutUser,
   };
