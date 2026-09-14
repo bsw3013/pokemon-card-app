@@ -789,23 +789,29 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
             </div>
 
               <p className="market-hint" style={{ marginBottom: '0.3rem' }}>👁️ 아래 매물 중 뭘 보여줄지 고르는 필터예요. 통계와 그래프에 모두 적용돼요. (기록할 때는 따로 선택해요)</p>
-              <div className="market-filter-row">
-                <span className="market-filter-label">언어</span>
-                <div className="view-toggle">
-                  {LANGUAGE_OPTIONS.map((l) => (
-                    <button type="button" key={l} className={`btn-toggle ${langFilter === l ? 'active' : ''}`} onClick={() => setLangFilter(l)}>{l}</button>
-                  ))}
+              <div className="market-filter-bar">
+                <div className="market-filter-group">
+                  <span className="market-filter-label">언어</span>
+                  <div className="view-toggle">
+                    {LANGUAGE_OPTIONS.map((l) => (
+                      <button type="button" key={l} className={`btn-toggle ${langFilter === l ? 'active' : ''}`} onClick={() => setLangFilter(l)}>{l}</button>
+                    ))}
+                  </div>
                 </div>
-                <span className="market-filter-label">컨디션</span>
-                <div className="view-toggle">
-                  <button type="button" className={`btn-toggle ${conditionFilter === 'raw' ? 'active' : ''}`} onClick={() => setConditionFilter('raw')}>싱글</button>
-                  <button type="button" className={`btn-toggle ${conditionFilter === 'graded' ? 'active' : ''}`} onClick={() => setConditionFilter('graded')}>등급카드</button>
+                <div className="market-filter-group">
+                  <span className="market-filter-label">컨디션</span>
+                  <div className="view-toggle">
+                    <button type="button" className={`btn-toggle ${conditionFilter === 'raw' ? 'active' : ''}`} onClick={() => setConditionFilter('raw')}>싱글</button>
+                    <button type="button" className={`btn-toggle ${conditionFilter === 'graded' ? 'active' : ''}`} onClick={() => setConditionFilter('graded')}>등급카드</button>
+                  </div>
                 </div>
-                <span className="market-filter-label">기간</span>
-                <div className="view-toggle">
-                  <button type="button" className={`btn-toggle ${chartRange === '7' ? 'active' : ''}`} onClick={() => setChartRange('7')}>최근 7일</button>
-                  <button type="button" className={`btn-toggle ${chartRange === '30' ? 'active' : ''}`} onClick={() => setChartRange('30')}>최근 30일</button>
-                  <button type="button" className={`btn-toggle ${chartRange === 'all' ? 'active' : ''}`} onClick={() => setChartRange('all')}>전체</button>
+                <div className="market-filter-group">
+                  <span className="market-filter-label">기간</span>
+                  <div className="view-toggle">
+                    <button type="button" className={`btn-toggle ${chartRange === '7' ? 'active' : ''}`} onClick={() => setChartRange('7')}>최근 7일</button>
+                    <button type="button" className={`btn-toggle ${chartRange === '30' ? 'active' : ''}`} onClick={() => setChartRange('30')}>최근 30일</button>
+                    <button type="button" className={`btn-toggle ${chartRange === 'all' ? 'active' : ''}`} onClick={() => setChartRange('all')}>전체</button>
+                  </div>
                 </div>
               </div>
 
@@ -838,25 +844,45 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                 <div className="market-summary-groups">
                   <div className="market-summary-group">
                     <h5>판매중 기준 (10등급/9등급)</h5>
-                    {gradedActiveGroups.length > 0 ? gradedActiveGroups.map((g) => (
-                      <div key={`${g.company}-${g.grade}-active`} className="market-grade-stat-row">
-                        <span className="market-grade-label">{g.company} {g.grade}</span>
-                        <span>최저 {fmtPrice(g.stats.min.price)}</span>
-                        <span>평균 {fmtPrice(g.stats.avg)}</span>
-                        <span>최고 {fmtPrice(g.stats.max.price)}</span>
-                      </div>
-                    )) : <p className="market-hint">10등급/9등급 판매중 매물이 없습니다.</p>}
+                    {gradedActiveGroups.length > 0 ? (
+                      <table className="market-grade-stat-table">
+                        <thead>
+                          <tr><th>등급</th><th>매물건수</th><th>최저가</th><th>평균가</th><th>최고가</th></tr>
+                        </thead>
+                        <tbody>
+                          {gradedActiveGroups.map((g) => (
+                            <tr key={`${g.company}-${g.grade}-active`}>
+                              <td className="market-grade-label">{g.company} {g.grade}</td>
+                              <td>{g.stats.count}건</td>
+                              <td>{fmtPrice(g.stats.min.price)}</td>
+                              <td>{fmtPrice(g.stats.avg)}</td>
+                              <td>{fmtPrice(g.stats.max.price)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : <p className="market-hint">10등급/9등급 판매중 매물이 없습니다.</p>}
                   </div>
                   <div className="market-summary-group">
                     <h5>판매완료 기준 (10등급/9등급)</h5>
-                    {gradedSoldGroups.length > 0 ? gradedSoldGroups.map((g) => (
-                      <div key={`${g.company}-${g.grade}-sold`} className="market-grade-stat-row">
-                        <span className="market-grade-label">{g.company} {g.grade}</span>
-                        <span>최저 {fmtPrice(g.stats.min.price)}</span>
-                        <span>평균 {fmtPrice(g.stats.avg)}</span>
-                        <span>최고 {fmtPrice(g.stats.max.price)}</span>
-                      </div>
-                    )) : <p className="market-hint">10등급/9등급 판매완료 매물이 없습니다.</p>}
+                    {gradedSoldGroups.length > 0 ? (
+                      <table className="market-grade-stat-table">
+                        <thead>
+                          <tr><th>등급</th><th>매물건수</th><th>최저가</th><th>평균가</th><th>최고가</th></tr>
+                        </thead>
+                        <tbody>
+                          {gradedSoldGroups.map((g) => (
+                            <tr key={`${g.company}-${g.grade}-sold`}>
+                              <td className="market-grade-label">{g.company} {g.grade}</td>
+                              <td>{g.stats.count}건</td>
+                              <td>{fmtPrice(g.stats.min.price)}</td>
+                              <td>{fmtPrice(g.stats.avg)}</td>
+                              <td>{fmtPrice(g.stats.max.price)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : <p className="market-hint">10등급/9등급 판매완료 매물이 없습니다.</p>}
                   </div>
                 </div>
               )}
