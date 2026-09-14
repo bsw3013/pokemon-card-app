@@ -2,31 +2,47 @@ import React, { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import './index.css';
-import CardUpload from './components/CardUpload';
 import CardList from './components/CardList';
+import FilterExplorer from './components/FilterExplorer';
 import AdminSettings from './components/AdminSettings';
 import StatsDashboard from './components/StatsDashboard';
 import AlbumPlanner from './components/AlbumPlanner';
 import { defaultConfig } from './defaultConfig';
+import { sanitizeStatusOptions } from './utils/statusUtils';
 
 const NAV_ITEMS = [
   { id: 'home', label: '홈', description: '메인 대시보드' },
-  { id: 'upload', label: '카드 등록', description: 'AI 이미지 분석 등록' },
   { id: 'gallery', label: '도감 갤러리', description: '보유 카드 조회/편집' },
+  { id: 'filter', label: '필터 탐색기', description: '시리즈/레어도/종류 탐색' },
   { id: 'album', label: '앨범 꾸미기', description: '페이지 배치 시뮬레이션' },
   { id: 'stats', label: '통계', description: '레어도/상태 집계' },
   { id: 'admin', label: '마스터 설정', description: '환경설정/백업/복원' },
 ];
 
 const DEFAULT_VIEW = 'home';
+const LAST_VIEW_KEY = 'pc_last_view';
+
+function isValidView(viewId) {
+  return NAV_ITEMS.some((item) => item.id === viewId);
+}
+
+function getStoredView() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = String(window.localStorage.getItem(LAST_VIEW_KEY) || '').trim();
+    return isValidView(stored) ? stored : null;
+  } catch (err) {
+    return null;
+  }
+}
 
 function getViewFromHash() {
   if (typeof window === 'undefined') return DEFAULT_VIEW;
   const raw = window.location.hash.replace(/^#\/?/, '').trim();
-  if (!raw) return DEFAULT_VIEW;
+  if (!raw) return getStoredView() || DEFAULT_VIEW;
   const normalized = raw.split('?')[0].split('&')[0].replace(/^\/+|\/+$/g, '').trim();
-  if (!normalized) return DEFAULT_VIEW;
-  return NAV_ITEMS.some((item) => item.id === normalized) ? normalized : DEFAULT_VIEW;
+  if (!normalized) return getStoredView() || DEFAULT_VIEW;
+  return isValidView(normalized) ? normalized : (getStoredView() || DEFAULT_VIEW);
 }
 
 function App() {
@@ -36,6 +52,26 @@ function App() {
   const [isNavPinned, setIsNavPinned] = useState(false);
   const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 960 : false));
   const closeTimerRef = useRef(null);
+  
+  // 맨 위로 가기 버튼(Back to top) 제어 상태
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleScroll = () => {
+      if (window.scrollY > 400) {
+        setShowScrollBtn(true);
+      } else {
+        setShowScrollBtn(false);
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const clearCloseTimer = () => {
     if (closeTimerRef.current) {
@@ -97,6 +133,22 @@ function App() {
   useEffect(() => () => clearCloseTimer(), []);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(LAST_VIEW_KEY, currentView);
+    } catch (err) {
+      // ignore storage failures
+    }
+  }, [currentView]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!window.location.hash) {
+      window.location.hash = `#/${currentView}`;
+    }
+  }, [currentView]);
+
+  useEffect(() => {
     async function fetchConfig() {
        try {
          // 타임아웃 설정 (3초 이상 걸리면 기본값 사용)
@@ -119,7 +171,7 @@ function App() {
               seriesOptions: fetched.seriesOptions || defaultConfig.seriesOptions,
               rarityOptions: fetched.rarityOptions || defaultConfig.rarityOptions,
               typeOptions: fetched.typeOptions || defaultConfig.typeOptions,
-              statusOptions: fetched.statusOptions || defaultConfig.statusOptions
+              statusOptions: sanitizeStatusOptions(fetched.statusOptions || defaultConfig.statusOptions)
             };
 
             // Merge displayFields by id, favor fetched values but ensure 'status' exists and is visible
@@ -223,9 +275,10 @@ function App() {
 
       <nav className="navbar">
         <div className="logo" onClick={() => navigateTo('home')} style={{cursor: 'pointer'}}>PokéDex AI</div>
-        <div className="btn-group" style={{ gap: '1rem' }}>
-          <button type="button" className="btn btn-secondary" style={{ padding: '0.5rem 1.5rem', fontSize: '0.9rem' }} onClick={() => navigateTo('gallery')}>나의 도감</button>
-          <button type="button" className="btn btn-primary" style={{ padding: '0.5rem 1.5rem', fontSize: '0.9rem' }} onClick={() => navigateTo('admin')}>⚙️ 마스터 설정</button>
+        <div className="btn-group top-nav-actions">
+          <button type="button" className="btn btn-secondary btn-compact" onClick={() => navigateTo('gallery')}>나의 도감</button>
+          <button type="button" className="btn btn-secondary btn-compact" onClick={() => navigateTo('filter')}>필터</button>
+          <button type="button" className="btn btn-primary btn-compact" onClick={() => navigateTo('admin')}>⚙️ 마스터 설정</button>
         </div>
       </nav>
 
@@ -236,20 +289,16 @@ function App() {
         </div>
       ) : (
         <>
-          {currentView === 'upload' && (
-        <main className="upload-page slide-up">
-          <div className="upload-header">
-              <h2>📸 보유 카드 AI 등록</h2>
-              <p className="subtitle">스마트폰 갤러리의 사진이나 카메라로 바로 찍어서 올리세요.</p>
-          </div>
-          <CardUpload />
-        </main>
-      )}
-
-      {currentView === 'gallery' && (
+        {currentView === 'gallery' && (
          <main className="gallery-page">
             <CardList appConfig={appConfig} />
          </main>
+      )}
+
+      {currentView === 'filter' && (
+        <main className="gallery-page">
+          <FilterExplorer appConfig={appConfig} />
+        </main>
       )}
 
       {currentView === 'admin' && (
@@ -263,17 +312,16 @@ function App() {
       )}
 
       {currentView === 'album' && (
-        <AlbumPlanner />
+        <AlbumPlanner appConfig={appConfig} />
       )}
 
       {currentView === 'home' && (
         <main className="hero fade-in">
-          <h1>세상에서 가장 똑똑한<br />포켓몬 카드 도감 관리자</h1>
-          <p>카드를 사진으로 찍기만 하세요. 구글 Gemini AI가 복잡한 카드 이름, 번호, 확장팩 시리즈 정보를 모두 찾아 노션 도감 형태로 자동 기록합니다.</p>
+          <h1>편리하고 아름다운<br />포켓몬 카드 도감 관리자</h1>
+          <p>소중한 포켓몬 카드를 일목요연하게 등록 및 관리하고, 앨범 기획기 시뮬레이션을 통해 나만의 컬렉션을 아름답게 배치해 보세요.</p>
           
           <div className="btn-group">
-            <button type="button" className="btn btn-primary" onClick={() => navigateTo('upload')}>➕ AI로 카드 등록하기</button>
-            <button type="button" className="btn btn-secondary" onClick={() => navigateTo('gallery')}>내 도감 갤러리 입장 ({">"}) </button>
+            <button type="button" className="btn btn-primary" onClick={() => navigateTo('gallery')}>내 도감 갤러리 입장 (🔀)</button>
           </div>
 
           <div className="ai-preview-card">
@@ -284,6 +332,18 @@ function App() {
         </main>
       )}
       </>
+      )}
+
+      {showScrollBtn && (
+        <button 
+          type="button" 
+          className="scroll-to-top-btn" 
+          onClick={scrollToTop} 
+          title="맨 위로 이동"
+          aria-label="맨 위로 이동"
+        >
+          ▲
+        </button>
       )}
     </>
   );

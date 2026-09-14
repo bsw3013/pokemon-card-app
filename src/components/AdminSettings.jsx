@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { doc, updateDoc, collection, getDocs, deleteDoc, deleteField, writeBatch } from 'firebase/firestore';
 import { db, functions } from '../firebase';
 import Papa from 'papaparse';
@@ -28,6 +28,14 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
   const [newType, setNewType] = useState('');
   const [newStatus, setNewStatus] = useState('');
    const [newGradingScale, setNewGradingScale] = useState('');
+  
+  // 드래그 앤 드롭 정렬을 위한 로컬 상태
+  const [draggingItem, setDraggingItem] = useState(null); // { key, index } 또는 { isField: true, index }
+  
+  // 자동 스크롤(Auto-scroll) 제어를 위한 useRef 레퍼런스
+  const autoScrollTimerRef = useRef(null);
+  const scrollSpeedRef = useRef(0);
+  const scrollContainerRef = useRef(null);
 
   // 원시 데이터베이스 뷰어 상태
   const [rawDbData, setRawDbData] = useState(null);
@@ -113,9 +121,35 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
 
 
 
+  const updateHashQueryParams = (params, options = {}) => {
+    const currentHash = window.location.hash;
+    const path = currentHash.split('?')[0] || '#admin';
+    const searchParams = new URLSearchParams(currentHash.split('?')[1] || '');
+    
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === null || value === undefined || value === false) {
+        searchParams.delete(key);
+      } else {
+        searchParams.set(key, String(value));
+      }
+    });
+    
+    const qs = searchParams.toString();
+    const nextHash = qs ? `${path}?${qs}` : path;
+    if (window.location.hash !== nextHash) {
+      if (options.replace) {
+        window.history.replaceState(null, '', nextHash);
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+      } else {
+        window.location.hash = nextHash;
+      }
+    }
+  };
+
   const fetchRawDb = async () => {
      if (showRawDb) {
         setShowRawDb(false);
+        updateHashQueryParams({ showRawDb: null }, { replace: true });
         return;
      }
      setRawSortConfig({ key: null, direction: 'asc' });
@@ -183,6 +217,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
        
        setRawDbData(sortedData);
        setShowRawDb(true);
+       updateHashQueryParams({ showRawDb: true });
      } catch (err) {
        console.error(err);
        alert("데이터베이스 로드에 실패했습니다.");
@@ -190,6 +225,28 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
        setLoadingRaw(false);
      }
   };
+
+  useEffect(() => {
+     if (typeof window === 'undefined') return;
+     const handleHashChange = () => {
+        const hash = window.location.hash;
+        const searchParams = new URLSearchParams(hash.split('?')[1] || '');
+        const showRaw = searchParams.get('showRawDb') === 'true';
+        
+        if (showRaw) {
+           if (!showRawDb) {
+              fetchRawDb();
+           }
+        } else {
+           if (showRawDb) {
+              setShowRawDb(false);
+           }
+        }
+     };
+     window.addEventListener('hashchange', handleHashChange);
+     handleHashChange();
+     return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [showRawDb]);
 
   const rawSaveTimeoutRef = React.useRef({});
   const [rawDbSaving, setRawDbSaving] = useState({});
@@ -523,9 +580,17 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
   };
 
   const handleExportTemplate = () => {
-     // 현재 설정된 필드들의 id값만 추출해서 헤더로 사용
-     const headers = config.displayFields.sort((a,b)=>a.order-b.order).map(f => f.id);
-     headers.push("imageUrl"); // 이미지 주소 입력 칸 기본 포함
+     // 사용자가 요청한 신규 카드 등록 전용 항목들만 추출
+     const headers = [
+       'cardName', 
+       'series', 
+       'cardNumber', 
+       'pokedexNumber', 
+       'rarity', 
+       'status', 
+       'language',
+       'imageUrl'
+     ];
      
      const csvStr = Papa.unparse([headers, []]);
      downloadCsv(csvStr, "pokemon_cards_template.csv");
@@ -629,6 +694,110 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
     });
   };
 
+  // --- 드래그 앤 드롭 정렬 핸들러 ---
+
+  const startAutoScroll = () => {
+    if (autoScrollTimerRef.current) return;
+
+    const scrollLoop = () => {
+      const container = scrollContainerRef.current;
+      const speed = scrollSpeedRef.current;
+      
+      if (container && speed !== 0) {
+        container.scrollTop += speed;
+        autoScrollTimerRef.current = requestAnimationFrame(scrollLoop);
+      } else {
+        stopAutoScroll();
+      }
+    };
+    autoScrollTimerRef.current = requestAnimationFrame(scrollLoop);
+  };
+
+  const stopAutoScroll = () => {
+    if (autoScrollTimerRef.current) {
+      cancelAnimationFrame(autoScrollTimerRef.current);
+      autoScrollTimerRef.current = null;
+    }
+    scrollSpeedRef.current = 0;
+    scrollContainerRef.current = null;
+  };
+
+  const handleDragStart = (e, key, index) => {
+    setDraggingItem({ key, index });
+    e.dataTransfer.effectAllowed = 'move';
+    e.currentTarget.classList.add('dragging');
+  };
+
+  const handleDragEnd = (e) => {
+    setDraggingItem(null);
+    e.currentTarget.classList.remove('dragging');
+    stopAutoScroll();
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    const container = e.currentTarget.closest('.array-list') || e.currentTarget.closest('.display-fields-list');
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const mouseY = e.clientY;
+    const threshold = 40; 
+    const maxSpeed = 10;   
+
+    if (mouseY < rect.top + threshold) {
+      const diff = (rect.top + threshold) - mouseY;
+      scrollSpeedRef.current = -Math.min(maxSpeed, (diff / threshold) * maxSpeed);
+      scrollContainerRef.current = container;
+      startAutoScroll();
+    } else if (mouseY > rect.bottom - threshold) {
+      const diff = mouseY - (rect.bottom - threshold);
+      scrollSpeedRef.current = Math.min(maxSpeed, (diff / threshold) * maxSpeed);
+      scrollContainerRef.current = container;
+      startAutoScroll();
+    } else {
+      stopAutoScroll();
+    }
+  };
+
+  const handleDrop = (e, targetKey, toIndex) => {
+    e.preventDefault();
+    stopAutoScroll();
+    if (!draggingItem || draggingItem.key !== targetKey) return;
+    const fromIndex = draggingItem.index;
+    if (fromIndex === toIndex) return;
+
+    setConfig(prev => {
+      const newArr = [...prev[targetKey]];
+      const [removed] = newArr.splice(fromIndex, 1);
+      newArr.splice(toIndex, 0, removed);
+      return { ...prev, [targetKey]: newArr };
+    });
+  };
+
+  const handleFieldDragStart = (e, index) => {
+    setDraggingItem({ isField: true, index });
+    e.dataTransfer.effectAllowed = 'move';
+    e.currentTarget.classList.add('dragging');
+  };
+
+  const handleFieldDrop = (e, toIndex) => {
+    e.preventDefault();
+    stopAutoScroll();
+    if (!draggingItem || !draggingItem.isField) return;
+    const fromIndex = draggingItem.index;
+    if (fromIndex === toIndex) return;
+
+    setConfig(prev => {
+      const newFields = [...prev.displayFields];
+      const [removed] = newFields.splice(fromIndex, 1);
+      newFields.splice(toIndex, 0, removed);
+      
+      // Update order property
+      newFields.forEach((f, i) => f.order = i + 1);
+      return { ...prev, displayFields: newFields };
+    });
+  };
+
   const handleArrayAdd = (key, value, setter) => {
     if (!value.trim()) return;
     setConfig(prev => ({ ...prev, [key]: [...prev[key], value.trim()] }));
@@ -657,19 +826,6 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
       newFields.splice(index, 1);
       newFields.forEach((f, i) => f.order = i + 1); // re-calc order
       return { ...prev, displayFields: newFields };
-    });
-  };
-
-  const moveArrayItem = (key, index, direction) => {
-    if (direction === -1 && index === 0) return;
-    if (direction === 1 && index === config[key].length - 1) return;
-
-    setConfig(prev => {
-      const newArr = [...prev[key]];
-      const temp = newArr[index];
-      newArr[index] = newArr[index + direction];
-      newArr[index + direction] = temp;
-      return { ...prev, [key]: newArr };
     });
   };
 
@@ -704,32 +860,21 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
     });
   };
 
-  const moveField = (index, direction) => {
-    if (direction === -1 && index === 0) return;
-    if (direction === 1 && index === config.displayFields.length - 1) return;
-
-    setConfig(prev => {
-      const newFields = [...prev.displayFields];
-      const temp = newFields[index];
-      newFields[index] = newFields[index + direction];
-      newFields[index + direction] = temp;
-      
-      // Update order property
-      newFields.forEach((f, i) => f.order = i + 1);
-      return { ...prev, displayFields: newFields };
-    });
-  };
-
   const renderArrayManager = (title, key, newValue, setter) => (
     <div className="admin-section">
       <h3>{title}</h3>
       <div className="array-list">
         {config[key].map((item, idx) => (
-          <div key={idx} className="field-row">
-             <div className="field-order-controls">
-                <button onClick={() => moveArrayItem(key, idx, -1)} disabled={idx === 0}>▲</button>
-                <button onClick={() => moveArrayItem(key, idx, 1)} disabled={idx === config[key].length - 1}>▼</button>
-             </div>
+          <div 
+            key={idx} 
+            className={`field-row drag-item ${draggingItem && draggingItem.key === key && draggingItem.index === idx ? 'dragging' : ''}`}
+            draggable
+            onDragStart={(e) => handleDragStart(e, key, idx)}
+            onDragEnd={handleDragEnd}
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDrop(e, key, idx)}
+          >
+             <div className="drag-handle" title="드래그하여 순서 변경">⋮⋮</div>
              <div className="field-label" style={{ fontWeight: 'normal', fontSize: '0.9rem', flex: 1, margin: '0 0.5rem' }}>
                 <input 
                   type="text" 
@@ -773,13 +918,17 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
           
           <div className="display-fields-list">
              {config.displayFields.map((field, idx) => (
-               <div key={field.id} className={`field-row ${field.visible ? '' : 'disabled'}`}>
-                  <div className="field-order-controls">
-                     <button onClick={() => moveField(idx, -1)} disabled={idx === 0}>▲</button>
-                     <button onClick={() => moveField(idx, 1)} disabled={idx === config.displayFields.length - 1}>▼</button>
-                  </div>
-                  
-                  <div className="field-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+                <div 
+                  key={field.id} 
+                  className={`field-row drag-item ${field.visible ? '' : 'disabled'} ${draggingItem && draggingItem.isField && draggingItem.index === idx ? 'dragging' : ''}`}
+                  draggable
+                  onDragStart={(e) => handleFieldDragStart(e, idx)}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleFieldDrop(e, idx)}
+                >
+                   <div className="drag-handle" title="드래그하여 순서 변경">⋮⋮</div>
+                   <div className="field-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
                      <input 
                        type="text" 
                        className="table-input" 

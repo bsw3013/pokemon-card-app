@@ -1,9 +1,22 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { addDoc, collection, deleteDoc, doc, getDocs, setDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { addDoc, collection, deleteDoc, doc, getDocs, setDoc, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../firebase';
+import pokemonMapAll from '../utils/pokemonMapAll.json';
+import { normalizeStatus } from '../utils/statusUtils';
+import { normalizePokedexNumber } from '../utils/numberUtils';
+import { formatCardPayload } from '../utils/cardUtils';
+import CardDetailModal from './CardDetailModal';
+import CardThumbnail from './CardThumbnail';
+import FilterExplorer from './FilterExplorer';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 const ALBUM_COLLECTION = 'album_plans';
 const DRAFT_STORAGE_PREFIX = 'album_draft_';
+const CANVAS_COLUMNS_STORAGE_KEY = 'album_canvas_columns_v1';
 
 const LAYOUT_OPTIONS = [
   { key: '2x2', cols: 2, rows: 2, label: '2 x 2 (4칸)' },
@@ -11,7 +24,19 @@ const LAYOUT_OPTIONS = [
   { key: '4x3', cols: 4, rows: 3, label: '4 x 3 (12칸)' },
 ];
 
+const SIGNATURE_COLORS = [
+  { hex: '#334155', label: '차콜' },
+  { hex: '#ef4444', label: '레드' },
+  { hex: '#3b82f6', label: '블루' },
+  { hex: '#10b981', label: '그린' },
+  { hex: '#f59e0b', label: '옐로우' },
+  { hex: '#8b5cf6', label: '퍼플' },
+];
+
+
 const MAX_HISTORY = 80;
+
+const { krToEn, krToJa } = pokemonMapAll;
 
 function deepCopy(value) {
   return JSON.parse(JSON.stringify(value));
@@ -23,7 +48,7 @@ function makeEmptyPage(slotCount) {
   };
 }
 
-function createNewAlbumPayload(name, layoutKey, pageCount = 1) {
+function createNewAlbumPayload(name, layoutKey, pageCount = 1, coverColor = '#334155') {
   const layout = LAYOUT_OPTIONS.find((item) => item.key === layoutKey) || LAYOUT_OPTIONS[1];
   const slotCount = layout.cols * layout.rows;
   const pages = Array.from({ length: Math.max(1, pageCount) }, () => makeEmptyPage(slotCount));
@@ -36,6 +61,7 @@ function createNewAlbumPayload(name, layoutKey, pageCount = 1) {
     rows: layout.rows,
     pages,
     pageCount: pages.length,
+    coverColor: coverColor || '#334155',
     createdAt: now,
     updatedAt: now,
   };
@@ -49,7 +75,7 @@ function mapCardLite(card) {
     series: card.series || '',
     cardNumber: card.cardNumber || '',
     rarity: card.rarity || '',
-    status: card.status || '상태 없음',
+    status: normalizeStatus(card.status),
   };
 }
 
@@ -68,30 +94,66 @@ function countFilledSlots(album) {
   }, 0);
 }
 
+function countOwnedAndPlacedSlots(album) {
+  if (!album?.pages?.length) return { ownedPlaced: 0, placed: 0 };
+
+  return album.pages.reduce((acc, page) => {
+    const slots = page?.slots || [];
+    slots.forEach((slot) => {
+      if (!slot) return;
+      acc.placed += 1;
+      if (String(slot.status || '').includes('보유중')) {
+        acc.ownedPlaced += 1;
+      }
+    });
+    return acc;
+  }, { ownedPlaced: 0, placed: 0 });
+}
+
 function totalSlots(album) {
   return (album?.pages?.length || 0) * ((album?.cols || 0) * (album?.rows || 0));
 }
 
-export default function AlbumPlanner() {
+function clampCanvasColumns(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return 3;
+  return Math.max(1, Math.min(3, Math.round(numeric)));
+}
+
+export default function AlbumPlanner({ appConfig }) {
   const [loadingAlbums, setLoadingAlbums] = useState(true);
   const [albums, setAlbums] = useState([]);
   const [albumViewMode, setAlbumViewMode] = useState('grid');
+  const [showTrash, setShowTrash] = useState(false);
 
   const [showCreate, setShowCreate] = useState(false);
   const [newAlbumName, setNewAlbumName] = useState('');
   const [newLayout, setNewLayout] = useState('3x3');
   const [newPageCount, setNewPageCount] = useState(1);
+  const [newCoverColor, setNewCoverColor] = useState('#334155');
+  const [bookStep, setBookStep] = useState(0);
+  const [isFlipping, setIsFlipping] = useState(false);
+  const [flipDirection, setFlipDirection] = useState('next');
 
   const [editingAlbum, setEditingAlbum] = useState(null);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [editorViewMode, setEditorViewMode] = useState('canvas');
+  const [preBookViewMode, setPreBookViewMode] = useState('canvas');
+  const [canvasColumns, setCanvasColumns] = useState(3);
   const [activeSlotIndex, setActiveSlotIndex] = useState(null);
   const [draggingSlotIndex, setDraggingSlotIndex] = useState(null);
   const [dragOverSlotIndex, setDragOverSlotIndex] = useState(null);
+  const [canvasDraggingLocation, setCanvasDraggingLocation] = useState(null);
+  const [canvasDragOverLocation, setCanvasDragOverLocation] = useState(null);
   const [albumNameDraft, setAlbumNameDraft] = useState('');
+  const [draggingPageIndex, setDraggingPageIndex] = useState(null);
+  const [dragOverPageIndex, setDragOverPageIndex] = useState(null);
 
   const [allCards, setAllCards] = useState([]);
   const [loadingCards, setLoadingCards] = useState(true);
   const [cardSearch, setCardSearch] = useState('');
+
+  const [slotEditingCard, setSlotEditingCard] = useState(null);
 
   const [saveStatus, setSaveStatus] = useState('idle');
 
@@ -101,9 +163,34 @@ export default function AlbumPlanner() {
   const albumRef = useRef(null);
   const autosaveTimerRef = useRef(null);
 
+  const [showCardPicker, setShowCardPicker] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importSourceAlbumId, setImportSourceAlbumId] = useState('');
+  const [importSelectedPageIndex, setImportSelectedPageIndex] = useState(null);
+
   useEffect(() => {
     albumRef.current = editingAlbum;
   }, [editingAlbum]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CANVAS_COLUMNS_STORAGE_KEY);
+      if (!raw) return;
+      setCanvasColumns(clampCanvasColumns(raw));
+    } catch {
+      // noop
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CANVAS_COLUMNS_STORAGE_KEY, String(canvasColumns));
+    } catch {
+      // noop
+    }
+  }, [canvasColumns]);
 
   useEffect(() => {
     async function fetchInitialData() {
@@ -121,7 +208,10 @@ export default function AlbumPlanner() {
         setAlbums(loadedAlbums);
 
         const loadedCards = cardSnap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
+          .map((d) => {
+            const data = d.data();
+            return { id: d.id, ...data, status: normalizeStatus(data.status) };
+          })
           .sort((a, b) => String(a.cardName || '').localeCompare(String(b.cardName || '')));
         setAllCards(loadedCards);
       } catch (err) {
@@ -182,6 +272,51 @@ export default function AlbumPlanner() {
 
     return scored;
   }, [allCards, cardSearch]);
+
+  const cardsById = useMemo(() => {
+    const map = new Map();
+    allCards.forEach((card) => {
+      if (card?.id) map.set(card.id, card);
+    });
+    return map;
+  }, [allCards]);
+
+  const activeAlbums = useMemo(() => albums.filter(a => !a.isDeleted), [albums]);
+  const trashAlbums = useMemo(() => albums.filter(a => a.isDeleted), [albums]);
+
+  const findMasterCardBySlot = (slot) => {
+    if (!slot) return null;
+
+    if (slot.cardId) {
+      const byId = cardsById.get(slot.cardId);
+      if (byId) return byId;
+    }
+
+    const keyName = String(slot.cardName || '').trim().toLowerCase();
+    const keyNumber = String(slot.cardNumber || '').trim().toLowerCase();
+    const keySeries = String(slot.series || '').trim().toLowerCase();
+    if (!keyName && !keyNumber && !keySeries) return null;
+
+    return allCards.find((card) => {
+      return String(card.cardName || '').trim().toLowerCase() === keyName
+        && String(card.cardNumber || '').trim().toLowerCase() === keyNumber
+        && String(card.series || '').trim().toLowerCase() === keySeries;
+    }) || null;
+  };
+
+  const resolveSlotCard = (slot) => {
+    if (!slot) return null;
+
+    const masterCard = findMasterCardBySlot(slot);
+    if (!masterCard) return slot;
+
+    // 슬롯에는 최소 데이터만 저장되어도, 화면에서는 항상 원본 카드 최신 정보를 우선 반영한다.
+    return {
+      ...slot,
+      ...mapCardLite(masterCard),
+      cardId: masterCard.id,
+    };
+  };
 
   const persistAlbumDraftLocal = (album) => {
     if (!album?.id) return;
@@ -274,6 +409,109 @@ export default function AlbumPlanner() {
     });
   };
 
+  const updateHashQueryParams = (params, options = {}) => {
+    const currentHash = window.location.hash;
+    const path = currentHash.split('?')[0] || '#album';
+    const searchParams = new URLSearchParams(currentHash.split('?')[1] || '');
+    
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === null || value === undefined || value === false) {
+        searchParams.delete(key);
+      } else {
+        searchParams.set(key, String(value));
+      }
+    });
+    
+    const qs = searchParams.toString();
+    const nextHash = qs ? `${path}?${qs}` : path;
+    if (window.location.hash !== nextHash) {
+      if (options.replace) {
+        window.history.replaceState(null, '', nextHash);
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+      } else {
+        window.location.hash = nextHash;
+      }
+    }
+  };
+
+  const openCreateModal = () => {
+    setShowCreate(true);
+    updateHashQueryParams({ action: 'createAlbum' });
+  };
+  const closeCreateModal = () => {
+    setShowCreate(false);
+    updateHashQueryParams({ action: null }, { replace: true });
+  };
+
+  const openCardPicker = () => {
+    setShowCardPicker(true);
+    updateHashQueryParams({ action: 'cardPicker' });
+  };
+  const closeCardPicker = () => {
+    setShowCardPicker(false);
+    updateHashQueryParams({ action: null }, { replace: true });
+  };
+
+  const openExportModalPopup = () => {
+    setShowExportModal(true);
+    updateHashQueryParams({ action: 'exportAlbum' });
+  };
+  const closeExportModalPopup = () => {
+    setShowExportModal(false);
+    updateHashQueryParams({ action: null }, { replace: true });
+  };
+
+  const openImportModal = () => {
+    setShowImportModal(true);
+    setImportSourceAlbumId('');
+    setImportSelectedPageIndex(null);
+    updateHashQueryParams({ action: 'importPage' });
+  };
+  const closeImportModal = () => {
+    setShowImportModal(false);
+    setImportSourceAlbumId('');
+    setImportSelectedPageIndex(null);
+    updateHashQueryParams({ action: null }, { replace: true });
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      const searchParams = new URLSearchParams(hash.split('?')[1] || '');
+      
+      const albumId = searchParams.get('albumId');
+      const action = searchParams.get('action');
+      
+      if (albumId) {
+        if (!editingAlbum || editingAlbum.id !== albumId) {
+          const matchedAlbum = albums.find(a => a.id === albumId);
+          if (matchedAlbum) {
+            const normalized = deepCopy(matchedAlbum);
+            normalized.pageCount = normalized.pages?.length || normalized.pageCount || 1;
+            setEditingAlbum(normalized);
+            setAlbumNameDraft((normalized.name || '').trim());
+          }
+        }
+      } else {
+        if (editingAlbum) {
+          setEditingAlbum(null);
+        }
+      }
+      
+      setShowCreate(action === 'createAlbum');
+      setShowCardPicker(action === 'cardPicker');
+      setShowExportModal(action === 'exportAlbum');
+      setShowImportModal(action === 'importPage');
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    if (albums.length > 0) {
+      handleHashChange();
+    }
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [albums, editingAlbum]);
+
   const openAlbumEditor = (album) => {
     if (!album) return;
     const normalized = deepCopy(album);
@@ -303,23 +541,155 @@ export default function AlbumPlanner() {
     }
 
     setCurrentPageIndex(0);
+    setEditorViewMode('canvas');
+    setBookStep(0);
     setActiveSlotIndex(null);
     setHistoryPast([]);
     setHistoryFuture([]);
     setSaveStatus('idle');
     setAlbumNameDraft((album.name || '').trim());
+    updateHashQueryParams({ albumId: album.id });
   };
 
   const closeEditor = () => {
     setEditingAlbum(null);
     setCurrentPageIndex(0);
+    setEditorViewMode('canvas');
+    setBookStep(0);
     setActiveSlotIndex(null);
     setDraggingSlotIndex(null);
     setDragOverSlotIndex(null);
+    setCanvasDraggingLocation(null);
+    setCanvasDragOverLocation(null);
     setHistoryPast([]);
     setHistoryFuture([]);
     setSaveStatus('idle');
     setAlbumNameDraft('');
+    setDraggingPageIndex(null);
+    setDragOverPageIndex(null);
+    updateHashQueryParams({ albumId: null, action: null }, { replace: true });
+  };
+
+  const handleImportPage = () => {
+    if (!editingAlbum || !importSourceAlbumId || importSelectedPageIndex === null) return;
+    
+    const sourceAlbum = albums.find(a => a.id === importSourceAlbumId);
+    if (!sourceAlbum) {
+      alert('가져올 대상 앨범을 찾을 수 없습니다.');
+      return;
+    }
+    
+    const sourcePage = sourceAlbum.pages?.[importSelectedPageIndex];
+    if (!sourcePage) {
+      alert('선택한 페이지의 정보가 유효하지 않습니다.');
+      return;
+    }
+    
+    const slotsCopy = deepCopy(sourcePage.slots);
+    
+    const targetCols = editingAlbum.cols || 3;
+    const targetRows = editingAlbum.rows || 3;
+    const targetSlotCount = targetCols * targetRows;
+    
+    const chunks = [];
+    for (let i = 0; i < slotsCopy.length; i += targetSlotCount) {
+      const chunk = slotsCopy.slice(i, i + targetSlotCount);
+      while (chunk.length < targetSlotCount) {
+        chunk.push(null);
+      }
+      chunks.push(chunk);
+    }
+    
+    const originalPageCount = editingAlbum.pages?.length || 0;
+    
+    applyAlbumUpdate((draft) => {
+      chunks.forEach((chunk) => {
+        draft.pages.push({ slots: chunk });
+      });
+      return draft;
+    });
+    
+    setCurrentPageIndex(originalPageCount);
+    setActiveSlotIndex(null);
+    
+    closeImportModal();
+    
+    if (chunks.length > 1) {
+      alert(`'${sourceAlbum.name}' 앨범의 ${importSelectedPageIndex + 1}페이지를 가져왔습니다.\n(슬롯 초과로 인해 새로운 페이지 ${chunks.length}개가 추가되었습니다.)`);
+    } else {
+      alert(`'${sourceAlbum.name}' 앨범의 ${importSelectedPageIndex + 1}페이지를 성공적으로 가져왔습니다.`);
+    }
+  };
+
+  const handleExportAlbum = async (format) => {
+    closeExportModalPopup();
+    
+    // 강제로 캔버스 모드로 전환하여 모든 페이지 렌더링
+    const prevViewMode = editorViewMode;
+    const prevColumns = canvasColumns;
+    
+    setEditorViewMode('canvas');
+    if (format !== 'full') {
+      // 개별 페이지 단위 캡처를 위해 1열 강제 변경
+      setCanvasColumns(1);
+    }
+    setIsExporting(true);
+
+    setTimeout(async () => {
+      try {
+        if (format === 'full') {
+          const board = document.querySelector('.album-canvas-board');
+          if (!board) {
+            alert('내보낼 앨범 영역을 찾을 수 없습니다.');
+            return;
+          }
+          // 전체 캔버스는 너무 클 수 있으므로 scale을 1.2로 낮춰 용량/메모리 절약
+          const canvas = await html2canvas(board, { scale: 1.2, useCORS: true, backgroundColor: '#1e293b' });
+          canvas.toBlob((blob) => {
+            saveAs(blob, `${editingAlbum.name || '앨범'}_전체보기.jpg`);
+          }, 'image/jpeg', 0.85);
+        } else {
+          const pages = document.querySelectorAll('.album-canvas-page-card');
+          if (pages.length === 0) {
+            alert('내보낼 앨범 페이지가 없습니다.');
+            return;
+          }
+
+          if (format === 'pdf') {
+            const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true });
+            for (let i = 0; i < pages.length; i++) {
+              // PDF용 개별 페이지 캡처 해상도를 2에서 1.5로 낮추고 JPEG 품질 80%
+              const canvas = await html2canvas(pages[i], { scale: 1.5, useCORS: true, backgroundColor: '#1e293b' });
+              const imgData = canvas.toDataURL('image/jpeg', 0.8);
+              
+              const pdfWidth = pdf.internal.pageSize.getWidth();
+              const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+              
+              if (i > 0) pdf.addPage();
+              pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+            }
+            pdf.save(`${editingAlbum.name || '앨범'}.pdf`);
+          } else if (format === 'zip') {
+            const zip = new JSZip();
+            for (let i = 0; i < pages.length; i++) {
+              // ZIP용 개별 페이지 캡처 해상도 1.5, 품질 85%
+              const canvas = await html2canvas(pages[i], { scale: 1.5, useCORS: true, backgroundColor: '#1e293b' });
+              const imgData = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+              zip.file(`page_${i + 1}.jpg`, imgData, { base64: true });
+            }
+            const content = await zip.generateAsync({ type: 'blob' });
+            saveAs(content, `${editingAlbum.name || '앨범'}.zip`);
+          }
+        }
+      } catch (err) {
+        console.error('Export error:', err);
+        alert('내보내기 중 오류가 발생했습니다. (외부 이미지 접근 차단일 수 있습니다)');
+      } finally {
+        setIsExporting(false);
+        setEditorViewMode(prevViewMode);
+        setCanvasColumns(prevColumns);
+      }
+    }, 800); // UI 렌더링 대기
   };
 
   const commitAlbumName = () => {
@@ -337,17 +707,26 @@ export default function AlbumPlanner() {
     });
   };
 
+  const handleUpdateCoverColor = (color) => {
+    if (!editingAlbum) return;
+    applyAlbumUpdate((draft) => {
+      draft.coverColor = color;
+      return draft;
+    });
+  };
+
   const handleCreateAlbum = async () => {
-    const payload = createNewAlbumPayload(newAlbumName, newLayout, Number(newPageCount) || 1);
+    const payload = createNewAlbumPayload(newAlbumName, newLayout, Number(newPageCount) || 1, newCoverColor);
 
     try {
       const ref = await addDoc(collection(db, ALBUM_COLLECTION), payload);
       const newAlbum = { id: ref.id, ...payload };
       setAlbums((prev) => [newAlbum, ...prev]);
-      setShowCreate(false);
+      closeCreateModal();
       setNewAlbumName('');
       setNewLayout('3x3');
       setNewPageCount(1);
+      setNewCoverColor('#334155');
       openAlbumEditor(newAlbum);
     } catch (err) {
       console.error('create album error', err);
@@ -356,15 +735,38 @@ export default function AlbumPlanner() {
   };
 
   const handleDeleteAlbum = async (albumId) => {
-    if (!window.confirm('정말 이 앨범을 삭제할까요?')) return;
+    if (!window.confirm('정말 이 앨범을 휴지통으로 보낼까요?')) return;
+    try {
+      await updateDoc(doc(db, ALBUM_COLLECTION, albumId), { isDeleted: true });
+      setAlbums((prev) => prev.map((a) => a.id === albumId ? { ...a, isDeleted: true } : a));
+      localStorage.removeItem(`${DRAFT_STORAGE_PREFIX}${albumId}`);
+      if (editingAlbum?.id === albumId) closeEditor();
+    } catch (err) {
+      console.error('delete album error', err);
+      alert('앨범 휴지통 이동에 실패했습니다.');
+    }
+  };
+
+  const handleRestoreAlbum = async (albumId) => {
+    try {
+      await updateDoc(doc(db, ALBUM_COLLECTION, albumId), { isDeleted: false });
+      setAlbums((prev) => prev.map((a) => a.id === albumId ? { ...a, isDeleted: false } : a));
+    } catch (err) {
+      console.error('restore album error', err);
+      alert('앨범 복구 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handlePermanentDeleteAlbum = async (albumId) => {
+    if (!window.confirm('정말 영구적으로 삭제할까요? 복구할 수 없습니다.')) return;
     try {
       await deleteDoc(doc(db, ALBUM_COLLECTION, albumId));
       setAlbums((prev) => prev.filter((a) => a.id !== albumId));
       localStorage.removeItem(`${DRAFT_STORAGE_PREFIX}${albumId}`);
       if (editingAlbum?.id === albumId) closeEditor();
     } catch (err) {
-      console.error('delete album error', err);
-      alert('앨범 삭제에 실패했습니다.');
+      console.error('permanent delete album error', err);
+      alert('앨범 영구 삭제 중 오류가 발생했습니다.');
     }
   };
 
@@ -409,12 +811,40 @@ export default function AlbumPlanner() {
   };
 
   const assignCardToSlot = (card) => {
-    if (!editingAlbum || activeSlotIndex === null || activeSlotIndex === undefined) {
-      alert('먼저 채울 슬롯을 선택해주세요.');
+    if (!editingAlbum) return;
+
+    const pageSlots = editingAlbum?.pages?.[currentPageIndex]?.slots || [];
+    const pageCount = editingAlbum?.pages?.length || 0;
+    const hasActiveSlot = activeSlotIndex !== null && activeSlotIndex !== undefined;
+    let targetPageIndex = currentPageIndex;
+    let targetSlotIndex = null;
+
+    if (hasActiveSlot) {
+      targetSlotIndex = activeSlotIndex;
+    } else if (editorViewMode === 'canvas' && pageCount > 0) {
+      for (let offset = 0; offset < pageCount; offset += 1) {
+        const pageIndex = (currentPageIndex + offset) % pageCount;
+        const slots = editingAlbum?.pages?.[pageIndex]?.slots || [];
+        const emptyIndex = slots.findIndex((slot) => !slot);
+        if (emptyIndex !== -1) {
+          targetPageIndex = pageIndex;
+          targetSlotIndex = emptyIndex;
+          break;
+        }
+      }
+    } else {
+      const nextEmptySlotIndex = pageSlots.findIndex((slot) => !slot);
+      targetSlotIndex = nextEmptySlotIndex;
+    }
+
+    if (targetSlotIndex === -1 || targetSlotIndex === null || targetSlotIndex === undefined) {
+      alert(editorViewMode === 'canvas'
+        ? '캔버스 전체에 빈 슬롯이 없습니다. 슬롯을 직접 선택해 교체해주세요.'
+        : '현재 페이지에 빈 슬롯이 없습니다. 슬롯을 직접 선택해 교체해주세요.');
       return;
     }
 
-    const existingSlotCard = editingAlbum?.pages?.[currentPageIndex]?.slots?.[activeSlotIndex] || null;
+    const existingSlotCard = editingAlbum?.pages?.[targetPageIndex]?.slots?.[targetSlotIndex] || null;
     if (existingSlotCard) {
       const shouldReplace = window.confirm('이미 카드가 있는 슬롯입니다. 교체할까요?');
       if (!shouldReplace) return;
@@ -422,14 +852,90 @@ export default function AlbumPlanner() {
 
     const cardLite = mapCardLite(card);
     applyAlbumUpdate((draft) => {
-      draft.pages[currentPageIndex].slots[activeSlotIndex] = cardLite;
+      draft.pages[targetPageIndex].slots[targetSlotIndex] = cardLite;
       return draft;
     });
+
+    setCurrentPageIndex(targetPageIndex);
+
+    // 슬롯을 직접 선택하지 않은 자동 배치 모드에서는 계속 순차 배치되도록 선택 상태를 유지하지 않는다.
+    if (!hasActiveSlot) {
+      setActiveSlotIndex(null);
+    }
+  };
+
+  const handleBatchAssign = (selectedCards) => {
+    if (!editingAlbum || !selectedCards.length) return;
+
+    applyAlbumUpdate((draft) => {
+      let cardIdx = 0;
+      const pageCount = draft.pages.length;
+      const slotCount = (draft.cols || 0) * (draft.rows || 0);
+
+      // 현재 페이지부터 시작하여 빈 슬롯을 채움
+      for (let offset = 0; offset < pageCount && cardIdx < selectedCards.length; offset++) {
+        const pIdx = (currentPageIndex + offset) % pageCount;
+        const page = draft.pages[pIdx];
+        
+        for (let sIdx = 0; sIdx < slotCount && cardIdx < selectedCards.length; sIdx++) {
+          if (!page.slots[sIdx]) {
+            page.slots[sIdx] = mapCardLite(selectedCards[cardIdx]);
+            cardIdx++;
+          }
+        }
+      }
+
+      // 그래도 남은 카드가 있다면 새 페이지 생성
+      while (cardIdx < selectedCards.length) {
+        const newPage = makeEmptyPage(slotCount);
+        const limit = Math.min(cardIdx + slotCount, selectedCards.length);
+        for (let sIdx = 0; cardIdx < limit; sIdx++, cardIdx++) {
+          newPage.slots[sIdx] = mapCardLite(selectedCards[cardIdx]);
+        }
+        draft.pages.push(newPage);
+      }
+
+      return draft;
+    });
+
+    closeCardPicker();
+    alert(`${selectedCards.length}장의 카드가 배치되었습니다.`);
   };
 
   const clearDragState = () => {
     setDraggingSlotIndex(null);
     setDragOverSlotIndex(null);
+  };
+
+  const clearCanvasDragState = () => {
+    setCanvasDraggingLocation(null);
+    setCanvasDragOverLocation(null);
+  };
+
+  const moveOrSwapSlotCard = (fromPageIndex, fromSlotIndex, toPageIndex, toSlotIndex) => {
+    if (!editingAlbum) return;
+    if (fromPageIndex === toPageIndex && fromSlotIndex === toSlotIndex) return;
+
+    applyAlbumUpdate((draft) => {
+      const fromSlots = draft?.pages?.[fromPageIndex]?.slots;
+      const toSlots = draft?.pages?.[toPageIndex]?.slots;
+      if (!Array.isArray(fromSlots) || !Array.isArray(toSlots)) return draft;
+
+      const fromCard = fromSlots[fromSlotIndex] || null;
+      if (!fromCard) return draft;
+      const toCard = toSlots[toSlotIndex] || null;
+
+      // 빈 슬롯 드롭은 이동, 카드가 있는 슬롯 드롭은 교환.
+      if (!toCard) {
+        toSlots[toSlotIndex] = fromCard;
+        fromSlots[fromSlotIndex] = null;
+      } else {
+        toSlots[toSlotIndex] = fromCard;
+        fromSlots[fromSlotIndex] = toCard;
+      }
+
+      return draft;
+    });
   };
 
   const handleSlotDrop = (targetIndex) => {
@@ -458,16 +964,148 @@ export default function AlbumPlanner() {
     clearDragState();
   };
 
-  const clearSlotByIndex = (slotIndex) => {
-    if (!editingAlbum || slotIndex === null || slotIndex === undefined) return;
+  const handleCanvasSlotDrop = (targetPageIndex, targetSlotIndex) => {
+    if (!canvasDraggingLocation) {
+      clearCanvasDragState();
+      return;
+    }
+
+    moveOrSwapSlotCard(
+      canvasDraggingLocation.pageIndex,
+      canvasDraggingLocation.slotIndex,
+      targetPageIndex,
+      targetSlotIndex,
+    );
+
+    setCurrentPageIndex(targetPageIndex);
+    setActiveSlotIndex(targetSlotIndex);
+    clearCanvasDragState();
+  };
+
+  const handlePageDragOver = (e, index) => {
+    if (draggingPageIndex === null) return;
+    e.preventDefault();
+    setDragOverPageIndex(index);
+  };
+
+  const handlePageDrop = (e, targetIndex) => {
+    e.preventDefault();
+    if (draggingPageIndex === null || draggingPageIndex === targetIndex) {
+      setDraggingPageIndex(null);
+      setDragOverPageIndex(null);
+      return;
+    }
+
     applyAlbumUpdate((draft) => {
-      draft.pages[currentPageIndex].slots[slotIndex] = null;
+      const pages = [...draft.pages];
+      const [draggedPage] = pages.splice(draggingPageIndex, 1);
+      pages.splice(targetIndex, 0, draggedPage);
+      draft.pages = pages;
       return draft;
     });
-    if (activeSlotIndex === slotIndex) {
+
+    setCurrentPageIndex(targetIndex);
+    setDraggingPageIndex(null);
+    setDragOverPageIndex(null);
+  };
+
+  const handlePageDragEnd = () => {
+    setDraggingPageIndex(null);
+    setDragOverPageIndex(null);
+  };
+
+  const clearSlotAt = (pageIndex, slotIndex) => {
+    if (!editingAlbum || pageIndex === null || pageIndex === undefined || slotIndex === null || slotIndex === undefined) return;
+    if (!window.confirm("이 슬롯에 배치된 카드를 정말로 제거할까요?")) return;
+    applyAlbumUpdate((draft) => {
+      draft.pages[pageIndex].slots[slotIndex] = null;
+      return draft;
+    });
+    if (pageIndex === currentPageIndex && activeSlotIndex === slotIndex) {
       setActiveSlotIndex(null);
     }
   };
+
+  const clearSlotByIndex = (slotIndex) => {
+    clearSlotAt(currentPageIndex, slotIndex);
+  };
+
+  const closeSlotCardEditor = () => {
+    setSlotEditingCard(null);
+  };
+
+  const openSlotCardEditor = (slotCard, pageIndex, slotIndex) => {
+    const fullCard = findMasterCardBySlot(slotCard);
+
+    if (!fullCard) {
+      alert('원본 카드 정보를 찾을 수 없습니다. 도감을 새로고침한 뒤 다시 시도해주세요.');
+      return;
+    }
+
+    setCurrentPageIndex(pageIndex);
+    setActiveSlotIndex(slotIndex);
+    setSlotEditingCard(fullCard);
+  };
+
+  const handleModalSave = async (payload) => {
+    if (!slotEditingCard?.id) return;
+
+    const updatePayload = formatCardPayload(payload);
+
+    try {
+      await updateDoc(doc(db, 'pokemon_cards', slotEditingCard.id), updatePayload);
+
+      setAllCards((prev) => prev.map((card) => (
+        card.id === slotEditingCard.id ? { ...card, ...updatePayload } : card
+      )));
+
+      applyAlbumUpdate((draft) => {
+        const updatedLite = mapCardLite({ id: slotEditingCard.id, ...updatePayload });
+        draft.pages = (draft.pages || []).map((page) => {
+          const slots = Array.isArray(page.slots) ? page.slots : [];
+          return {
+            ...page,
+            slots: slots.map((slot) => {
+              if (!slot || slot.cardId !== slotEditingCard.id) return slot;
+              return { ...slot, ...updatedLite };
+            }),
+          };
+        });
+        return draft;
+      });
+
+      closeSlotCardEditor();
+    } catch (err) {
+      console.error('album slot card save error', err);
+      alert('카드 상세 정보 저장에 실패했습니다.');
+      throw err;
+    }
+  };
+
+  const handleModalDelete = async () => {
+    if (!slotEditingCard?.id) return;
+
+    try {
+      await deleteDoc(doc(db, 'pokemon_cards', slotEditingCard.id));
+      setAllCards((prev) => prev.filter((card) => card.id !== slotEditingCard.id));
+
+      applyAlbumUpdate((draft) => {
+        draft.pages = (draft.pages || []).map((page) => ({
+          ...page,
+          slots: (page.slots || []).map((slot) => (slot?.cardId === slotEditingCard.id ? null : slot)),
+        }));
+        return draft;
+      });
+
+      closeSlotCardEditor();
+    } catch (err) {
+      console.error('album slot card delete error', err);
+      alert('삭제 실패');
+      throw err;
+    }
+  };
+
+
 
   if (loadingAlbums) {
     return (
@@ -485,45 +1123,83 @@ export default function AlbumPlanner() {
       <main className="album-page slide-up">
         <div className="album-header">
           <div>
-            <h2>🖼️ 앨범 꾸미기</h2>
-            <p>카드 배치를 미리 설계하고 페이지 구성을 저장하세요.</p>
+            <h2>{showTrash ? '🗑️ 휴지통' : '🖼️ 앨범 꾸미기'}</h2>
+            <p>{showTrash ? '삭제된 앨범을 복구하거나 영구 삭제할 수 있습니다.' : '카드 배치를 미리 설계하고 페이지 구성을 저장하세요.'}</p>
           </div>
           <div className="album-header-actions">
+            <button type="button" className={`btn-toggle ${showTrash ? 'active' : ''}`} onClick={() => setShowTrash(!showTrash)} style={{ marginRight: '1rem', color: showTrash ? 'var(--danger-color)' : 'inherit' }}>
+               {showTrash ? '돌아가기' : `🗑️ 휴지통 (${trashAlbums.length}개)`}
+            </button>
             <div className="view-toggle">
               <button type="button" className={`btn-toggle ${albumViewMode === 'grid' ? 'active' : ''}`} onClick={() => setAlbumViewMode('grid')}>앨범형</button>
               <button type="button" className={`btn-toggle ${albumViewMode === 'list' ? 'active' : ''}`} onClick={() => setAlbumViewMode('list')}>목록형</button>
             </div>
-            <button type="button" className="btn btn-primary" onClick={() => setShowCreate(true)}>➕ 새 앨범 만들기</button>
+            {!showTrash && <button type="button" className="btn btn-primary" onClick={openCreateModal}>➕ 새 앨범 만들기</button>}
           </div>
         </div>
 
         <section className={albumViewMode === 'grid' ? 'album-grid' : 'album-list'}>
-          {albums.map((album) => {
+          {(showTrash ? trashAlbums : activeAlbums).map((album) => {
             const filled = countFilledSlots(album);
             const total = totalSlots(album);
+            const completion = countOwnedAndPlacedSlots(album);
             return (
               <article key={album.id} className={`album-card ${albumViewMode}`}>
-                <div className="album-card-main" onClick={() => openAlbumEditor(album)}>
-                  <h3>{album.name}</h3>
-                  <p>레이아웃: {album.layoutKey} · 페이지 {album.pageCount || album.pages?.length || 1}장</p>
-                  <p>완성도: {filled}/{total}</p>
-                  <small>최근 수정: {String(album.updatedAt || '').replace('T', ' ').slice(0, 16) || '-'}</small>
-                </div>
-                <button type="button" className="btn btn-danger" onClick={() => handleDeleteAlbum(album.id)}>삭제</button>
+                {albumViewMode === 'list' ? (
+                  <div className="album-card-main list" onClick={() => !showTrash && openAlbumEditor(album)} style={{ cursor: showTrash ? 'default' : 'pointer' }}>
+                    <div className="album-info-title">
+                      <h3>{album.name} {showTrash && <span style={{fontSize: '0.8rem', color: 'var(--danger-color)'}}>(삭제됨)</span>}</h3>
+                    </div>
+                    <div className="album-info-details">
+                      <span className="info-item">
+                        <span className="info-label">레이아웃</span>
+                        <span className="info-val">{album.layoutKey} ({album.pageCount || album.pages?.length || 1}장)</span>
+                      </span>
+                      <span className="info-item">
+                        <span className="info-label">완성도</span>
+                        <span className="info-val">{completion.ownedPlaced}/{completion.placed}</span>
+                      </span>
+                      <span className="info-item">
+                        <span className="info-label">배치 현황</span>
+                        <span className="info-val">{filled}/{total}</span>
+                      </span>
+                      <span className="info-item">
+                        <span className="info-label">최근 수정</span>
+                        <span className="info-val">{String(album.updatedAt || '').replace('T', ' ').slice(0, 16) || '-'}</span>
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="album-card-main" onClick={() => !showTrash && openAlbumEditor(album)} style={{ cursor: showTrash ? 'default' : 'pointer' }}>
+                    <h3>{album.name} {showTrash && <span style={{fontSize: '0.8rem', color: 'var(--danger-color)'}}>(삭제됨)</span>}</h3>
+                    <p>레이아웃: {album.layoutKey} · 페이지 {album.pageCount || album.pages?.length || 1}장</p>
+                    <p>완성도(보유중/배치): {completion.ownedPlaced}/{completion.placed}</p>
+                    <small>배치 현황: {filled}/{total}</small>
+                    <small>최근 수정: {String(album.updatedAt || '').replace('T', ' ').slice(0, 16) || '-'}</small>
+                  </div>
+                )}
+                {showTrash ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <button type="button" className="btn btn-secondary" onClick={() => handleRestoreAlbum(album.id)}>복구하기</button>
+                    <button type="button" className="btn btn-danger" onClick={() => handlePermanentDeleteAlbum(album.id)}>영구 삭제</button>
+                  </div>
+                ) : (
+                  <button type="button" className="btn btn-danger" onClick={() => handleDeleteAlbum(album.id)}>휴지통</button>
+                )}
               </article>
             );
           })}
-          {albums.length === 0 && (
+          {(showTrash ? trashAlbums : activeAlbums).length === 0 && (
             <div className="album-empty">
-              아직 앨범이 없습니다. 새 앨범을 만들어 시작해보세요.
+              {showTrash ? '휴지통이 비어 있습니다.' : '아직 앨범이 없습니다. 새 앨범을 만들어 시작해보세요.'}
             </div>
           )}
         </section>
 
         {showCreate && (
-          <div className="modal-backdrop" onClick={() => setShowCreate(false)}>
+          <div className="modal-backdrop" onClick={closeCreateModal}>
             <div className="modal-content" style={{ maxWidth: '520px' }} onClick={(e) => e.stopPropagation()}>
-              <button type="button" className="modal-close" onClick={() => setShowCreate(false)}>✕</button>
+              <button type="button" className="modal-close" onClick={closeCreateModal}>✕</button>
               <h2 className="modal-title">새 앨범 만들기</h2>
 
               <div className="form-group">
@@ -578,21 +1254,54 @@ export default function AlbumPlanner() {
             />
             <button type="button" className="btn btn-secondary" onClick={commitAlbumName}>이름 저장</button>
           </div>
-          <p>레이아웃 {editingAlbum.layoutKey} · 페이지 {currentPageIndex + 1}/{editingAlbum.pages.length}</p>
+          <p>레이아웃 {editingAlbum.layoutKey} · 페이지 {currentPageIndex + 1}/{editingAlbum.pages.length} · 보기 {editorViewMode === 'page' ? '페이지' : editorViewMode === 'canvas' ? '전체 캔버스' : '앨범 넘겨보기'}</p>
         </div>
         <div className="album-editor-actions">
           <button type="button" className="btn btn-secondary" onClick={closeEditor}>목록으로</button>
+          <div className="view-toggle">
+            <button type="button" className={`btn-toggle ${editorViewMode === 'page' ? 'active' : ''}`} onClick={() => { setEditorViewMode('page'); setActiveSlotIndex(null); }}>페이지 보기</button>
+            <button type="button" className={`btn-toggle ${editorViewMode === 'canvas' ? 'active' : ''}`} onClick={() => { setEditorViewMode('canvas'); setActiveSlotIndex(null); }}>전체 캔버스</button>
+            <button type="button" className={`btn-toggle ${editorViewMode === 'book' ? 'active' : ''}`} onClick={() => { setPreBookViewMode(editorViewMode); setEditorViewMode('book'); setBookStep(0); setActiveSlotIndex(null); }}>📖 앨범 넘겨보기</button>
+          </div>
+          {editorViewMode === 'canvas' && (
+            <div className="canvas-columns-control" title="캔버스 페이지 열 수 선택">
+              <span>캔버스 배치</span>
+              <div className="view-toggle">
+                <button type="button" className={`btn-toggle ${canvasColumns === 1 ? 'active' : ''}`} onClick={() => setCanvasColumns(1)}>1열</button>
+                <button type="button" className={`btn-toggle ${canvasColumns === 2 ? 'active' : ''}`} onClick={() => setCanvasColumns(2)}>2열</button>
+                <button type="button" className={`btn-toggle ${canvasColumns === 3 ? 'active' : ''}`} onClick={() => setCanvasColumns(3)}>3열</button>
+              </div>
+            </div>
+          )}
           <button type="button" className="btn btn-secondary" onClick={handleUndo} disabled={!canUndo}>↶ 실행 취소</button>
           <button type="button" className="btn btn-secondary" onClick={handleRedo} disabled={!canRedo}>↷ 다시 실행</button>
           <button type="button" className="btn btn-secondary" onClick={addNewPage}>＋ 페이지 추가</button>
           <button type="button" className="btn btn-secondary" onClick={duplicateCurrentPage}>📄 페이지 복제</button>
+          <button type="button" className="btn btn-secondary" onClick={openImportModal}>📥 다른 앨범에서 페이지 가져오기</button>
           <button type="button" className="btn btn-danger" onClick={removeCurrentPage}>현재 페이지 삭제</button>
+          <div style={{ position: 'relative' }}>
+            <button type="button" className="btn btn-primary" onClick={() => showExportModal ? closeExportModalPopup() : openExportModalPopup()} disabled={isExporting}>
+              {isExporting ? '캡처 중...' : '📥 앨범 내보내기'}
+            </button>
+            {showExportModal && (
+              <div className="multi-sort-panel" style={{ width: '220px', right: 0, top: '100%', padding: '1rem', zIndex: 1000 }}>
+                <h4 style={{ marginBottom: '0.8rem', fontSize: '1rem' }}>앨범 내보내기</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <button type="button" className="btn btn-secondary" onClick={() => handleExportAlbum('pdf')}>📄 PDF로 저장</button>
+                  <button type="button" className="btn btn-secondary" onClick={() => handleExportAlbum('zip')}>🖼️ 이미지(ZIP) 저장</button>
+                  <button type="button" className="btn btn-secondary" style={{ borderColor: 'rgba(99, 102, 241, 0.5)', color: '#a5b4fc', background: 'rgba(79, 70, 229, 0.1)' }} onClick={() => handleExportAlbum('full')}>📸 캔버스 한장으로 저장 (JPG)</button>
+                </div>
+              </div>
+            )}
+          </div>
           <span className={`album-save-status ${saveStatus}`}>{saveStatus === 'saving' ? '자동 저장 중...' : saveStatus === 'saved' ? '자동 저장됨' : saveStatus === 'error' ? '저장 실패' : '편집 대기'}</span>
         </div>
       </div>
 
-      <div className="album-editor-layout">
+      <div className={`album-editor-layout ${isExporting ? 'exporting-mode' : ''} ${editorViewMode === 'book' ? 'book-mode' : ''}`}>
         <section className="album-page-preview-wrap">
+          {editorViewMode === 'page' && (
+            <>
           <div className="album-page-tabs">
             {editingAlbum.pages.map((_, index) => (
               <button
@@ -617,17 +1326,35 @@ export default function AlbumPlanner() {
             }}
           >
             {(currentPage?.slots || []).map((slot, index) => {
+              const resolvedSlot = resolveSlotCard(slot);
               const isActive = activeSlotIndex === index;
-              const isEmpty = !slot;
+              const isEmpty = !resolvedSlot;
               const isDragging = draggingSlotIndex === index;
               const isDragOver = dragOverSlotIndex === index && draggingSlotIndex !== index;
               return (
-                <button
-                  type="button"
+                <div
+                  role="button"
+                  tabIndex={0}
                   key={`slot-${index}`}
                   className={`album-slot ${isActive ? 'active' : ''} ${isEmpty ? 'empty' : ''} ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''}`}
-                  onClick={() => setActiveSlotIndex(index)}
-                  title={isEmpty ? '빈 슬롯' : `${slot.cardName || '카드'} 슬롯`}
+                  onClick={() => {
+                    if (isEmpty) {
+                      setActiveSlotIndex(index);
+                      return;
+                    }
+                    openSlotCardEditor(resolvedSlot, currentPageIndex, index);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      if (isEmpty) {
+                        setActiveSlotIndex(index);
+                        return;
+                      }
+                      openSlotCardEditor(resolvedSlot, currentPageIndex, index);
+                    }
+                  }}
+                  title={isEmpty ? '빈 슬롯' : `${resolvedSlot.cardName || '카드'} 슬롯`}
                   draggable={!isEmpty}
                   onDragStart={(e) => {
                     if (isEmpty) {
@@ -654,44 +1381,447 @@ export default function AlbumPlanner() {
                   }}
                   onDragEnd={clearDragState}
                 >
-                  {!isEmpty && (
-                    <button
-                      type="button"
-                      className="album-slot-remove"
-                      title="이 슬롯에서 카드 제거"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        clearSlotByIndex(index);
-                      }}
-                    >
-                      ✕
-                    </button>
-                  )}
+                  <div className="album-slot-visual">
+                    {!isEmpty && (
+                      <button
+                        type="button"
+                        className="album-slot-remove"
+                        title="이 슬롯에서 카드 제거"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          clearSlotByIndex(index);
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
 
-                  {slot?.imageUrl ? (
-                    <img src={slot.imageUrl} alt={slot.cardName || 'card'} />
-                  ) : (
-                    <div className="album-slot-empty">비어있음</div>
-                  )}
+                    <CardThumbnail imageUrl={resolvedSlot?.imageUrl} alt={resolvedSlot?.cardName || 'card'} type="album-slot" />
+
+                    {!isEmpty && (
+                      <div className="album-slot-details">
+                        <small>{resolvedSlot?.series || '-'}</small>
+                        <small>{resolvedSlot?.cardNumber || '-'}</small>
+                        <small>레어도: {resolvedSlot?.rarity || '-'}</small>
+                      </div>
+                    )}
+                  </div>
 
                   <div className="album-slot-meta">
-                    <strong>{slot?.cardName || `슬롯 ${index + 1}`}</strong>
-                    <small>{slot?.series || '-'}</small>
-                    <small>{slot?.cardNumber || '-'}</small>
-                    <small>레어도: {slot?.rarity || '-'}</small>
-                    <span className={`album-slot-status ${getStatusTone(slot?.status)}`}>{slot?.status || '미배치'}</span>
+                    <strong>{resolvedSlot?.cardName || `슬롯 ${index + 1}`}</strong>
+                    <span className={`album-slot-status ${getStatusTone(resolvedSlot?.status)}`}>{resolvedSlot?.status || '미배치'}</span>
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
+            </>
+          )}
+
+          {editorViewMode === 'canvas' && (
+            <div
+              className="album-canvas-board"
+              style={{
+                gridTemplateColumns: `repeat(${canvasColumns}, minmax(0, 1fr))`,
+              }}
+            >
+              {editingAlbum.pages.map((page, pageIndex) => {
+                const filledCount = (page.slots || []).filter(Boolean).length;
+                const totalCount = (page.slots || []).length;
+                const isPageDragging = draggingPageIndex === pageIndex;
+                const isPageDragOver = dragOverPageIndex === pageIndex && !isPageDragging;
+
+                return (
+                  <article
+                    key={`canvas-page-${pageIndex}`}
+                    className={`album-canvas-page-card ${currentPageIndex === pageIndex ? 'active' : ''} ${isPageDragging ? 'dragging-page' : ''} ${isPageDragOver ? 'drag-over-page' : ''}`}
+                    onClick={() => {
+                      setCurrentPageIndex(pageIndex);
+                    }}
+                    draggable={draggingPageIndex !== null}
+                    onDragOver={(e) => handlePageDragOver(e, pageIndex)}
+                    onDrop={(e) => handlePageDrop(e, pageIndex)}
+                    onDragEnd={handlePageDragEnd}
+                  >
+                    <header className="album-canvas-page-header">
+                      <div className="album-canvas-page-header-left">
+                         <span 
+                           className="album-page-drag-handle" 
+                           title="페이지 이동 (드래그)"
+                           onMouseDown={() => setDraggingPageIndex(pageIndex)}
+                           onMouseUp={() => draggingPageIndex === pageIndex && setDraggingPageIndex(null)}
+                         >
+                           ⠿
+                         </span>
+                         <strong>P{pageIndex + 1}</strong>
+                      </div>
+                      <small>{filledCount}/{totalCount}</small>
+                    </header>
+                    <div
+                      className="album-canvas-page-grid"
+                      style={{
+                        gridTemplateColumns: `repeat(${selectedLayout?.cols || editingAlbum.cols}, minmax(0, 1fr))`,
+                      }}
+                    >
+                      {(page.slots || []).map((slot, slotIndex) => {
+                        const resolvedSlot = resolveSlotCard(slot);
+                        const isEmpty = !resolvedSlot;
+                        const isDragging = canvasDraggingLocation?.pageIndex === pageIndex && canvasDraggingLocation?.slotIndex === slotIndex;
+                        const isDragOver = canvasDragOverLocation?.pageIndex === pageIndex && canvasDragOverLocation?.slotIndex === slotIndex && !isDragging;
+                        return (
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            key={`canvas-slot-${pageIndex}-${slotIndex}`}
+                            className={`album-slot ${isEmpty ? 'empty' : ''} ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''}`}
+                            onClick={() => {
+                              setCurrentPageIndex(pageIndex);
+                              setActiveSlotIndex(slotIndex);
+                              if (!resolvedSlot) return;
+                              openSlotCardEditor(resolvedSlot, pageIndex, slotIndex);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setCurrentPageIndex(pageIndex);
+                                setActiveSlotIndex(slotIndex);
+                                if (!resolvedSlot) return;
+                                openSlotCardEditor(resolvedSlot, pageIndex, slotIndex);
+                              }
+                            }}
+                            title={isEmpty ? '빈 슬롯' : `${resolvedSlot.cardName || '카드'} 슬롯`}
+                            draggable={!isEmpty}
+                            onDragStart={(e) => {
+                              if (isEmpty) {
+                                e.preventDefault();
+                                return;
+                              }
+                              setCanvasDraggingLocation({ pageIndex, slotIndex });
+                              setCanvasDragOverLocation({ pageIndex, slotIndex });
+                              e.dataTransfer.effectAllowed = 'move';
+                            }}
+                            onDragEnter={() => {
+                              if (!canvasDraggingLocation) return;
+                              setCanvasDragOverLocation({ pageIndex, slotIndex });
+                            }}
+                            onDragOver={(e) => {
+                              if (!canvasDraggingLocation) return;
+                              e.preventDefault();
+                              e.dataTransfer.dropEffect = 'move';
+                            }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              handleCanvasSlotDrop(pageIndex, slotIndex);
+                            }}
+                            onDragEnd={clearCanvasDragState}
+                          >
+                            <div className="album-slot-visual">
+                              {!isEmpty && (
+                                <button
+                                  type="button"
+                                  className="album-slot-remove"
+                                  title="이 슬롯에서 카드 제거"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    clearSlotAt(pageIndex, slotIndex);
+                                  }}
+                                >
+                                  ✕
+                                </button>
+                              )}
+
+                                <CardThumbnail imageUrl={resolvedSlot?.imageUrl} alt={resolvedSlot?.cardName || 'card'} type="album-slot" />
+
+                              {!isEmpty && (
+                                <div className="album-slot-details">
+                                  <small>{resolvedSlot?.series || '-'}</small>
+                                  <small>{resolvedSlot?.cardNumber || '-'}</small>
+                                  <small>레어도: {resolvedSlot?.rarity || '-'}</small>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="album-slot-meta">
+                              <strong>{resolvedSlot?.cardName || `슬롯 ${slotIndex + 1}`}</strong>
+                              <span className={`album-slot-status ${getStatusTone(resolvedSlot?.status)}`}>{resolvedSlot?.status || '미배치'}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+
+          {editorViewMode === 'book' && (() => {
+            const pageCount = editingAlbum.pages?.length || 0;
+            const maxStep = Math.ceil((pageCount + 1) / 2);
+            const totalSteps = maxStep + 1;
+
+            const leftPageIndex = 2 * bookStep - 3;
+            const rightPageIndex = 2 * bookStep - 2;
+            const nextBookStep = isFlipping ? (flipDirection === 'next' ? bookStep + 1 : bookStep - 1) : bookStep;
+            const nextLeftIndex = 2 * nextBookStep - 3;
+            const nextRightIndex = 2 * nextBookStep - 2;
+
+            const cols = selectedLayout?.cols || editingAlbum.cols || 3;
+            const rows = selectedLayout?.rows || editingAlbum.rows || 3;
+
+            const handleBookPageFlip = (direction) => {
+              if (isFlipping) return;
+              let nextStep = bookStep;
+              if (direction === 'next' && bookStep < totalSteps) {
+                nextStep = bookStep + 1;
+              } else if (direction === 'prev' && bookStep > 0) {
+                nextStep = bookStep - 1;
+              } else {
+                return;
+              }
+              setFlipDirection(direction);
+              setIsFlipping(true);
+              setTimeout(() => {
+                setBookStep(nextStep);
+                setIsFlipping(false);
+              }, 600); // 3D 회전 애니메이션의 완성도를 높이기 위해 600ms로 조절
+            };
+
+            const renderBookPageGrid = (pageIndex) => {
+              const page = editingAlbum.pages?.[pageIndex];
+              if (!page) {
+                return (
+                  <div className="book-page-inside-empty" onClick={(e) => {
+                    e.stopPropagation();
+                    if (pageIndex === leftPageIndex) {
+                      handleBookPageFlip('prev');
+                    } else {
+                      handleBookPageFlip('next');
+                    }
+                  }}>
+                    <div className="inside-empty-fabric"></div>
+                  </div>
+                );
+              }
+              
+              const slots = page.slots || [];
+
+              return (
+                <div className="album-book-page-content" onClick={(e) => {
+                  e.stopPropagation();
+                  if (pageIndex === leftPageIndex) {
+                    handleBookPageFlip('prev');
+                  } else {
+                    handleBookPageFlip('next');
+                  }
+                }}>
+                  <div 
+                    className="album-book-grid" 
+                    style={{ 
+                      gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+                      gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`
+                    }}
+                  >
+                    {slots.map((slot, slotIdx) => {
+                      const resolvedSlot = resolveSlotCard(slot);
+                      const isEmpty = !resolvedSlot;
+                      return (
+                        <div
+                          key={`book-slot-${pageIndex}-${slotIdx}`}
+                          className={`book-slot-pocket ${isEmpty ? 'empty' : 'filled'}`}
+                          onClick={(e) => {
+                            if (isEmpty) return;
+                            e.stopPropagation(); // 책장이 넘어가버리는 현상 방지
+                            openSlotCardEditor(resolvedSlot, pageIndex, slotIdx);
+                          }}
+                          title={isEmpty ? '빈 슬롯' : `${resolvedSlot.cardName || '카드'} 슬롯`}
+                        >
+                          {!isEmpty && (
+                            <img 
+                              src={resolvedSlot.imageUrl} 
+                              alt={resolvedSlot.cardName || 'card'} 
+                              className="book-slot-pocket-img"
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            };
+
+            return (
+              <div className="album-book-mode-wrapper">
+                {/* 앨범 뷰어 몰입 모드 제어 상단 컨트롤바 */}
+                <div className="book-viewer-top-controlbar">
+                  <button 
+                    type="button" 
+                    className="top-control-btn fullscreen-toggle-btn"
+                    onClick={() => {
+                      if (!document.fullscreenElement) {
+                        document.documentElement.requestFullscreen().catch(() => {});
+                      } else {
+                        document.exitFullscreen().catch(() => {});
+                      }
+                    }}
+                    title="전체화면 토글"
+                  >
+                    🖥️ 전체화면
+                  </button>
+                  <button 
+                    type="button" 
+                    className="top-control-btn close-book-btn"
+                    onClick={() => {
+                      if (document.fullscreenElement) {
+                        document.exitFullscreen().catch(() => {});
+                      }
+                      setEditorViewMode(preBookViewMode);
+                    }}
+                    title="앨범 닫기"
+                  >
+                    ✕ 닫기
+                  </button>
+                </div>
+
+                <div className="book-viewer-viewport">
+                  
+                  {/* 좌측 이전 페이지 버튼 */}
+                  <button 
+                    type="button" 
+                    className="book-nav-btn prev-btn" 
+                    onClick={() => handleBookPageFlip('prev')}
+                    disabled={bookStep === 0 || isFlipping}
+                    title="이전 페이지"
+                  >
+                    <span className="nav-arrow">◀</span>
+                    <span className="nav-text">이전장</span>
+                  </button>
+
+                  {/* 3D 바인더 본체 */}
+                  <div className="album-book-container" style={{ '--cols': cols, '--rows': rows }}>
+                    <div className={`book-wrapper ${bookStep === 0 ? 'closed-front' : bookStep === totalSteps ? 'closed-back' : 'opened'}`}>
+                      
+                      {/* 앞표지 닫힘 상태 */}
+                      {bookStep === 0 && (
+                        <div className="book-cover front-cover" onClick={() => handleBookPageFlip('next')}>
+                          <div className="cover-spine-binding"></div>
+                          <div className="cover-title-badge">
+                            <h1>{editingAlbum.name || '새 앨범'}</h1>
+                            <p>{editingAlbum.layoutKey} CARD COLLECTOR</p>
+                            <small>총 {pageCount} 페이지 · {totalSlots(editingAlbum)} 슬롯</small>
+                            <span className="cover-open-hint">앨범 열기 ➔</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 뒷표지 닫힘 상태 */}
+                      {bookStep === totalSteps && (
+                        <div className="book-cover back-cover" onClick={() => handleBookPageFlip('prev')}>
+                          <div className="cover-spine-binding right"></div>
+                          <div className="cover-title-badge">
+                            <h1>COLLECTION</h1>
+                            <p>THANK YOU</p>
+                            <button type="button" className="btn btn-secondary" onClick={(e) => { e.stopPropagation(); setBookStep(0); }}>첫 표지로 이동</button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 본문 양면 상태 */}
+                      {bookStep > 0 && bookStep < totalSteps && (
+                        <div className={`book-spread-inner ${isFlipping ? `flipping-${flipDirection}` : ''}`}>
+                          {isFlipping ? (
+                            <>
+                              {/* 1. 바닥 배경 고정 레이어 (Static Underneath) */}
+                              <div className="book-page static-left">
+                                {renderBookPageGrid(flipDirection === 'next' ? leftPageIndex : nextLeftIndex)}
+                              </div>
+                              <div className="book-spine-rings">
+                                <div className="ring-coil"></div>
+                                <div className="ring-coil"></div>
+                                <div className="ring-coil"></div>
+                                <div className="ring-coil"></div>
+                                <div className="ring-coil"></div>
+                              </div>
+                              <div className="book-page static-right">
+                                {renderBookPageGrid(flipDirection === 'next' ? nextRightIndex : rightPageIndex)}
+                              </div>
+
+                              {/* 2. 실제 3D 회전하는 공중 페이지 시트 (Flipping Page Layer) */}
+                              {flipDirection === 'next' ? (
+                                <div className="book-page-flip-sheet flip-to-left">
+                                  <div className="sheet-side sheet-front">
+                                    {renderBookPageGrid(rightPageIndex)}
+                                  </div>
+                                  <div className="sheet-side sheet-back">
+                                    {renderBookPageGrid(nextLeftIndex)}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="book-page-flip-sheet flip-to-right">
+                                  <div className="sheet-side sheet-front">
+                                    {renderBookPageGrid(leftPageIndex)}
+                                  </div>
+                                  <div className="sheet-side sheet-back">
+                                    {renderBookPageGrid(nextRightIndex)}
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              {/* 기본 정적 양면 화면 */}
+                              <div className="book-page left-page">
+                                {renderBookPageGrid(leftPageIndex)}
+                              </div>
+                              <div className="book-spine-rings">
+                                <div className="ring-coil"></div>
+                                <div className="ring-coil"></div>
+                                <div className="ring-coil"></div>
+                                <div className="ring-coil"></div>
+                                <div className="ring-coil"></div>
+                              </div>
+                              <div className="book-page right-page">
+                                {renderBookPageGrid(rightPageIndex)}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 우측 다음 페이지 버튼 */}
+                  <button 
+                    type="button" 
+                    className="book-nav-btn next-btn" 
+                    onClick={() => handleBookPageFlip('next')}
+                    disabled={bookStep === totalSteps || isFlipping}
+                    title="다음 페이지"
+                  >
+                    <span className="nav-text">다음장</span>
+                    <span className="nav-arrow">▶</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </section>
 
-        <aside className="album-card-picker">
+        {editorViewMode !== 'book' && (
+          <aside className="album-card-picker">
           <h3>카드 배치 패널</h3>
-          <p>슬롯 선택 후 카드를 클릭하면 해당 위치에 배치됩니다.</p>
+          <p>슬롯 선택 시 해당 위치에 배치되고, 미선택 시 빈 슬롯에 자동으로 순차 배치됩니다. (캔버스 모드는 전체 페이지 기준)</p>
 
           <div className="album-picker-top-actions">
+            <button 
+              type="button" 
+              className="btn btn-primary" 
+              style={{ width: '100%', marginBottom: '0.5rem', background: 'linear-gradient(135deg, #3b82f6, #6366f1)' }}
+              onClick={openCardPicker}
+            >
+              🔍 상세 검색으로 한꺼번에 담기
+            </button>
             <input
               type="text"
               className="search-input"
@@ -711,7 +1841,7 @@ export default function AlbumPlanner() {
               {filteredCards.slice(0, 200).map((card) => (
                 <button type="button" className="album-card-item" key={card.id} onClick={() => assignCardToSlot(card)}>
                   <div className="thumb-wrap">
-                    {card.imageUrl ? <img src={card.imageUrl} alt={card.cardName || 'card'} /> : <div className="thumb-placeholder">No Img</div>}
+                    <CardThumbnail imageUrl={card.imageUrl} alt={card.cardName || 'card'} type="album-picker" />
                   </div>
                   <div className="info">
                     <strong>{card.cardName || '이름 없음'}</strong>
@@ -726,7 +1856,148 @@ export default function AlbumPlanner() {
             </div>
           )}
         </aside>
+        )}
       </div>
+
+      <CardDetailModal 
+        isOpen={!!slotEditingCard}
+        card={slotEditingCard}
+        appConfig={appConfig}
+        onClose={closeSlotCardEditor}
+        onSave={handleModalSave}
+        onDelete={handleModalDelete}
+      />
+
+      {showCardPicker && (
+        <div className="modal-backdrop" style={{ zIndex: 1500 }}>
+          <div className="modal-content" style={{ maxWidth: '95vw', height: '90vh', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <FilterExplorer 
+              appConfig={appConfig} 
+              isPicker={true} 
+              onSelectCards={handleBatchAssign} 
+              onClose={closeCardPicker} 
+            />
+          </div>
+        </div>
+      )}
+
+      {showImportModal && (
+        <div className="modal-backdrop" style={{ zIndex: 1500 }} onClick={closeImportModal}>
+          <div className="modal-content" style={{ maxWidth: '850px', height: '80vh', display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="modal-close" onClick={closeImportModal}>✕</button>
+            <h2 className="modal-title">다른 앨범에서 페이지 가져오기</h2>
+            
+            <div className="import-select-group" style={{ marginBottom: '1.5rem', flex: 'none' }}>
+              <label style={{ fontSize: '1rem', fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>대상 앨범 선택</label>
+              <select 
+                value={importSourceAlbumId} 
+                onChange={(e) => {
+                  setImportSourceAlbumId(e.target.value);
+                  setImportSelectedPageIndex(null);
+                }}
+                style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', background: 'var(--bg-lighter)', color: 'white', border: '1px solid var(--border-color)' }}
+              >
+                <option value="" style={{ background: '#1e293b', color: 'white' }}>-- 복사해 올 대상 앨범을 골라주세요 --</option>
+                {albums.filter(a => a.id !== editingAlbum.id && !a.isDeleted).map(album => (
+                  <option key={album.id} value={album.id} style={{ background: '#1e293b', color: 'white' }}>{album.name} ({album.layoutKey} · 페이지 {album.pages?.length || 1}장)</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', paddingRight: '0.5rem' }}>
+              {importSourceAlbumId ? (
+                (() => {
+                  const source = albums.find(a => a.id === importSourceAlbumId);
+                  if (!source || !source.pages?.length) {
+                    return <div className="album-empty">해당 앨범에 페이지가 없습니다.</div>;
+                  }
+                  return (
+                    <div className="album-import-grid">
+                      {source.pages.map((page, pageIdx) => {
+                        const isSelected = importSelectedPageIndex === pageIdx;
+                        return (
+                          <div 
+                            key={`import-page-${pageIdx}`}
+                            className={`page-preview-card ${isSelected ? 'selected' : ''}`}
+                            onClick={() => setImportSelectedPageIndex(pageIdx)}
+                          >
+                            <div className="preview-card-header">
+                              <input 
+                                type="radio" 
+                                name="importPageIndex" 
+                                checked={isSelected} 
+                                onChange={() => setImportSelectedPageIndex(pageIdx)} 
+                              />
+                              <strong>페이지 {pageIdx + 1}</strong>
+                            </div>
+                            
+                            <div 
+                              className="mini-page-preview"
+                              style={{
+                                display: 'grid',
+                                gridTemplateColumns: `repeat(${source.cols || 3}, minmax(0, 1fr))`,
+                                gap: '4px',
+                                padding: '6px',
+                                background: 'rgba(0, 0, 0, 0.4)',
+                                borderRadius: '8px',
+                                border: '1px solid rgba(255, 255, 255, 0.05)',
+                                aspectRatio: `${source.cols} / ${source.rows}`
+                              }}
+                            >
+                              {(page.slots || []).map((slot, slotIdx) => {
+                                const resolvedSlot = resolveSlotCard(slot);
+                                const isEmpty = !resolvedSlot;
+                                return (
+                                  <div 
+                                    key={`mini-slot-${pageIdx}-${slotIdx}`}
+                                    className={`mini-slot ${isEmpty ? 'empty' : ''}`}
+                                    style={{
+                                      position: 'relative',
+                                      borderRadius: '4px',
+                                      background: isEmpty ? 'rgba(255, 255, 255, 0.02)' : 'var(--bg-lighter)',
+                                      border: isEmpty ? '1px dashed rgba(255, 255, 255, 0.1)' : 'none',
+                                      overflow: 'hidden',
+                                      aspectRatio: '2.5 / 3.5'
+                                    }}
+                                  >
+                                    {!isEmpty && resolvedSlot.imageUrl && (
+                                      <img 
+                                        src={resolvedSlot.imageUrl} 
+                                        alt={resolvedSlot.cardName} 
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                                      />
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()
+              ) : (
+                <div className="album-empty" style={{ padding: '3rem' }}>
+                  💡 대상 앨범을 선택하시면 각 페이지의 카드 배치 그림이 여기에 나타납니다.
+                </div>
+              )}
+            </div>
+
+            <div className="modal-actions" style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+              <button type="button" className="btn btn-secondary" onClick={closeImportModal}>취소</button>
+              <button 
+                type="button" 
+                className="btn btn-primary" 
+                onClick={handleImportPage}
+                disabled={!importSourceAlbumId || importSelectedPageIndex === null}
+              >
+                📥 이 페이지 배치 복사해오기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
