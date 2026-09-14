@@ -8,6 +8,7 @@ import AdminSettings from './components/AdminSettings';
 import StatsDashboard from './components/StatsDashboard';
 import AlbumPlanner from './components/AlbumPlanner';
 import MarketPrice from './components/MarketPrice';
+import NicknameModal from './components/NicknameModal';
 import { defaultConfig } from './defaultConfig';
 import { sanitizeStatusOptions } from './utils/statusUtils';
 import { useAuth } from './AuthContext';
@@ -49,7 +50,8 @@ function getViewFromHash() {
 }
 
 function App() {
-  const { user, loading: authLoading, isAdmin, signInWithGoogle, signOut } = useAuth();
+  const { user, loading: authLoading, isAdmin, nickname, needsNickname, signInWithGoogle, signOut } = useAuth();
+  const [showNicknameEditor, setShowNicknameEditor] = useState(false);
   const [currentView, setCurrentView] = useState(getViewFromHash);
   const [appConfig, setAppConfig] = useState(null);
   const [marketPresetCard, setMarketPresetCard] = useState(null);
@@ -309,8 +311,13 @@ function App() {
           )}
           {user ? (
             <>
-              <span className="navbar-user-info" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '0.6rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                {user.displayName || user.email}{isAdmin && ' (관리자)'}
+              <span
+                className="navbar-user-info"
+                onClick={() => setShowNicknameEditor(true)}
+                title="클릭해서 닉네임 변경"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '0.6rem', fontSize: '0.85rem', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                {nickname || user.displayName || user.email}{isAdmin && ' (관리자)'}
               </span>
               <button type="button" className="btn btn-secondary btn-compact" onClick={signOut}>로그아웃</button>
             </>
@@ -398,15 +405,20 @@ function App() {
       )}
 
       {showScrollBtn && (
-        <button 
-          type="button" 
-          className="scroll-to-top-btn" 
-          onClick={scrollToTop} 
+        <button
+          type="button"
+          className="scroll-to-top-btn"
+          onClick={scrollToTop}
           title="맨 위로 이동"
           aria-label="맨 위로 이동"
         >
           ▲
         </button>
+      )}
+
+      {needsNickname && <NicknameModal forced />}
+      {!needsNickname && showNicknameEditor && (
+        <NicknameModal onClose={() => setShowNicknameEditor(false)} />
       )}
     </>
   );

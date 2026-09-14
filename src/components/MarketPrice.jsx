@@ -43,7 +43,7 @@ function cardLabel(c) {
 }
 
 export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
-  const { user, signInWithGoogle } = useAuth();
+  const { user, nickname, signInWithGoogle } = useAuth();
   const { cards: myCards, loading: myCardsLoading } = useOwnedCards(); // 로그인한 본인의 보유현황이 합쳐진 카드 목록
   const [watchlist, setWatchlist] = useState([]);
   const [recordedCards, setRecordedCards] = useState([]); // 관심 등록 여부와 무관하게, 실제 시세 기록이 있는 카드들
@@ -89,7 +89,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
 
   function buildRecordedBy() {
     if (!user) return null;
-    return { uid: user.uid, name: user.displayName || user.email || '알 수 없음' };
+    return { uid: user.uid, name: nickname || user.displayName || user.email || '알 수 없음' };
   }
 
   const gradingCompanies = appConfig?.gradingCompaniesOptions?.length ? appConfig.gradingCompaniesOptions : FALLBACK_GRADING_COMPANIES;
