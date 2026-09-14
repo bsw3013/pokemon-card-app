@@ -38,8 +38,10 @@ function cardLabel(c) {
 }
 
 export default function MarketPrice({ presetCard, clearPreset }) {
-  const [ownedCards, setOwnedCards] = useState([]); // [{cardKey, cardName, series, cardNumber, imageUrl}]
+  const [ownedCards, setOwnedCards] = useState([]); // [{cardKey, cardName, series, cardNumber, imageUrl, price}]
   const [watchlist, setWatchlist] = useState([]);
+  const [recordedCards, setRecordedCards] = useState([]); // 관심 등록 여부와 무관하게, 실제 시세 기록이 있는 카드들
+  const [recordedLoading, setRecordedLoading] = useState(true);
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerFilter, setPickerFilter] = useState('');
@@ -51,6 +53,7 @@ export default function MarketPrice({ presetCard, clearPreset }) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showBundlePanel, setShowBundlePanel] = useState(false);
+  const [chartRange, setChartRange] = useState('all'); // 'all' | '30' | '7'
 
   const [manualFormOpen, setManualFormOpen] = useState(false);
   const [manualForm, setManualForm] = useState({ price: '', date: new Date().toISOString().slice(0, 10), memo: '', url: '' });
@@ -83,25 +86,69 @@ export default function MarketPrice({ presetCard, clearPreset }) {
               series: data.series || '',
               cardNumber: data.cardNumber || '',
               imageUrl: data.imageUrl || '',
+              price: Number(data.price) || 0,
             });
-          } else if (!byKey.get(cardKey).imageUrl && data.imageUrl) {
-            byKey.get(cardKey).imageUrl = data.imageUrl;
+          } else {
+            const existing = byKey.get(cardKey);
+            if (!existing.imageUrl && data.imageUrl) existing.imageUrl = data.imageUrl;
+            if (!existing.price && data.price) existing.price = Number(data.price) || 0;
           }
         });
         setOwnedCards(Array.from(byKey.values()).sort((a, b) => a.cardName.localeCompare(b.cardName, 'ko')));
+        loadRecordedCards(byKey);
       } catch (err) {
         console.error('도감 카드 목록 로드 실패', err);
+        setRecordedLoading(false);
       }
     })();
     loadWatchlist();
   }, []);
+
+  async function loadRecordedCards(ownedMap) {
+    setRecordedLoading(true);
+    try {
+      const snap = await getDocs(collection(db, 'marketListings'));
+      const byKey = new Map();
+      snap.forEach((d) => {
+        const l = d.data();
+        if (!l.cardKey || typeof l.price !== 'number') return;
+        if (!(l.classification === 'normal' && ['active', 'unconfirmed', 'manual'].includes(l.status))) return;
+        const owned = ownedMap.get(l.cardKey);
+        const entry = byKey.get(l.cardKey) || {
+          cardKey: l.cardKey,
+          cardName: owned?.cardName || l.cardName,
+          series: owned?.series || l.series || '',
+          cardNumber: owned?.cardNumber || l.cardNumber || '',
+          imageUrl: owned?.imageUrl || l.imageUrl || '',
+          price: owned?.price || 0,
+          prices: [],
+          latestSeen: null,
+        };
+        entry.prices.push(l.price);
+        const seenAt = l.lastSeen || l.firstSeen || '';
+        if (seenAt && (!entry.latestSeen || seenAt > entry.latestSeen)) entry.latestSeen = seenAt;
+        byKey.set(l.cardKey, entry);
+      });
+      const list = Array.from(byKey.values()).map((e) => ({
+        ...e,
+        count: e.prices.length,
+        avgPrice: Math.round(e.prices.reduce((s, p) => s + p, 0) / e.prices.length),
+      }));
+      list.sort((a, b) => (b.latestSeen || '').localeCompare(a.latestSeen || ''));
+      setRecordedCards(list);
+    } catch (err) {
+      console.error('기록된 카드 로드 실패', err);
+    } finally {
+      setRecordedLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (presetCard && presetCard.cardName && appliedPresetRef.current !== presetCard) {
       appliedPresetRef.current = presetCard;
       const cardKey = buildCardKey(presetCard);
       if (cardKey) {
-        setSelectedCard({ cardKey, cardName: presetCard.cardName, series: presetCard.series || '', cardNumber: presetCard.cardNumber || '', imageUrl: presetCard.imageUrl || '' });
+        setSelectedCard({ cardKey, cardName: presetCard.cardName, series: presetCard.series || '', cardNumber: presetCard.cardNumber || '', imageUrl: presetCard.imageUrl || '', price: Number(presetCard.price) || 0 });
       }
       if (clearPreset) clearPreset();
     }
@@ -150,6 +197,13 @@ export default function MarketPrice({ presetCard, clearPreset }) {
     }
   }
 
+  // marketListings에 실제 변화가 생겼을 때(직접기록/가져오기/재분류/상태변경/삭제) 호출.
+  // 현재 보고 있는 카드 데이터뿐 아니라 "시세 기록된 카드" 대시보드도 같이 갱신한다.
+  function refreshCardAndDashboard(cardKey) {
+    loadCardData(cardKey);
+    loadRecordedCards(new Map(ownedCards.map((c) => [c.cardKey, c])));
+  }
+
   const activeNormal = useMemo(
     () => listings.filter((l) => l.classification === 'normal' && (l.status === 'active' || l.status === 'unconfirmed' || l.status === 'manual'))
       .sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity)),
@@ -163,6 +217,13 @@ export default function MarketPrice({ presetCard, clearPreset }) {
     () => listings.filter((l) => ['bundle', 'outlier', 'unpriced'].includes(l.classification)),
     [listings]
   );
+
+  const chartHistory = useMemo(() => {
+    if (chartRange === 'all') return history;
+    const days = chartRange === '30' ? 30 : 7;
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+    return history.filter((h) => new Date(h.recordedAt).getTime() >= cutoff);
+  }, [history, chartRange]);
 
   const summary = useMemo(() => {
     const priced = activeNormal.filter((l) => typeof l.price === 'number');
@@ -181,8 +242,22 @@ export default function MarketPrice({ presetCard, clearPreset }) {
     return ownedCards.filter((c) => c.cardName.toLowerCase().includes(keyword)).slice(0, PICKER_RESULT_LIMIT);
   }, [ownedCards, pickerFilter]);
 
+  const recordedByKey = useMemo(() => {
+    const map = new Map();
+    recordedCards.forEach((r) => map.set(r.cardKey, r));
+    return map;
+  }, [recordedCards]);
+
   function selectCard(card) {
-    setSelectedCard({ cardKey: card.cardKey, cardName: card.cardName, series: card.series || '', cardNumber: card.cardNumber || '', imageUrl: card.imageUrl || '' });
+    const owned = ownedCards.find((c) => c.cardKey === card.cardKey);
+    setSelectedCard({
+      cardKey: card.cardKey,
+      cardName: card.cardName,
+      series: card.series || '',
+      cardNumber: card.cardNumber || '',
+      imageUrl: card.imageUrl || owned?.imageUrl || '',
+      price: Number(card.price) || Number(owned?.price) || 0,
+    });
   }
 
   function openAddPicker(card) {
@@ -256,7 +331,7 @@ export default function MarketPrice({ presetCard, clearPreset }) {
 
     setManualForm({ price: '', date: new Date().toISOString().slice(0, 10), memo: '', url: '' });
     setManualFormOpen(false);
-    loadCardData(selectedCard.cardKey);
+    refreshCardAndDashboard(selectedCard.cardKey);
   }
 
   async function handleMarketSearch(e) {
@@ -315,7 +390,7 @@ export default function MarketPrice({ presetCard, clearPreset }) {
         price: result.price,
         recordedAt: now,
       });
-      await loadCardData(selectedCard.cardKey);
+      await refreshCardAndDashboard(selectedCard.cardKey);
     } finally {
       setImportingId(null);
     }
@@ -326,7 +401,7 @@ export default function MarketPrice({ presetCard, clearPreset }) {
       classification,
       classificationOverride: true,
     });
-    loadCardData(selectedCard.cardKey);
+    refreshCardAndDashboard(selectedCard.cardKey);
   }
 
   async function handleStatusToggle(listing) {
@@ -336,7 +411,7 @@ export default function MarketPrice({ presetCard, clearPreset }) {
       missedCount: nextStatus === 'sold_estimated' ? 2 : 0,
       removedAt: nextStatus === 'sold_estimated' ? new Date().toISOString() : null,
     });
-    loadCardData(selectedCard.cardKey);
+    refreshCardAndDashboard(selectedCard.cardKey);
   }
 
   async function handleDeleteListing(listing) {
@@ -349,7 +424,7 @@ export default function MarketPrice({ presetCard, clearPreset }) {
       where('externalId', '==', listing.externalId),
     ));
     await Promise.all(historySnap.docs.map((d) => deleteDoc(d.ref)));
-    loadCardData(selectedCard.cardKey);
+    refreshCardAndDashboard(selectedCard.cardKey);
   }
 
   async function handlePhotoCheck(listing) {
@@ -370,22 +445,29 @@ export default function MarketPrice({ presetCard, clearPreset }) {
       </div>
 
       <div className="market-gallery-header">
-        <h3>⭐ 관심카드</h3>
+        <div>
+          <h3>⭐ 관심카드</h3>
+          <p className="market-hint" style={{ marginTop: 0 }}>팔로우만 해둔 목록이에요. 시세 기록 여부와 무관합니다.</p>
+        </div>
         <button type="button" className="btn btn-primary" onClick={() => setPickerOpen((p) => !p)}>
           {pickerOpen ? '닫기' : '+ 카드 추가'}
         </button>
       </div>
 
       <div className="market-card-grid">
-        {watchlist.map((w) => (
-          <CardTile
-            key={w.id}
-            card={w}
-            active={selectedCard?.cardKey === w.cardKey}
-            onClick={() => selectCard(w)}
-            onRemove={() => handleRemoveWatchlist(w.id)}
-          />
-        ))}
+        {watchlist.map((w) => {
+          const recorded = recordedByKey.get(w.cardKey);
+          return (
+            <CardTile
+              key={w.id}
+              card={w}
+              active={selectedCard?.cardKey === w.cardKey}
+              onClick={() => selectCard(w)}
+              onRemove={() => handleRemoveWatchlist(w.id)}
+              subLabel={recorded ? `${fmtPrice(recorded.avgPrice)} · ${recorded.count}건` : '시세 기록 없음'}
+            />
+          );
+        })}
         {watchlist.length === 0 && (
           <div className="empty-results">등록된 관심카드가 없습니다. "+ 카드 추가"로 도감에서 카드를 골라주세요.</div>
         )}
@@ -396,6 +478,28 @@ export default function MarketPrice({ presetCard, clearPreset }) {
           (처음 한 번, 터미널에서 <code>npm run market-server</code>를 실행해둬야 합니다)
         </p>
       )}
+
+      <div className="market-gallery-header" style={{ marginTop: '2rem' }}>
+        <div>
+          <h3>📈 시세 기록된 카드</h3>
+          <p className="market-hint" style={{ marginTop: 0 }}>관심 등록 여부와 무관하게, 실제로 시세 데이터가 쌓인 카드만 모았어요.</p>
+        </div>
+      </div>
+      <div className="market-card-grid">
+        {recordedLoading && <div className="market-hint">불러오는 중...</div>}
+        {!recordedLoading && recordedCards.map((r) => (
+          <CardTile
+            key={r.cardKey}
+            card={r}
+            active={selectedCard?.cardKey === r.cardKey}
+            onClick={() => selectCard(r)}
+            subLabel={`${fmtPrice(r.avgPrice)} · ${r.count}건`}
+          />
+        ))}
+        {!recordedLoading && recordedCards.length === 0 && (
+          <div className="empty-results">아직 시세가 기록된 카드가 없습니다. 관심카드를 등록하고 매물을 가져오거나 직접 기록해보세요.</div>
+        )}
+      </div>
 
       {pickerOpen && (
         <div className="market-picker-panel">
@@ -489,6 +593,23 @@ export default function MarketPrice({ presetCard, clearPreset }) {
                     <span className="label">중앙값</span>
                     <span className="value">{fmtPrice(summary.median)}</span>
                   </div>
+                  {selectedCard.price > 0 && (
+                    <div className="market-summary-card">
+                      <span className="label">내가 적은 가격 대비</span>
+                      <span className="value">
+                        {fmtPrice(selectedCard.price)}
+                        {(() => {
+                          const diffPct = Math.round(((summary.avg - selectedCard.price) / selectedCard.price) * 100);
+                          if (diffPct === 0) return null;
+                          return (
+                            <small className={diffPct > 0 ? 'market-up' : 'market-down'}>
+                              {' '}{diffPct > 0 ? '▲' : '▼'} {Math.abs(diffPct)}%
+                            </small>
+                          );
+                        })()}
+                      </span>
+                    </div>
+                  )}
                   <div className="market-summary-card">
                     <span className="label">최고가</span>
                     <span className="value">{fmtPrice(summary.max.price)} <small>({SOURCE_LABELS[summary.max.source] || summary.max.source})</small></span>
@@ -496,7 +617,12 @@ export default function MarketPrice({ presetCard, clearPreset }) {
                 </div>
               )}
 
-              <PriceTrendChart history={history} />
+              <div className="market-chart-range-toggle">
+                <button type="button" className={`btn btn-compact ${chartRange === '7' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setChartRange('7')}>최근 7일</button>
+                <button type="button" className={`btn btn-compact ${chartRange === '30' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setChartRange('30')}>최근 30일</button>
+                <button type="button" className={`btn btn-compact ${chartRange === 'all' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setChartRange('all')}>전체</button>
+              </div>
+              <PriceTrendChart history={chartHistory} />
 
               <div className="market-add-row">
                 <button type="button" className="btn btn-primary" onClick={() => setMarketSearchOpen((o) => !o)}>
@@ -610,7 +736,7 @@ export default function MarketPrice({ presetCard, clearPreset }) {
   );
 }
 
-function CardTile({ card, onClick, active, onRemove }) {
+function CardTile({ card, onClick, active, onRemove, subLabel }) {
   return (
     <div className={`market-tile ${active ? 'active' : ''}`} onClick={onClick}>
       {onRemove && (
@@ -627,6 +753,7 @@ function CardTile({ card, onClick, active, onRemove }) {
       </div>
       <div className="card-info">
         <h3 className="card-name" title={card.cardName}>{card.cardName}</h3>
+        {subLabel && <span className="market-tile-sub">{subLabel}</span>}
       </div>
     </div>
   );

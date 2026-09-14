@@ -2936,5 +2936,22 @@ select.table-input { appearance: none; cursor: pointer; }
 .market-collapsible { margin-top: 1rem; }
 .market-collapsible .market-section { margin-top: 0.8rem; }
 
+/* 카드 상세 모달 안에 끼워넣는 실시간 시세 요약 */
+.market-summary-inline { background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 0.9rem 1rem; margin-bottom: 1.2rem; }
+.market-summary-inline-header { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin-bottom: 0.3rem; }
+.market-summary-inline-header h4 { margin: 0; font-size: 0.95rem; }
+.market-summary-inline-body { display: flex; flex-direction: column; gap: 0.3rem; }
+.market-summary-inline-range { font-weight: 700; color: var(--text-main); }
+.market-summary-inline-range small { font-weight: 400; color: var(--text-muted); font-size: 0.75rem; }
+.market-summary-inline-compare { font-size: 0.82rem; color: var(--text-muted); }
+.market-summary-inline-compare.up { color: #ef4444; }
+.market-summary-inline-compare.down { color: #3b82f6; }
+
+.market-tile-sub { display: block; font-size: 0.74rem; color: var(--text-muted); margin-top: 0.15rem; }
+.market-up { color: #ef4444; }
+.market-down { color: #3b82f6; }
+
+.market-chart-range-toggle { display: flex; gap: 0.4rem; margin-bottom: 0.6rem; }
+
 
 

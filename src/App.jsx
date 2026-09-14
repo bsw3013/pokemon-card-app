@@ -50,6 +50,7 @@ function getViewFromHash() {
 function App() {
   const [currentView, setCurrentView] = useState(getViewFromHash);
   const [appConfig, setAppConfig] = useState(null);
+  const [marketPresetCard, setMarketPresetCard] = useState(null);
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [isNavPinned, setIsNavPinned] = useState(false);
   const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 960 : false));
@@ -109,6 +110,11 @@ function App() {
         window.location.hash = nextHash;
       }
     }
+  };
+
+  const viewMarketForCard = (card) => {
+    setMarketPresetCard(card);
+    navigateTo('market');
   };
 
   useEffect(() => {
@@ -293,7 +299,7 @@ function App() {
         <>
         {currentView === 'gallery' && (
          <main className="gallery-page">
-            <CardList appConfig={appConfig} />
+            <CardList appConfig={appConfig} onViewMarket={viewMarketForCard} />
          </main>
       )}
 
@@ -318,7 +324,10 @@ function App() {
       )}
 
       {currentView === 'market' && (
-        <MarketPrice />
+        <MarketPrice
+          presetCard={marketPresetCard}
+          clearPreset={() => setMarketPresetCard(null)}
+        />
       )}
 
       {currentView === 'home' && (

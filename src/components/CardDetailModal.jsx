@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '../firebase';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { storage, db } from '../firebase';
 import pokemonMapAll from '../utils/pokemonMapAll.json';
+import { buildCardKey } from '../utils/cardKey';
 import CardThumbnail from './CardThumbnail';
 
 const { krToEn, krToJa } = pokemonMapAll;
 
-export default function CardDetailModal({ isOpen, card, appConfig, onClose, onSave, onDelete, onDuplicate }) {
+export default function CardDetailModal({ isOpen, card, appConfig, onClose, onSave, onDelete, onDuplicate, onViewMarket }) {
   const [editData, setEditData] = useState({});
+  // 'loading' 상태는 null, 기록 없음은 'none', 있으면 {count,min,max,avg}
+  const [marketSummary, setMarketSummary] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
   // 📸 두 번째 초대형 멀티 언어 이미지 픽커 상태
@@ -46,6 +50,31 @@ export default function CardDetailModal({ isOpen, card, appConfig, onClose, onSa
       setIsPickerOpen(false);
       setPickerResults([]);
     }
+  }, [isOpen, card]);
+
+  useEffect(() => {
+    if (!isOpen || !card) { setMarketSummary(null); return; }
+    const cardKey = buildCardKey(card);
+    if (!cardKey) { setMarketSummary('none'); return; }
+    let cancelled = false;
+    setMarketSummary(null);
+    (async () => {
+      try {
+        const snap = await getDocs(query(collection(db, 'marketListings'), where('cardKey', '==', cardKey)));
+        if (cancelled) return;
+        const priced = snap.docs
+          .map((d) => d.data())
+          .filter((l) => l.classification === 'normal' && ['active', 'unconfirmed', 'manual'].includes(l.status) && typeof l.price === 'number');
+        if (priced.length === 0) { setMarketSummary('none'); return; }
+        const prices = priced.map((l) => l.price).sort((a, b) => a - b);
+        const avg = Math.round(prices.reduce((s, p) => s + p, 0) / prices.length);
+        setMarketSummary({ count: priced.length, min: prices[0], max: prices[prices.length - 1], avg });
+      } catch (err) {
+        console.error('시세 요약 로드 실패', err);
+        if (!cancelled) setMarketSummary('none');
+      }
+    })();
+    return () => { cancelled = true; };
   }, [isOpen, card]);
 
   if (!isOpen || !card) return null;
@@ -368,6 +397,52 @@ export default function CardDetailModal({ isOpen, card, appConfig, onClose, onSa
                   </div>
                 ))}
               </div>
+
+              <div className="market-summary-inline">
+                <div className="market-summary-inline-header">
+                  <h4>📊 실시간 시세</h4>
+                  {onViewMarket && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-compact"
+                      onClick={() => {
+                        onViewMarket({
+                          cardName: editData.cardName,
+                          series: editData.series,
+                          cardNumber: editData.cardNumber,
+                          imageUrl: editData.imageUrl,
+                          price: editData.price,
+                        });
+                        onClose();
+                      }}
+                    >
+                      시세 조회에서 보기 →
+                    </button>
+                  )}
+                </div>
+                {marketSummary === null && <p className="market-hint">불러오는 중...</p>}
+                {marketSummary === 'none' && (
+                  <p className="market-hint">아직 기록된 시세가 없습니다. "시세 조회" 탭에서 관심카드로 등록하고 매물을 가져오거나 직접 기록해보세요.</p>
+                )}
+                {marketSummary && marketSummary !== 'none' && (() => {
+                  const myPrice = Number(editData.price) || 0;
+                  const diffPct = myPrice > 0 ? Math.round(((marketSummary.avg - myPrice) / myPrice) * 100) : null;
+                  return (
+                    <div className="market-summary-inline-body">
+                      <span className="market-summary-inline-range">
+                        {marketSummary.min.toLocaleString()}원 ~ {marketSummary.max.toLocaleString()}원
+                        <small> (평균 {marketSummary.avg.toLocaleString()}원 · 매물 {marketSummary.count}건)</small>
+                      </span>
+                      {diffPct !== null && (
+                        <span className={`market-summary-inline-compare ${diffPct > 0 ? 'up' : diffPct < 0 ? 'down' : ''}`}>
+                          내가 적은 가격 {myPrice.toLocaleString()}원 대비 {diffPct > 0 ? '▲' : diffPct < 0 ? '▼' : '-'} {Math.abs(diffPct)}%
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+
               <div className="modal-actions">
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   {onDelete && <button type="button" className="btn btn-danger" onClick={handleDeleteInternal}>🗑 카드 지우기</button>}

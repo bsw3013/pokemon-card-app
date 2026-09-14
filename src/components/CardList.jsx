@@ -31,7 +31,7 @@ const getStatusClass = (status) => {
   return 'owned';
 };
 
-export default function CardList({ appConfig }) {
+export default function CardList({ appConfig, onViewMarket }) {
   const [cards, setCards] = useState([]);
    const { settings: thumbSettings, toggleSetting: toggleThumbSetting } = useThumbnailSettings();
 
@@ -482,6 +482,7 @@ export default function CardList({ appConfig }) {
          onSave={handleModalSave}
          onDelete={!selectedCard?.isNew ? handleModalDelete : undefined}
          onDuplicate={!selectedCard?.isNew ? handleModalDuplicate : undefined}
+         onViewMarket={onViewMarket}
        />
     </div>
   )
