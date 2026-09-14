@@ -19,7 +19,7 @@ import { looksLikeBundle } from '../utils/bundleHint';
 import PriceTrendChart from './PriceTrendChart';
 
 const SOURCE_LABELS = { bunjang: '번개장터', danggeun: '당근마켓', manual: '직접입력' };
-const CLASSIFICATION_LABELS = { normal: '정상', bundle: '묶음판매', outlier: '이상치', unpriced: '가격미정' };
+const TOP_GRADES = ['10', '9'];
 
 // Gemini API 키를 새로 발급받아 .env.local에 넣은 뒤 true로 바꾸면
 // "🔍 사진으로 확인" 버튼이 바로 다시 나타난다. (로직/핸들러는 그대로 남겨둠)
@@ -61,10 +61,9 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
   const [listings, setListings] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [showBundlePanel, setShowBundlePanel] = useState(false);
   const [chartRange, setChartRange] = useState('all'); // 'all' | '30' | '7'
-  const [langFilter, setLangFilter] = useState('all'); // 'all' | '한국' | '일본' | '미국' | '중국'
-  const [conditionFilter, setConditionFilter] = useState('all'); // 'all' | 'raw' | 'graded'
+  const [langFilter, setLangFilter] = useState('한국'); // '한국' | '일본' | '미국' | '중국'
+  const [conditionFilter, setConditionFilter] = useState('raw'); // 'raw' | 'graded'
 
   const [manualFormOpen, setManualFormOpen] = useState(false);
   const [manualForm, setManualForm] = useState({
@@ -187,8 +186,9 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
     setMarketSearchOpen(false);
     setMarketSearchResults([]);
     setMarketSearchError('');
-    setLangFilter('all');
-    setConditionFilter('all');
+    setLangFilter('한국');
+    setConditionFilter('raw');
+    setChartRange('all');
     if (!selectedCard) {
       setListings([]);
       setHistory([]);
@@ -235,15 +235,32 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
     loadRecordedCards(new Map(ownedCards.map((c) => [c.cardKey, c])));
   }
 
-  // 언어/컨디션(싱글 vs 등급) 필터를 먼저 적용한 뒤, 그 결과로 통계/차트를 계산한다.
+  // 언어/컨디션(싱글 vs 등급)/기간 필터를 먼저 적용한 뒤, 그 결과로 통계/차트를 계산한다.
   function matchesLangAndCondition(entry) {
-    if (langFilter !== 'all' && (entry.language || '한국') !== langFilter) return false;
-    if (conditionFilter !== 'all' && (entry.conditionType || 'raw') !== conditionFilter) return false;
-    return true;
+    return (entry.language || '한국') === langFilter && (entry.conditionType || 'raw') === conditionFilter;
   }
 
-  const filteredListings = useMemo(() => listings.filter(matchesLangAndCondition), [listings, langFilter, conditionFilter]);
-  const filteredHistory = useMemo(() => history.filter(matchesLangAndCondition), [history, langFilter, conditionFilter]);
+  function withinChartRange(iso) {
+    if (chartRange === 'all') return true;
+    if (!iso) return false;
+    const days = chartRange === '30' ? 30 : 7;
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+    return new Date(iso).getTime() >= cutoff;
+  }
+
+  // 판매중 매물은 마지막으로 확인된 시점(lastSeen), 판매완료 매물은 판매완료 처리된 시점(removedAt) 기준으로 기간을 따진다.
+  function listingDateForRange(l) {
+    return l.status === 'sold_estimated' ? (l.removedAt || l.firstSeen) : (l.lastSeen || l.firstSeen);
+  }
+
+  const filteredListings = useMemo(
+    () => listings.filter((l) => matchesLangAndCondition(l) && withinChartRange(listingDateForRange(l))),
+    [listings, langFilter, conditionFilter, chartRange]
+  );
+  const filteredHistory = useMemo(
+    () => history.filter((h) => matchesLangAndCondition(h) && withinChartRange(h.recordedAt)),
+    [history, langFilter, conditionFilter, chartRange]
+  );
 
   const activeNormal = useMemo(
     () => filteredListings.filter((l) => l.classification === 'normal' && (l.status === 'active' || l.status === 'unconfirmed' || l.status === 'manual'))
@@ -251,31 +268,44 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
     [filteredListings]
   );
   const soldEstimated = useMemo(
-    () => filteredListings.filter((l) => l.status === 'sold_estimated').sort((a, b) => new Date(b.removedAt || 0) - new Date(a.removedAt || 0)),
-    [filteredListings]
-  );
-  const bundleOutlier = useMemo(
-    () => filteredListings.filter((l) => ['bundle', 'outlier', 'unpriced'].includes(l.classification)),
+    () => filteredListings.filter((l) => l.classification === 'normal' && l.status === 'sold_estimated')
+      .sort((a, b) => new Date(b.removedAt || 0) - new Date(a.removedAt || 0)),
     [filteredListings]
   );
 
-  const chartHistory = useMemo(() => {
-    if (chartRange === 'all') return filteredHistory;
-    const days = chartRange === '30' ? 30 : 7;
-    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
-    return filteredHistory.filter((h) => new Date(h.recordedAt).getTime() >= cutoff);
-  }, [filteredHistory, chartRange]);
-
-  const summary = useMemo(() => {
-    const priced = activeNormal.filter((l) => typeof l.price === 'number');
+  // {count, min(매물), max(매물), avg} 형태의 통계. 가격 있는 매물이 하나도 없으면 null.
+  function computeStats(list) {
+    const priced = list.filter((l) => typeof l.price === 'number');
     if (priced.length === 0) return null;
     const sorted = [...priced].sort((a, b) => a.price - b.price);
-    const prices = sorted.map((l) => l.price);
-    const mid = Math.floor(prices.length / 2);
-    const median = prices.length % 2 === 0 ? Math.round((prices[mid - 1] + prices[mid]) / 2) : prices[mid];
-    const avg = Math.round(prices.reduce((s, p) => s + p, 0) / prices.length);
-    return { count: priced.length, min: sorted[0], max: sorted[sorted.length - 1], avg, median };
-  }, [activeNormal]);
+    const avg = Math.round(sorted.reduce((s, l) => s + l.price, 0) / sorted.length);
+    return { count: sorted.length, min: sorted[0], max: sorted[sorted.length - 1], avg };
+  }
+
+  // 등급카드는 등급사+등급(10/9만)별로 묶어서 각각 따로 통계를 낸다.
+  function groupGradedStats(list) {
+    const groups = new Map();
+    list.forEach((l) => {
+      const grade = String(l.grade || '');
+      if (!TOP_GRADES.includes(grade)) return;
+      const company = l.gradingCompany || '기타';
+      const key = `${company}__${grade}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(l);
+    });
+    return Array.from(groups.entries())
+      .map(([key, items]) => {
+        const [company, grade] = key.split('__');
+        return { company, grade, stats: computeStats(items) };
+      })
+      .filter((g) => g.stats)
+      .sort((a, b) => (a.company !== b.company ? a.company.localeCompare(b.company) : Number(b.grade) - Number(a.grade)));
+  }
+
+  const rawActiveStats = useMemo(() => (conditionFilter === 'raw' ? computeStats(activeNormal) : null), [conditionFilter, activeNormal]);
+  const rawSoldStats = useMemo(() => (conditionFilter === 'raw' ? computeStats(soldEstimated) : null), [conditionFilter, soldEstimated]);
+  const gradedActiveGroups = useMemo(() => (conditionFilter === 'graded' ? groupGradedStats(activeNormal) : []), [conditionFilter, activeNormal]);
+  const gradedSoldGroups = useMemo(() => (conditionFilter === 'graded' ? groupGradedStats(soldEstimated) : []), [conditionFilter, soldEstimated]);
 
   const pickerResults = useMemo(() => {
     const keyword = pickerFilter.trim().toLowerCase();
@@ -729,8 +759,8 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
       )}
 
       {selectedCard && (
-        <div className="modal-backdrop fade-in" onClick={() => setSelectedCard(null)}>
-          <div className="modal-content slide-up market-detail-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="market-drawer-backdrop fade-in" onClick={() => setSelectedCard(null)}>
+          <div className="market-drawer-panel slide-in-right" onClick={(e) => e.stopPropagation()}>
             <button type="button" className="modal-close" onClick={() => setSelectedCard(null)}>✕</button>
 
             <div className="market-detail-header">
@@ -743,80 +773,95 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
               <h3 className="market-selected-title">{selectedCard.cardName}</h3>
               <p className="market-hint">{cardLabel(selectedCard) || ' '}</p>
               {loading && <span className="market-hint">불러오는 중...</span>}
-              {!loading && summary && (
+              {!loading && conditionFilter === 'raw' && rawActiveStats && (
                 <span className="market-preview-range">
-                  {fmtPrice(summary.min.price)} ~ {fmtPrice(summary.max.price)} · 활성 매물 {summary.count}건
+                  {fmtPrice(rawActiveStats.min.price)} ~ {fmtPrice(rawActiveStats.max.price)} · 판매중 매물 {rawActiveStats.count}건
                 </span>
               )}
-              {!loading && !summary && <span className="market-hint">아직 통계를 낼 만한 정상 매물이 없습니다.</span>}
+              {!loading && conditionFilter === 'raw' && !rawActiveStats && <span className="market-hint">아직 판매중인 정상 매물이 없습니다.</span>}
+              {!loading && conditionFilter === 'graded' && gradedActiveGroups.length > 0 && (
+                <span className="market-preview-range">
+                  10/9등급 판매중 매물 {gradedActiveGroups.reduce((s, g) => s + g.stats.count, 0)}건
+                </span>
+              )}
+              {!loading && conditionFilter === 'graded' && gradedActiveGroups.length === 0 && <span className="market-hint">아직 10등급/9등급 판매중 매물이 없습니다.</span>}
             </div>
             </div>
 
-              <p className="market-hint" style={{ marginBottom: '0.3rem' }}>👁️ 아래 매물 중 뭘 보여줄지 고르는 필터예요. (기록할 때는 따로 선택해요)</p>
+              <p className="market-hint" style={{ marginBottom: '0.3rem' }}>👁️ 아래 매물 중 뭘 보여줄지 고르는 필터예요. 통계와 그래프에 모두 적용돼요. (기록할 때는 따로 선택해요)</p>
               <div className="market-filter-row">
                 <span className="market-filter-label">언어</span>
                 <div className="view-toggle">
-                  <button type="button" className={`btn-toggle ${langFilter === 'all' ? 'active' : ''}`} onClick={() => setLangFilter('all')}>전체</button>
                   {LANGUAGE_OPTIONS.map((l) => (
                     <button type="button" key={l} className={`btn-toggle ${langFilter === l ? 'active' : ''}`} onClick={() => setLangFilter(l)}>{l}</button>
                   ))}
                 </div>
                 <span className="market-filter-label">컨디션</span>
                 <div className="view-toggle">
-                  <button type="button" className={`btn-toggle ${conditionFilter === 'all' ? 'active' : ''}`} onClick={() => setConditionFilter('all')}>전체</button>
                   <button type="button" className={`btn-toggle ${conditionFilter === 'raw' ? 'active' : ''}`} onClick={() => setConditionFilter('raw')}>싱글</button>
                   <button type="button" className={`btn-toggle ${conditionFilter === 'graded' ? 'active' : ''}`} onClick={() => setConditionFilter('graded')}>등급카드</button>
                 </div>
+                <span className="market-filter-label">기간</span>
+                <div className="view-toggle">
+                  <button type="button" className={`btn-toggle ${chartRange === '7' ? 'active' : ''}`} onClick={() => setChartRange('7')}>최근 7일</button>
+                  <button type="button" className={`btn-toggle ${chartRange === '30' ? 'active' : ''}`} onClick={() => setChartRange('30')}>최근 30일</button>
+                  <button type="button" className={`btn-toggle ${chartRange === 'all' ? 'active' : ''}`} onClick={() => setChartRange('all')}>전체</button>
+                </div>
               </div>
 
-              {summary && (
-                <div className="market-summary-cards">
-                  <div className="market-summary-card">
-                    <span className="label">활성 매물</span>
-                    <span className="value">{summary.count}건</span>
+              {conditionFilter === 'raw' ? (
+                <div className="market-summary-groups">
+                  <div className="market-summary-group">
+                    <h5>판매중 기준</h5>
+                    {rawActiveStats ? (
+                      <div className="market-summary-cards">
+                        <div className="market-summary-card"><span className="label">매물건수</span><span className="value">{rawActiveStats.count}건</span></div>
+                        <div className="market-summary-card"><span className="label">최저가</span><span className="value">{fmtPrice(rawActiveStats.min.price)}</span></div>
+                        <div className="market-summary-card"><span className="label">평균가</span><span className="value">{fmtPrice(rawActiveStats.avg)}</span></div>
+                        <div className="market-summary-card"><span className="label">최고가</span><span className="value">{fmtPrice(rawActiveStats.max.price)}</span></div>
+                      </div>
+                    ) : <p className="market-hint">판매중인 매물이 없습니다.</p>}
                   </div>
-                  <div className="market-summary-card">
-                    <span className="label">최저가</span>
-                    <span className="value">{fmtPrice(summary.min.price)} <small>({SOURCE_LABELS[summary.min.source] || summary.min.source})</small></span>
+                  <div className="market-summary-group">
+                    <h5>판매완료 기준</h5>
+                    {rawSoldStats ? (
+                      <div className="market-summary-cards">
+                        <div className="market-summary-card"><span className="label">매물건수</span><span className="value">{rawSoldStats.count}건</span></div>
+                        <div className="market-summary-card"><span className="label">최저가</span><span className="value">{fmtPrice(rawSoldStats.min.price)}</span></div>
+                        <div className="market-summary-card"><span className="label">평균가</span><span className="value">{fmtPrice(rawSoldStats.avg)}</span></div>
+                        <div className="market-summary-card"><span className="label">최고가</span><span className="value">{fmtPrice(rawSoldStats.max.price)}</span></div>
+                      </div>
+                    ) : <p className="market-hint">판매완료로 표시된 매물이 없습니다.</p>}
                   </div>
-                  <div className="market-summary-card">
-                    <span className="label">평균가</span>
-                    <span className="value">{fmtPrice(summary.avg)}</span>
+                </div>
+              ) : (
+                <div className="market-summary-groups">
+                  <div className="market-summary-group">
+                    <h5>판매중 기준 (10등급/9등급)</h5>
+                    {gradedActiveGroups.length > 0 ? gradedActiveGroups.map((g) => (
+                      <div key={`${g.company}-${g.grade}-active`} className="market-grade-stat-row">
+                        <span className="market-grade-label">{g.company} {g.grade}</span>
+                        <span>최저 {fmtPrice(g.stats.min.price)}</span>
+                        <span>평균 {fmtPrice(g.stats.avg)}</span>
+                        <span>최고 {fmtPrice(g.stats.max.price)}</span>
+                      </div>
+                    )) : <p className="market-hint">10등급/9등급 판매중 매물이 없습니다.</p>}
                   </div>
-                  <div className="market-summary-card">
-                    <span className="label">중앙값</span>
-                    <span className="value">{fmtPrice(summary.median)}</span>
-                  </div>
-                  {selectedCard.price > 0 && (
-                    <div className="market-summary-card">
-                      <span className="label">내가 적은 가격 대비</span>
-                      <span className="value">
-                        {fmtPrice(selectedCard.price)}
-                        {(() => {
-                          const diffPct = Math.round(((summary.avg - selectedCard.price) / selectedCard.price) * 100);
-                          if (diffPct === 0) return null;
-                          return (
-                            <small className={diffPct > 0 ? 'market-up' : 'market-down'}>
-                              {' '}{diffPct > 0 ? '▲' : '▼'} {Math.abs(diffPct)}%
-                            </small>
-                          );
-                        })()}
-                      </span>
-                    </div>
-                  )}
-                  <div className="market-summary-card">
-                    <span className="label">최고가</span>
-                    <span className="value">{fmtPrice(summary.max.price)} <small>({SOURCE_LABELS[summary.max.source] || summary.max.source})</small></span>
+                  <div className="market-summary-group">
+                    <h5>판매완료 기준 (10등급/9등급)</h5>
+                    {gradedSoldGroups.length > 0 ? gradedSoldGroups.map((g) => (
+                      <div key={`${g.company}-${g.grade}-sold`} className="market-grade-stat-row">
+                        <span className="market-grade-label">{g.company} {g.grade}</span>
+                        <span>최저 {fmtPrice(g.stats.min.price)}</span>
+                        <span>평균 {fmtPrice(g.stats.avg)}</span>
+                        <span>최고 {fmtPrice(g.stats.max.price)}</span>
+                      </div>
+                    )) : <p className="market-hint">10등급/9등급 판매완료 매물이 없습니다.</p>}
                   </div>
                 </div>
               )}
 
-              <div className="market-chart-range-toggle">
-                <button type="button" className={`btn btn-compact ${chartRange === '7' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setChartRange('7')}>최근 7일</button>
-                <button type="button" className={`btn btn-compact ${chartRange === '30' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setChartRange('30')}>최근 30일</button>
-                <button type="button" className={`btn btn-compact ${chartRange === 'all' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setChartRange('all')}>전체</button>
-              </div>
-              <PriceTrendChart history={chartHistory} />
+              <PriceTrendChart history={filteredHistory} />
 
               <div className="market-add-row">
                 <button
@@ -824,8 +869,8 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                   className="btn btn-primary"
                   onClick={() => {
                     if (!marketSearchOpen) {
-                      if (langFilter !== 'all') setImportLanguage(langFilter);
-                      if (conditionFilter !== 'all') setImportConditionType(conditionFilter);
+                      setImportLanguage(langFilter);
+                      setImportConditionType(conditionFilter);
                     }
                     setMarketSearchOpen((o) => !o);
                   }}
@@ -839,8 +884,8 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                     onClick={() => {
                       setManualForm((f) => ({
                         ...f,
-                        language: langFilter !== 'all' ? langFilter : f.language,
-                        conditionType: conditionFilter !== 'all' ? conditionFilter : f.conditionType,
+                        language: langFilter,
+                        conditionType: conditionFilter,
                       }));
                       setManualFormOpen(true);
                     }}
@@ -973,21 +1018,6 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                 dateField="removedAt"
               />
 
-              <div className="market-collapsible">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowBundlePanel((p) => !p)}>
-                  {showBundlePanel ? '▾' : '▸'} 묶음/이상치 {bundleOutlier.length}건 보기
-                </button>
-                {showBundlePanel && (
-                  <ListingSection
-                    listings={bundleOutlier}
-                    emptyText="묶음/이상치로 분류된 매물이 없습니다."
-                    onEdit={openEditListing}
-                    onDelete={handleDeleteListing}
-                    photoChecks={photoChecks}
-                    showClassificationBadge
-                  />
-                )}
-              </div>
           </div>
         </div>
       )}
@@ -1015,7 +1045,7 @@ function CardTile({ card, onClick, active, onRemove, subLabel }) {
   );
 }
 
-function ListingSection({ title, listings, emptyText, onEdit, onToggleStatus, onDelete, onPhotoCheck, photoChecks, statusActionLabel, dateField = 'firstSeen', showClassificationBadge }) {
+function ListingSection({ title, listings, emptyText, onEdit, onToggleStatus, onDelete, onPhotoCheck, photoChecks, statusActionLabel, dateField = 'firstSeen' }) {
   return (
     <div className="market-section">
       {title && <h4>{title} ({listings.length})</h4>}
@@ -1031,7 +1061,6 @@ function ListingSection({ title, listings, emptyText, onEdit, onToggleStatus, on
                 {l.conditionType === 'graded' && (
                   <span className="badge-classification">{[l.gradingCompany, l.grade].filter(Boolean).join(' ') || '등급카드'}</span>
                 )}
-                {showClassificationBadge && <span className="badge-classification">{CLASSIFICATION_LABELS[l.classification] || l.classification}</span>}
                 <span className="market-listing-title">
                   {l.url ? <a href={l.url} target="_blank" rel="noopener noreferrer">{l.title}</a> : l.title}
                 </span>
