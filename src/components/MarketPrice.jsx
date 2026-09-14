@@ -11,6 +11,8 @@ import {
   where,
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { useAuth } from '../AuthContext';
+import { useOwnedCards } from '../hooks/useOwnedCards';
 import { analyzeListingImage } from '../gemini';
 import { buildCardKey } from '../utils/cardKey';
 import { looksLikeBundle } from '../utils/bundleHint';
@@ -38,7 +40,8 @@ function cardLabel(c) {
 }
 
 export default function MarketPrice({ presetCard, clearPreset }) {
-  const [ownedCards, setOwnedCards] = useState([]); // [{cardKey, cardName, series, cardNumber, imageUrl, price}]
+  const { user } = useAuth();
+  const { cards: myCards, loading: myCardsLoading } = useOwnedCards(); // 로그인한 본인의 보유현황이 합쳐진 카드 목록
   const [watchlist, setWatchlist] = useState([]);
   const [recordedCards, setRecordedCards] = useState([]); // 관심 등록 여부와 무관하게, 실제 시세 기록이 있는 카드들
   const [recordedLoading, setRecordedLoading] = useState(true);
@@ -69,40 +72,47 @@ export default function MarketPrice({ presetCard, clearPreset }) {
 
   const appliedPresetRef = useRef(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const snap = await getDocs(collection(db, 'pokemon_cards'));
-        const byKey = new Map();
-        snap.forEach((d) => {
-          const data = d.data() || {};
-          if (!data.cardName) return;
-          const cardKey = buildCardKey(data);
-          if (!cardKey) return;
-          if (!byKey.has(cardKey)) {
-            byKey.set(cardKey, {
-              cardKey,
-              cardName: data.cardName,
-              series: data.series || '',
-              cardNumber: data.cardNumber || '',
-              imageUrl: data.imageUrl || '',
-              price: Number(data.price) || 0,
-            });
-          } else {
-            const existing = byKey.get(cardKey);
-            if (!existing.imageUrl && data.imageUrl) existing.imageUrl = data.imageUrl;
-            if (!existing.price && data.price) existing.price = Number(data.price) || 0;
-          }
+  function buildRecordedBy() {
+    if (!user) return null;
+    return { uid: user.uid, name: user.displayName || user.email || '알 수 없음' };
+  }
+
+  // pokemon_cards(공용 마스터) + 내 cardOwnership(개인 가격)을 합친 목록에서 카드 키 기준으로 중복을 제거한다.
+  const ownedCards = useMemo(() => {
+    const byKey = new Map();
+    myCards.forEach((data) => {
+      if (!data.cardName) return;
+      const cardKey = buildCardKey(data);
+      if (!cardKey) return;
+      if (!byKey.has(cardKey)) {
+        byKey.set(cardKey, {
+          cardKey,
+          cardName: data.cardName,
+          series: data.series || '',
+          cardNumber: data.cardNumber || '',
+          imageUrl: data.imageUrl || '',
+          price: Number(data.price) || 0,
         });
-        setOwnedCards(Array.from(byKey.values()).sort((a, b) => a.cardName.localeCompare(b.cardName, 'ko')));
-        loadRecordedCards(byKey);
-      } catch (err) {
-        console.error('도감 카드 목록 로드 실패', err);
-        setRecordedLoading(false);
+      } else {
+        const existing = byKey.get(cardKey);
+        if (!existing.imageUrl && data.imageUrl) existing.imageUrl = data.imageUrl;
+        if (!existing.price && data.price) existing.price = Number(data.price) || 0;
       }
-    })();
+    });
+    return Array.from(byKey.values()).sort((a, b) => a.cardName.localeCompare(b.cardName, 'ko'));
+  }, [myCards]);
+
+  useEffect(() => {
+    if (myCardsLoading) return;
+    const byKey = new Map(ownedCards.map((c) => [c.cardKey, c]));
+    loadRecordedCards(byKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myCardsLoading, ownedCards]);
+
+  useEffect(() => {
     loadWatchlist();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   async function loadRecordedCards(ownedMap) {
     setRecordedLoading(true);
@@ -170,8 +180,9 @@ export default function MarketPrice({ presetCard, clearPreset }) {
   }, [selectedCard]);
 
   async function loadWatchlist() {
+    if (!user) { setWatchlist([]); return; }
     try {
-      const snap = await getDocs(collection(db, 'marketWatchlist'));
+      const snap = await getDocs(query(collection(db, 'marketWatchlist'), where('ownerId', '==', user.uid)));
       setWatchlist(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     } catch (err) {
       console.error('왓치리스트 로드 실패', err);
@@ -267,7 +278,7 @@ export default function MarketPrice({ presetCard, clearPreset }) {
   }
 
   async function handleConfirmAddWatchlist() {
-    if (!pendingAdd) return;
+    if (!pendingAdd || !user) return;
     const already = watchlist.some((w) => w.cardKey === pendingAdd.cardKey);
     if (!already) {
       await addDoc(collection(db, 'marketWatchlist'), {
@@ -277,6 +288,7 @@ export default function MarketPrice({ presetCard, clearPreset }) {
         cardNumber: pendingAdd.cardNumber || '',
         imageUrl: pendingAdd.imageUrl || '',
         query: pendingAdd.query.trim() || pendingAdd.cardName,
+        ownerId: user.uid,
         addedAt: new Date().toISOString(),
       });
       await loadWatchlist();
@@ -298,6 +310,7 @@ export default function MarketPrice({ presetCard, clearPreset }) {
     if (!selectedCard || Number.isNaN(price)) return;
     const recordedAt = new Date(manualForm.date).toISOString();
     const externalId = `manual_${Date.now()}`;
+    const recordedBy = buildRecordedBy();
 
     await addDoc(collection(db, 'marketListings'), {
       cardKey: selectedCard.cardKey,
@@ -319,6 +332,7 @@ export default function MarketPrice({ presetCard, clearPreset }) {
       lastSeen: recordedAt,
       removedAt: null,
       memo: manualForm.memo || '',
+      recordedBy,
     });
     await addDoc(collection(db, 'marketPriceHistory'), {
       cardKey: selectedCard.cardKey,
@@ -326,6 +340,7 @@ export default function MarketPrice({ presetCard, clearPreset }) {
       externalId,
       price,
       recordedAt,
+      recordedBy,
     });
 
     setManualForm({ price: '', date: new Date().toISOString().slice(0, 10), memo: '', url: '' });
@@ -362,6 +377,7 @@ export default function MarketPrice({ presetCard, clearPreset }) {
     try {
       const now = new Date().toISOString();
       const existing = listings.find((l) => l.id === importKey);
+      const recordedBy = buildRecordedBy();
       await setDoc(doc(db, 'marketListings', importKey), {
         cardKey: selectedCard.cardKey,
         cardName: selectedCard.cardName,
@@ -381,6 +397,7 @@ export default function MarketPrice({ presetCard, clearPreset }) {
         firstSeen: existing?.firstSeen || now,
         lastSeen: now,
         removedAt: existing?.removedAt || null,
+        recordedBy,
       });
       await addDoc(collection(db, 'marketPriceHistory'), {
         cardKey: selectedCard.cardKey,
@@ -388,6 +405,7 @@ export default function MarketPrice({ presetCard, clearPreset }) {
         externalId: result.externalId,
         price: result.price,
         recordedAt: now,
+        recordedBy,
       });
       await refreshCardAndDashboard(selectedCard.cardKey);
     } finally {
@@ -780,6 +798,9 @@ function ListingSection({ title, listings, emptyText, onReclassify, onToggleStat
                 <span className="market-listing-price">{fmtPrice(l.price)}</span>
                 <span className="market-listing-region">{l.region || '-'}</span>
                 <span className="market-listing-date">{fmtDate(l[dateField])}</span>
+                {l.recordedBy?.name && (
+                  <span className="market-listing-recorder" title="기록한 사용자">👤 {l.recordedBy.name}</span>
+                )}
                 <span className="market-listing-actions">
                   {onPhotoCheck && l.imageUrl && (
                     <button type="button" className="btn" onClick={() => onPhotoCheck(l)} disabled={check?.loading}>

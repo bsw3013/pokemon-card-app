@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { doc, updateDoc, collection, getDocs, deleteDoc, deleteField, writeBatch } from 'firebase/firestore';
 import { db, functions } from '../firebase';
+import { OWNERSHIP_FIELDS } from '../utils/ownershipUtils';
+import { useAuth } from '../AuthContext';
 import Papa from 'papaparse';
 
 export default function AdminSettings({ appConfig, setAppConfig }) {
+   const { isAdmin } = useAuth();
    const hiddenSystemFields = ['raw_database_id', 'imageUrl', 'displayOrder', 'createdAt', 'islegacy', 'isLegacy'];
    const sanitizeDisplayFields = (fields = []) => {
       const cleaned = fields.filter((field) => field?.id && !hiddenSystemFields.includes(field.id));
@@ -505,7 +508,10 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
                 const id = String(row.raw_database_id || '').trim();
                 const payload = { ...row };
                 delete payload.raw_database_id;
-                
+                // status/price/possessions/language는 개인 보유현황(cardOwnership)으로 분리되었으므로
+                // 카드 도감 마스터 정보(pokemon_cards) 복원에서는 제외한다.
+                OWNERSHIP_FIELDS.forEach((field) => { delete payload[field]; });
+
                 // 데이터 타입 변환 (숫자 및 JSON 객체)
                 Object.keys(payload).forEach(key => {
                    let val = payload[key];
@@ -579,18 +585,17 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
   };
 
   const handleExportTemplate = () => {
-     // 사용자가 요청한 신규 카드 등록 전용 항목들만 추출
+     // 카드 도감 마스터 정보(공용) 신규 등록 전용 항목들만 추출.
+     // status/price/possessions/language는 사용자별 개인 보유현황이라 이 템플릿에 포함하지 않는다.
      const headers = [
-       'cardName', 
-       'series', 
-       'cardNumber', 
-       'pokedexNumber', 
-       'rarity', 
-       'status', 
-       'language',
+       'cardName',
+       'series',
+       'cardNumber',
+       'pokedexNumber',
+       'rarity',
        'imageUrl'
      ];
-     
+
      const csvStr = Papa.unparse([headers, []]);
      downloadCsv(csvStr, "pokemon_cards_template.csv");
   };
@@ -653,7 +658,10 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
             const payload = {};
             for (const [k, v] of Object.entries(row)) {
               if (k === 'raw_database_id') continue;
-              
+              // status/price/possessions/language는 이제 개인 보유현황(cardOwnership)에 저장되므로
+              // 카드 도감 마스터 정보(pokemon_cards) CSV 등록에서는 제외한다.
+              if (OWNERSHIP_FIELDS.includes(k)) continue;
+
               let val = v || '';
               // 타입 변환
               if (k === 'price' || k === 'displayOrder') {
@@ -892,6 +900,15 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
       </div>
     </div>
   );
+
+  if (!isAdmin) {
+    return (
+      <div className="admin-settings fade-in">
+        <h2>⛔ 접근 권한이 없습니다.</h2>
+        <p>마스터 설정은 관리자 계정만 사용할 수 있습니다.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="admin-settings fade-in">

@@ -1,11 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { addDoc, collection, deleteDoc, doc, getDocs, setDoc, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../firebase';
-import pokemonMapAll from '../utils/pokemonMapAll.json';
+import { addDoc, collection, deleteDoc, doc, getDocs, query, setDoc, updateDoc, where } from 'firebase/firestore';
+import { db } from '../firebase';
 import { normalizeStatus } from '../utils/statusUtils';
-import { normalizePokedexNumber } from '../utils/numberUtils';
 import { formatCardPayload } from '../utils/cardUtils';
+import { useOwnedCards } from '../hooks/useOwnedCards';
+import { useAuth } from '../AuthContext';
 import CardDetailModal from './CardDetailModal';
 import CardThumbnail from './CardThumbnail';
 import FilterExplorer from './FilterExplorer';
@@ -121,6 +120,8 @@ function clampCanvasColumns(value) {
 }
 
 export default function AlbumPlanner({ appConfig }) {
+  const { user, isAdmin } = useAuth();
+  const { cards: ownedCards, loading: loadingCards, saveCard, deleteCard } = useOwnedCards();
   const [loadingAlbums, setLoadingAlbums] = useState(true);
   const [albums, setAlbums] = useState([]);
   const [albumViewMode, setAlbumViewMode] = useState('grid');
@@ -149,8 +150,9 @@ export default function AlbumPlanner({ appConfig }) {
   const [draggingPageIndex, setDraggingPageIndex] = useState(null);
   const [dragOverPageIndex, setDragOverPageIndex] = useState(null);
 
-  const [allCards, setAllCards] = useState([]);
-  const [loadingCards, setLoadingCards] = useState(true);
+  const allCards = useMemo(() => (
+    [...ownedCards].sort((a, b) => String(a.cardName || '').localeCompare(String(b.cardName || '')))
+  ), [ownedCards]);
   const [cardSearch, setCardSearch] = useState('');
 
   const [slotEditingCard, setSlotEditingCard] = useState(null);
@@ -193,37 +195,24 @@ export default function AlbumPlanner({ appConfig }) {
   }, [canvasColumns]);
 
   useEffect(() => {
-    async function fetchInitialData() {
+    async function fetchAlbums() {
+      if (!user) { setAlbums([]); setLoadingAlbums(false); return; }
       setLoadingAlbums(true);
-      setLoadingCards(true);
       try {
-        const [albumSnap, cardSnap] = await Promise.all([
-          getDocs(collection(db, ALBUM_COLLECTION)),
-          getDocs(collection(db, 'pokemon_cards')),
-        ]);
-
+        const albumSnap = await getDocs(query(collection(db, ALBUM_COLLECTION), where('ownerId', '==', user.uid)));
         const loadedAlbums = albumSnap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
           .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
         setAlbums(loadedAlbums);
-
-        const loadedCards = cardSnap.docs
-          .map((d) => {
-            const data = d.data();
-            return { id: d.id, ...data, status: normalizeStatus(data.status) };
-          })
-          .sort((a, b) => String(a.cardName || '').localeCompare(String(b.cardName || '')));
-        setAllCards(loadedCards);
       } catch (err) {
         console.error('album planner init error', err);
       } finally {
         setLoadingAlbums(false);
-        setLoadingCards(false);
       }
     }
 
-    fetchInitialData();
-  }, []);
+    fetchAlbums();
+  }, [user]);
 
   const selectedLayout = useMemo(() => {
     if (!editingAlbum) return null;
@@ -716,7 +705,8 @@ export default function AlbumPlanner({ appConfig }) {
   };
 
   const handleCreateAlbum = async () => {
-    const payload = createNewAlbumPayload(newAlbumName, newLayout, Number(newPageCount) || 1, newCoverColor);
+    if (!user) return;
+    const payload = { ...createNewAlbumPayload(newAlbumName, newLayout, Number(newPageCount) || 1, newCoverColor), ownerId: user.uid };
 
     try {
       const ref = await addDoc(collection(db, ALBUM_COLLECTION), payload);
@@ -1053,11 +1043,7 @@ export default function AlbumPlanner({ appConfig }) {
     const updatePayload = formatCardPayload(payload);
 
     try {
-      await updateDoc(doc(db, 'pokemon_cards', slotEditingCard.id), updatePayload);
-
-      setAllCards((prev) => prev.map((card) => (
-        card.id === slotEditingCard.id ? { ...card, ...updatePayload } : card
-      )));
+      await saveCard(slotEditingCard.id, updatePayload);
 
       applyAlbumUpdate((draft) => {
         const updatedLite = mapCardLite({ id: slotEditingCard.id, ...updatePayload });
@@ -1086,8 +1072,7 @@ export default function AlbumPlanner({ appConfig }) {
     if (!slotEditingCard?.id) return;
 
     try {
-      await deleteDoc(doc(db, 'pokemon_cards', slotEditingCard.id));
-      setAllCards((prev) => prev.filter((card) => card.id !== slotEditingCard.id));
+      await deleteCard(slotEditingCard.id);
 
       applyAlbumUpdate((draft) => {
         draft.pages = (draft.pages || []).map((page) => ({
@@ -1863,9 +1848,10 @@ export default function AlbumPlanner({ appConfig }) {
         isOpen={!!slotEditingCard}
         card={slotEditingCard}
         appConfig={appConfig}
+        isAdmin={isAdmin}
         onClose={closeSlotCardEditor}
         onSave={handleModalSave}
-        onDelete={handleModalDelete}
+        onDelete={isAdmin ? handleModalDelete : undefined}
       />
 
       {showCardPicker && (

@@ -1,6 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../firebase';
+import React, { useMemo, useState } from 'react';
+import { useOwnedCards } from '../hooks/useOwnedCards';
 
 function classifyStatus(status) {
   const normalized = String(status || '').trim();
@@ -17,53 +16,36 @@ function formatNumber(n) {
 }
 
 export default function StatsDashboard() {
-  const [loading, setLoading] = useState(true);
-  const [rows, setRows] = useState([]);
+  const { cards, loading } = useOwnedCards();
   const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    async function fetchStats() {
-      setLoading(true);
-      try {
-        const snap = await getDocs(collection(db, 'pokemon_cards'));
-        const aggregate = new Map();
+  const rows = useMemo(() => {
+    const aggregate = new Map();
 
-        snap.forEach((docItem) => {
-          const data = docItem.data() || {};
-          const rarity = String(data.rarity || '').trim() || '미분류';
-          const statusType = classifyStatus(data.status);
+    cards.forEach((card) => {
+      const rarity = String(card.rarity || '').trim() || '미분류';
+      const statusType = classifyStatus(card.status);
 
-          if (!aggregate.has(rarity)) {
-            aggregate.set(rarity, {
-              rarity,
-              owned: 0,
-              unowned: 0,
-              graded: 0,
-              total: 0,
-            });
-          }
-
-          const entry = aggregate.get(rarity);
-          entry[statusType] += 1;
-          entry.total += 1;
+      if (!aggregate.has(rarity)) {
+        aggregate.set(rarity, {
+          rarity,
+          owned: 0,
+          unowned: 0,
+          graded: 0,
+          total: 0,
         });
-
-        const sorted = Array.from(aggregate.values()).sort((a, b) => {
-          if (b.total !== a.total) return b.total - a.total;
-          return a.rarity.localeCompare(b.rarity);
-        });
-
-        setRows(sorted);
-      } catch (err) {
-        console.error('stats load failed', err);
-        setRows([]);
-      } finally {
-        setLoading(false);
       }
-    }
 
-    fetchStats();
-  }, []);
+      const entry = aggregate.get(rarity);
+      entry[statusType] += 1;
+      entry.total += 1;
+    });
+
+    return Array.from(aggregate.values()).sort((a, b) => {
+      if (b.total !== a.total) return b.total - a.total;
+      return a.rarity.localeCompare(b.rarity);
+    });
+  }, [cards]);
 
   const filteredRows = useMemo(() => {
     const keyword = search.trim().toLowerCase();

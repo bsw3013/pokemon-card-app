@@ -8,8 +8,10 @@ import AdminSettings from './components/AdminSettings';
 import StatsDashboard from './components/StatsDashboard';
 import AlbumPlanner from './components/AlbumPlanner';
 import MarketPrice from './components/MarketPrice';
+import LoginScreen from './components/LoginScreen';
 import { defaultConfig } from './defaultConfig';
 import { sanitizeStatusOptions } from './utils/statusUtils';
+import { useAuth } from './AuthContext';
 
 const NAV_ITEMS = [
   { id: 'home', label: '홈', description: '메인 대시보드' },
@@ -48,6 +50,7 @@ function getViewFromHash() {
 }
 
 function App() {
+  const { user, loading: authLoading, isAdmin, signOut } = useAuth();
   const [currentView, setCurrentView] = useState(getViewFromHash);
   const [appConfig, setAppConfig] = useState(null);
   const [marketPresetCard, setMarketPresetCard] = useState(null);
@@ -157,6 +160,7 @@ function App() {
   }, [currentView]);
 
   useEffect(() => {
+    if (!user) { setAppConfig(null); return; }
     async function fetchConfig() {
        try {
          // 타임아웃 설정 (3초 이상 걸리면 기본값 사용)
@@ -200,12 +204,13 @@ function App() {
 
             setAppConfig(merged);
           } else {
-            // 문서가 없으면 기본값으로 진행 (백그라운드에서 생성)
+            // 문서가 없으면 기본값으로 진행 (관리자라면 백그라운드에서 생성)
             setAppConfig(defaultConfig);
-            // 백그라운드에서 설정 저장 (기다리지 않음)
-            setDoc(docRef, defaultConfig).catch(err => 
-              console.warn("Config save failed (will retry): ", err)
-            );
+            if (isAdmin) {
+              setDoc(docRef, defaultConfig).catch(err =>
+                console.warn("Config save failed (will retry): ", err)
+              );
+            }
           }
          } catch (timeoutErr) {
            console.warn("Firebase config load timeout - using default config", timeoutErr);
@@ -217,7 +222,22 @@ function App() {
        }
     }
     fetchConfig();
-  }, []);
+  }, [user, isAdmin]);
+
+  const visibleNavItems = NAV_ITEMS.filter((item) => item.id !== 'admin' || isAdmin);
+
+  if (authLoading) {
+    return (
+      <div className="loading-config fade-in">
+        <div className="spinner"></div>
+        <h2>로그인 상태 확인 중...</h2>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginScreen />;
+  }
 
   return (
     <>
@@ -262,7 +282,7 @@ function App() {
         </div>
 
         <nav className="side-nav-menu" aria-label="사이드 페이지 메뉴">
-          {NAV_ITEMS.map((item) => (
+          {visibleNavItems.map((item) => (
             <button
               type="button"
               key={item.id}
@@ -286,7 +306,13 @@ function App() {
         <div className="btn-group top-nav-actions">
           <button type="button" className="btn btn-secondary btn-compact" onClick={() => navigateTo('gallery')}>나의 도감</button>
           <button type="button" className="btn btn-secondary btn-compact" onClick={() => navigateTo('filter')}>필터</button>
-          <button type="button" className="btn btn-primary btn-compact" onClick={() => navigateTo('admin')}>⚙️ 마스터 설정</button>
+          {isAdmin && (
+            <button type="button" className="btn btn-primary btn-compact" onClick={() => navigateTo('admin')}>⚙️ 마스터 설정</button>
+          )}
+          <span className="navbar-user-info" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '0.6rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+            {user.displayName || user.email}{isAdmin && ' (관리자)'}
+          </span>
+          <button type="button" className="btn btn-secondary btn-compact" onClick={signOut}>로그아웃</button>
         </div>
       </nav>
 
@@ -311,7 +337,14 @@ function App() {
 
       {currentView === 'admin' && (
          <main className="admin-page">
-            <AdminSettings appConfig={appConfig} setAppConfig={setAppConfig} />
+            {isAdmin ? (
+              <AdminSettings appConfig={appConfig} setAppConfig={setAppConfig} />
+            ) : (
+              <div className="loading-config fade-in">
+                <h2>⛔ 접근 권한이 없습니다.</h2>
+                <p>마스터 설정은 관리자 계정만 사용할 수 있습니다.</p>
+              </div>
+            )}
          </main>
       )}
 
