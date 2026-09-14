@@ -112,7 +112,6 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
       try {
         await updateDoc(doc(db, "settings", "appConfig"), newConfig);
         setAppConfig(newConfig);
-        console.log("✅ CSV 헤더에 맞춰 마스터 표시 항목이 자동 갱신되었습니다.");
       } catch (err) {
         console.error("설정 자동 동기화 실패:", err);
       }
@@ -195,7 +194,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
            csvRowIds = rows.map(r => String(r.raw_database_id || '').trim()).filter(id => id.length > 5);
          }
           } catch (ghErr) {
-             console.log("GitHub 최신 백업 CSV 읽기 실패:", ghErr);
+             console.error("GitHub 최신 백업 CSV 읽기 실패:", ghErr);
              throw ghErr;
        }
 
