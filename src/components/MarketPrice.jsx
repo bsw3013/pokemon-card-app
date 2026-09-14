@@ -42,13 +42,13 @@ export default function MarketPrice({ presetCard, clearPreset }) {
   const [watchlist, setWatchlist] = useState([]);
   const [recordedCards, setRecordedCards] = useState([]); // 관심 등록 여부와 무관하게, 실제 시세 기록이 있는 카드들
   const [recordedLoading, setRecordedLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('watchlist'); // 'watchlist' | 'recorded'
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerFilter, setPickerFilter] = useState('');
   const [pendingAdd, setPendingAdd] = useState(null); // {cardKey, cardName, series, cardNumber, imageUrl, query}
 
   const [selectedCard, setSelectedCard] = useState(null); // {cardKey, cardName, series, cardNumber, imageUrl}
-  const [detailOpen, setDetailOpen] = useState(false);
   const [listings, setListings] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -155,7 +155,6 @@ export default function MarketPrice({ presetCard, clearPreset }) {
   }, [presetCard, clearPreset]);
 
   useEffect(() => {
-    setDetailOpen(false);
     setMarketSearchOpen(false);
     setMarketSearchResults([]);
     setMarketSearchError('');
@@ -444,62 +443,73 @@ export default function MarketPrice({ presetCard, clearPreset }) {
         <p className="subtitle">번개장터 · 당근마켓 실시간 시세 + 직접 기록한 시세를 한 번에 확인하세요.</p>
       </div>
 
-      <div className="market-gallery-header">
-        <div>
-          <h3>⭐ 관심카드</h3>
-          <p className="market-hint" style={{ marginTop: 0 }}>팔로우만 해둔 목록이에요. 시세 기록 여부와 무관합니다.</p>
-        </div>
-        <button type="button" className="btn btn-primary" onClick={() => setPickerOpen((p) => !p)}>
-          {pickerOpen ? '닫기' : '+ 카드 추가'}
+      <div className="market-tabs">
+        <button type="button" className={`market-tab ${activeTab === 'watchlist' ? 'active' : ''}`} onClick={() => setActiveTab('watchlist')}>
+          ⭐ 관심카드 <span className="market-tab-count">{watchlist.length}</span>
+        </button>
+        <button type="button" className={`market-tab ${activeTab === 'recorded' ? 'active' : ''}`} onClick={() => setActiveTab('recorded')}>
+          📈 기록된 카드 <span className="market-tab-count">{recordedCards.length}</span>
         </button>
       </div>
 
-      <div className="market-card-grid">
-        {watchlist.map((w) => {
-          const recorded = recordedByKey.get(w.cardKey);
-          return (
-            <CardTile
-              key={w.id}
-              card={w}
-              active={selectedCard?.cardKey === w.cardKey}
-              onClick={() => selectCard(w)}
-              onRemove={() => handleRemoveWatchlist(w.id)}
-              subLabel={recorded ? `${fmtPrice(recorded.avgPrice)} · ${recorded.count}건` : '시세 기록 없음'}
-            />
-          );
-        })}
-        {watchlist.length === 0 && (
-          <div className="empty-results">등록된 관심카드가 없습니다. "+ 카드 추가"로 도감에서 카드를 골라주세요.</div>
-        )}
-      </div>
-      {watchlist.length > 0 && (
-        <p className="market-hint">
-          카드를 클릭한 뒤 "🔍 마켓에서 검색"을 누르면 번개장터/당근마켓 검색 결과를 볼 수 있어요.
-          (처음 한 번, 터미널에서 <code>npm run market-server</code>를 실행해둬야 합니다)
-        </p>
+      {activeTab === 'watchlist' && (
+        <>
+          <div className="market-gallery-header">
+            <p className="market-hint" style={{ marginTop: 0 }}>팔로우만 해둔 목록이에요. 시세 기록 여부와 무관합니다. 카드에 마우스를 올리면 이름/가격이 보여요.</p>
+            <button type="button" className="btn btn-primary" onClick={() => setPickerOpen((p) => !p)}>
+              {pickerOpen ? '닫기' : '+ 카드 추가'}
+            </button>
+          </div>
+
+          <div className="market-card-grid">
+            {watchlist.map((w) => {
+              const recorded = recordedByKey.get(w.cardKey);
+              return (
+                <CardTile
+                  key={w.id}
+                  card={w}
+                  active={selectedCard?.cardKey === w.cardKey}
+                  onClick={() => selectCard(w)}
+                  onRemove={() => handleRemoveWatchlist(w.id)}
+                  subLabel={recorded ? `${fmtPrice(recorded.avgPrice)} · ${recorded.count}건` : '시세 기록 없음'}
+                />
+              );
+            })}
+            {watchlist.length === 0 && (
+              <div className="empty-results">등록된 관심카드가 없습니다. "+ 카드 추가"로 도감에서 카드를 골라주세요.</div>
+            )}
+          </div>
+          {watchlist.length > 0 && (
+            <p className="market-hint">
+              카드를 클릭한 뒤 "🔍 마켓에서 검색"을 누르면 번개장터/당근마켓 검색 결과를 볼 수 있어요.
+              (처음 한 번, 터미널에서 <code>npm run market-server</code>를 실행해둬야 합니다)
+            </p>
+          )}
+        </>
       )}
 
-      <div className="market-gallery-header" style={{ marginTop: '2rem' }}>
-        <div>
-          <h3>📈 시세 기록된 카드</h3>
-          <p className="market-hint" style={{ marginTop: 0 }}>관심 등록 여부와 무관하게, 실제로 시세 데이터가 쌓인 카드만 모았어요.</p>
-        </div>
-      </div>
-      <div className="market-card-grid">
-        {recordedLoading && <div className="market-hint">불러오는 중...</div>}
-        {!recordedLoading && recordedCards.map((r) => (
-          <CardTile
-            key={r.cardKey}
-            card={r}
-            active={selectedCard?.cardKey === r.cardKey}
-            onClick={() => selectCard(r)}
-            subLabel={`${fmtPrice(r.avgPrice)} · ${r.count}건`}
-          />
-        ))}
-        {!recordedLoading && recordedCards.length === 0 && (
-          <div className="empty-results">아직 시세가 기록된 카드가 없습니다. 관심카드를 등록하고 매물을 가져오거나 직접 기록해보세요.</div>
-        )}
-      </div>
+      {activeTab === 'recorded' && (
+        <>
+          <div className="market-gallery-header">
+            <p className="market-hint" style={{ marginTop: 0 }}>관심 등록 여부와 무관하게, 실제로 시세 데이터가 쌓인 카드만 모았어요.</p>
+          </div>
+          <div className="market-card-grid">
+            {recordedLoading && <div className="market-hint">불러오는 중...</div>}
+            {!recordedLoading && recordedCards.map((r) => (
+              <CardTile
+                key={r.cardKey}
+                card={r}
+                active={selectedCard?.cardKey === r.cardKey}
+                onClick={() => selectCard(r)}
+                subLabel={`${fmtPrice(r.avgPrice)} · ${r.count}건`}
+              />
+            ))}
+            {!recordedLoading && recordedCards.length === 0 && (
+              <div className="empty-results">아직 시세가 기록된 카드가 없습니다. 관심카드를 등록하고 매물을 가져오거나 직접 기록해보세요.</div>
+            )}
+          </div>
+        </>
+      )}
 
       {pickerOpen && (
         <div className="market-picker-panel">
@@ -547,13 +557,12 @@ export default function MarketPrice({ presetCard, clearPreset }) {
         </div>
       )}
 
-      {!selectedCard && (
-        <div className="market-empty-state">위 관심카드 목록에서 카드를 클릭해주세요.</div>
-      )}
-
       {selectedCard && (
-        <div className="market-result fade-in">
-          <button type="button" className="market-preview-card" onClick={() => setDetailOpen((o) => !o)}>
+        <div className="modal-backdrop fade-in" onClick={() => setSelectedCard(null)}>
+          <div className="modal-content slide-up market-detail-modal" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="modal-close" onClick={() => setSelectedCard(null)}>✕</button>
+
+            <div className="market-detail-header">
             <img
               className="market-preview-image"
               src={selectedCard.imageUrl || '/placeholder.png'}
@@ -569,12 +578,9 @@ export default function MarketPrice({ presetCard, clearPreset }) {
                 </span>
               )}
               {!loading && !summary && <span className="market-hint">아직 통계를 낼 만한 정상 매물이 없습니다.</span>}
-              <span className="market-preview-toggle">{detailOpen ? '▾ 접기' : '▸ 시세 추이 · 매물 보기'}</span>
             </div>
-          </button>
+            </div>
 
-          {detailOpen && (
-            <>
               {summary && (
                 <div className="market-summary-cards">
                   <div className="market-summary-card">
@@ -728,8 +734,7 @@ export default function MarketPrice({ presetCard, clearPreset }) {
                   />
                 )}
               </div>
-            </>
-          )}
+          </div>
         </div>
       )}
     </main>
@@ -744,16 +749,13 @@ function CardTile({ card, onClick, active, onRemove, subLabel }) {
       )}
       <div className="card-image-wrapper">
         <img src={card.imageUrl || '/placeholder.png'} alt={card.cardName} loading="lazy" />
-        {(card.series || card.cardNumber) && (
-          <div className="market-tile-hover-info">
-            {card.series && <span>{card.series}</span>}
-            {card.cardNumber && <span>No.{card.cardNumber}</span>}
-          </div>
-        )}
-      </div>
-      <div className="card-info">
-        <h3 className="card-name" title={card.cardName}>{card.cardName}</h3>
-        {subLabel && <span className="market-tile-sub">{subLabel}</span>}
+        <div className="market-tile-hover-info">
+          <strong>{card.cardName}</strong>
+          {(card.series || card.cardNumber) && (
+            <small>{[card.series, card.cardNumber && `No.${card.cardNumber}`].filter(Boolean).join(' · ')}</small>
+          )}
+          {subLabel && <small>{subLabel}</small>}
+        </div>
       </div>
     </div>
   );
