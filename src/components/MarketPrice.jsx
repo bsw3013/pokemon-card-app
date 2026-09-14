@@ -641,7 +641,6 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                   active={selectedCard?.cardKey === w.cardKey}
                   onClick={() => selectCard(w)}
                   onRemove={() => handleRemoveWatchlist(w.id)}
-                  subLabel={recorded ? `판매중 평균 ${fmtPrice(recorded.avgPrice)}` : undefined}
                   breakdown={recorded?.breakdown}
                 />
               );
@@ -672,7 +671,6 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                 card={r}
                 active={selectedCard?.cardKey === r.cardKey}
                 onClick={() => selectCard(r)}
-                subLabel={r.count ? `판매중 평균 ${fmtPrice(r.avgPrice)}` : undefined}
                 breakdown={r.breakdown}
               />
             ))}
