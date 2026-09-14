@@ -845,6 +845,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                   <div className="market-summary-group">
                     <h5>판매중 기준 (10등급/9등급)</h5>
                     {gradedActiveGroups.length > 0 ? (
+                      <div className="market-grade-stat-table-wrap">
                       <table className="market-grade-stat-table">
                         <thead>
                           <tr><th>등급</th><th>매물건수</th><th>최저가</th><th>평균가</th><th>최고가</th></tr>
@@ -861,11 +862,13 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                           ))}
                         </tbody>
                       </table>
+                      </div>
                     ) : <p className="market-hint">10등급/9등급 판매중 매물이 없습니다.</p>}
                   </div>
                   <div className="market-summary-group">
                     <h5>판매완료 기준 (10등급/9등급)</h5>
                     {gradedSoldGroups.length > 0 ? (
+                      <div className="market-grade-stat-table-wrap">
                       <table className="market-grade-stat-table">
                         <thead>
                           <tr><th>등급</th><th>매물건수</th><th>최저가</th><th>평균가</th><th>최고가</th></tr>
@@ -882,6 +885,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                           ))}
                         </tbody>
                       </table>
+                      </div>
                     ) : <p className="market-hint">10등급/9등급 판매완료 매물이 없습니다.</p>}
                   </div>
                 </div>
