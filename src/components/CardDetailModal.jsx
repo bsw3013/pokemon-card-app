@@ -4,11 +4,13 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { storage, db } from '../firebase';
 import pokemonMapAll from '../utils/pokemonMapAll.json';
 import { buildCardKey } from '../utils/cardKey';
+import { useAuth } from '../AuthContext';
 import CardThumbnail from './CardThumbnail';
 
 const { krToEn, krToJa } = pokemonMapAll;
 
 export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = false, onClose, onSave, onDelete, onDuplicate, onViewMarket }) {
+  const { user, signInWithGoogle } = useAuth();
   const [editData, setEditData] = useState({});
   // 'loading' 상태는 null, 기록 없음은 'none', 있으면 {count,min,max,avg}
   const [marketSummary, setMarketSummary] = useState(null);
@@ -86,6 +88,10 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
 
   const handleSaveInternal = async (e) => {
     e.preventDefault();
+    if (!user) {
+      signInWithGoogle();
+      return;
+    }
     setIsSaving(true);
     try {
       await onSave(editData);
@@ -311,6 +317,11 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
                     )}
                     {f.id === 'status' && (
                       <div>
+                        {!user && (
+                          <p className="market-hint" style={{ marginBottom: '0.6rem' }}>
+                            로그인하면 내 계정에만 보이는 보유 정보를 기록할 수 있어요. 지금 입력하고 저장을 누르면 로그인 화면으로 안내돼요.
+                          </p>
+                        )}
                         <div style={{ marginBottom: '0.6rem', display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
                           <div style={{ flex: '0 0 auto' }}>
                             <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginRight: '0.4rem' }}>보유여부</label>
@@ -450,7 +461,9 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
                   {onDelete && <button type="button" className="btn btn-danger" onClick={handleDeleteInternal}>🗑 카드 지우기</button>}
                   {onDuplicate && !card?.isNew && <button type="button" className="btn btn-secondary" onClick={handleDuplicateInternal}>👯 카드 복제</button>}
                 </div>
-                <button type="submit" className="btn btn-primary" disabled={isSaving}>{isSaving ? "저장 중..." : "수정사항 덮어쓰기"}</button>
+                <button type="submit" className="btn btn-primary" disabled={isSaving}>
+                  {isSaving ? "저장 중..." : user ? "수정사항 덮어쓰기" : "🔐 로그인하고 저장하기"}
+                </button>
               </div>
             </form>
           </div>

@@ -28,7 +28,7 @@ const getStatusClass = (status) => {
 };
 
 export default function CardList({ appConfig, onViewMarket }) {
-  const { isAdmin } = useAuth();
+  const { user, isAdmin, signInWithGoogle } = useAuth();
   const { cards, setCards, loading, saveCard, saveOwnership, createCard, duplicateCard, deleteCard } = useOwnedCards();
    const { settings: thumbSettings, toggleSetting: toggleThumbSetting } = useThumbnailSettings();
 
@@ -106,6 +106,10 @@ export default function CardList({ appConfig, onViewMarket }) {
       const normalizedCurrent = field === 'price' ? Number(currentValue || 0) : String(currentValue ?? '');
       if (normalizedFinalNext === normalizedCurrent) return;
 
+      if (OWNERSHIP_FIELDS.includes(field) && !user) {
+         signInWithGoogle();
+         return;
+      }
       if (!OWNERSHIP_FIELDS.includes(field) && !isAdmin) return;
 
       setIsRowSaving(prev => ({ ...prev, [id]: true }));
