@@ -61,9 +61,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // 사용자 닉네임 등 개인 프로필. 문서 id는 uid. 본인만 읽고 쓸 수 있음.
+    // 사용자 닉네임 등 개인 프로필. 문서 id는 uid.
+    // 닉네임은 시세 기록 "등록자" 표시에 실시간으로 쓰여서 누구나 읽을 수 있어야 하고, 수정은 본인만 가능.
     match /userProfiles/{uid} {
-      allow read, write: if isSignedIn() && request.auth.uid == uid;
+      allow read: if true;
+      allow write: if isSignedIn() && request.auth.uid == uid;
     }
 
     // 그 외 모든 문서는 기본적으로 접근 차단.

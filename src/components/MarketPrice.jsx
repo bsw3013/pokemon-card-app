@@ -4,6 +4,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  documentId,
   getDocs,
   query,
   setDoc,
@@ -84,6 +85,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
   const [importingId, setImportingId] = useState(null);
 
   const [photoChecks, setPhotoChecks] = useState({});
+  const [nicknameByUid, setNicknameByUid] = useState({}); // uid -> 현재 닉네임(실시간). 없으면 null로 캐싱.
 
   const appliedPresetRef = useRef(null);
 
@@ -235,6 +237,37 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
       setLoading(false);
     }
   }
+
+  // 매물에 찍힌 "등록자" 이름은 기록 당시 닉네임 스냅샷이라, 이후에 닉네임을 바꿔도 안 바뀐다.
+  // 그래서 listings가 바뀔 때마다 recordedBy.uid들의 "현재" 닉네임을 userProfiles에서 따로 조회해 캐싱해두고,
+  // 화면에는 이 실시간 닉네임을 우선 보여준다(소급 적용).
+  useEffect(() => {
+    const uids = Array.from(new Set(
+      listings.map((l) => l.recordedBy?.uid).filter(Boolean)
+    )).filter((uid) => !(uid in nicknameByUid));
+    if (uids.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const found = {};
+      for (let i = 0; i < uids.length; i += 10) {
+        const chunk = uids.slice(i, i + 10);
+        try {
+          const snap = await getDocs(query(collection(db, 'userProfiles'), where(documentId(), 'in', chunk)));
+          snap.forEach((d) => { found[d.id] = d.data().nickname || null; });
+        } catch (err) {
+          console.error('닉네임 조회 실패', err);
+        }
+      }
+      if (cancelled) return;
+      setNicknameByUid((prev) => {
+        const next = { ...prev };
+        uids.forEach((uid) => { next[uid] = uid in found ? found[uid] : null; });
+        return next;
+      });
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listings]);
 
   // marketListings에 실제 변화가 생겼을 때(직접기록/가져오기/재분류/상태변경/삭제) 호출.
   // 현재 보고 있는 카드 데이터뿐 아니라 "시세 기록된 카드" 대시보드도 같이 갱신한다.
@@ -1077,6 +1110,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                 onPhotoCheck={PHOTO_CHECK_ENABLED ? handlePhotoCheck : undefined}
                 photoChecks={photoChecks}
                 statusActionLabel="판매완료로 표시"
+                nicknameByUid={nicknameByUid}
               />
 
               <ListingSection
@@ -1089,6 +1123,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                 photoChecks={photoChecks}
                 statusActionLabel="판매중으로 되돌리기"
                 dateField="removedAt"
+                nicknameByUid={nicknameByUid}
               />
 
           </div>
@@ -1158,7 +1193,7 @@ function LangConditionTable({ counts, className = '', compact = false, onSelect 
   );
 }
 
-function ListingSection({ title, listings, emptyText, onEdit, onToggleStatus, onDelete, onPhotoCheck, photoChecks, statusActionLabel, dateField = 'firstSeen' }) {
+function ListingSection({ title, listings, emptyText, onEdit, onToggleStatus, onDelete, onPhotoCheck, photoChecks, statusActionLabel, dateField = 'firstSeen', nicknameByUid }) {
   return (
     <div className="market-section">
       {title && <h4>{title} ({listings.length})</h4>}
@@ -1181,7 +1216,9 @@ function ListingSection({ title, listings, emptyText, onEdit, onToggleStatus, on
                 <span className="market-listing-region">{l.region || '-'}</span>
                 <span className="market-listing-date">{fmtDate(l[dateField])}</span>
                 {l.recordedBy?.name && (
-                  <span className="market-listing-recorder" title="기록한 사용자">👤 {l.recordedBy.name}</span>
+                  <span className="market-listing-recorder" title="기록한 사용자">
+                    👤 {(l.recordedBy.uid && nicknameByUid?.[l.recordedBy.uid]) || l.recordedBy.name}
+                  </span>
                 )}
                 <span className="market-listing-actions">
                   {onPhotoCheck && l.imageUrl && (
