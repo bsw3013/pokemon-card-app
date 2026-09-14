@@ -688,6 +688,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
             </div>
             </div>
 
+              <p className="market-hint" style={{ marginBottom: '0.3rem' }}>👁️ 아래 매물 중 뭘 보여줄지 고르는 필터예요. (기록할 때는 따로 선택해요)</p>
               <div className="market-filter-row">
                 <span className="market-filter-label">언어</span>
                 <div className="view-toggle">
@@ -754,11 +755,34 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
               <PriceTrendChart history={chartHistory} />
 
               <div className="market-add-row">
-                <button type="button" className="btn btn-primary" onClick={() => setMarketSearchOpen((o) => !o)}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    if (!marketSearchOpen) {
+                      if (langFilter !== 'all') setImportLanguage(langFilter);
+                      if (conditionFilter !== 'all') setImportConditionType(conditionFilter);
+                    }
+                    setMarketSearchOpen((o) => !o);
+                  }}
+                >
                   🔍 마켓에서 검색
                 </button>
                 {!manualFormOpen ? (
-                  <button type="button" className="btn btn-secondary" onClick={() => setManualFormOpen(true)}>+ 시세 직접 기록</button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setManualForm((f) => ({
+                        ...f,
+                        language: langFilter !== 'all' ? langFilter : f.language,
+                        conditionType: conditionFilter !== 'all' ? conditionFilter : f.conditionType,
+                      }));
+                      setManualFormOpen(true);
+                    }}
+                  >
+                    + 시세 직접 기록
+                  </button>
                 ) : (
                   <form className="market-manual-form" onSubmit={handleManualSubmit}>
                     <input type="number" placeholder="가격(원)" value={manualForm.price} onChange={(e) => setManualForm((f) => ({ ...f, price: e.target.value }))} required />
