@@ -2928,9 +2928,11 @@ select.table-input { appearance: none; cursor: pointer; }
 .market-summary-card .value { font-size: 1.1rem; font-weight: 700; }
 .market-summary-card .value small { font-weight: 400; color: var(--text-muted); font-size: 0.7rem; }
 
-.market-grade-stat-row { display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: baseline; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
-.market-grade-stat-row:last-child { border-bottom: none; }
-.market-grade-label { font-weight: 700; min-width: 110px; }
+.market-grade-stat-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.market-grade-stat-table th, .market-grade-stat-table td { padding: 0.55rem 0.6rem; border-bottom: 1px solid var(--border-color); text-align: left; }
+.market-grade-stat-table th { color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; }
+.market-grade-stat-table tbody tr:last-child td { border-bottom: none; }
+.market-grade-label { font-weight: 700; }
 
 .market-chart-wrap { background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 14px; padding: 1rem; margin-bottom: 1.2rem; }
 .market-chart-svg { width: 100%; height: auto; }
@@ -2991,8 +2993,13 @@ select.table-input { appearance: none; cursor: pointer; }
 .market-down { color: #3b82f6; }
 
 .market-chart-range-toggle { display: flex; gap: 0.4rem; margin-bottom: 0.6rem; }
-.market-filter-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.8rem 0; }
-.market-filter-label { font-size: 0.8rem; color: var(--text-muted); }
+.market-filter-bar { display: flex; flex-wrap: wrap; gap: 0.7rem; margin: 0.8rem 0; }
+.market-filter-group {
+  display: flex; align-items: center; gap: 0.5rem;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border-color);
+  border-radius: 999px; padding: 0.35rem 0.7rem 0.35rem 0.9rem;
+}
+.market-filter-label { font-size: 0.78rem; color: var(--text-muted); font-weight: 700; white-space: nowrap; }
 
 
 
