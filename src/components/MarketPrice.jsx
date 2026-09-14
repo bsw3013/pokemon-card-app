@@ -139,8 +139,10 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
       const byKey = new Map();
       snap.forEach((d) => {
         const l = d.data();
-        if (!l.cardKey || typeof l.price !== 'number') return;
-        if (!(l.classification === 'normal' && ['active', 'unconfirmed', 'manual'].includes(l.status))) return;
+        if (!l.cardKey || typeof l.price !== 'number' || l.classification !== 'normal') return;
+        const isActive = ['active', 'unconfirmed', 'manual'].includes(l.status);
+        const isSold = l.status === 'sold_estimated';
+        if (!isActive && !isSold) return;
         const owned = ownedMap.get(l.cardKey);
         const entry = byKey.get(l.cardKey) || {
           cardKey: l.cardKey,
@@ -151,8 +153,14 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
           price: owned?.price || 0,
           prices: [],
           latestSeen: null,
+          breakdown: {}, // { 언어: { raw: 건수, graded: 건수 } }, 판매중+판매완료 합계
         };
-        entry.prices.push(l.price);
+        // "기록된 카드" 목록의 평균가/건수는 지금 판매중인 매물 기준으로만 보여준다 (기존 동작 유지).
+        if (isActive) entry.prices.push(l.price);
+        const lang = l.language || '한국';
+        const cond = l.conditionType === 'graded' ? 'graded' : 'raw';
+        if (!entry.breakdown[lang]) entry.breakdown[lang] = { raw: 0, graded: 0 };
+        entry.breakdown[lang][cond] += 1;
         const seenAt = l.lastSeen || l.firstSeen || '';
         if (seenAt && (!entry.latestSeen || seenAt > entry.latestSeen)) entry.latestSeen = seenAt;
         byKey.set(l.cardKey, entry);
@@ -160,7 +168,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
       const list = Array.from(byKey.values()).map((e) => ({
         ...e,
         count: e.prices.length,
-        avgPrice: Math.round(e.prices.reduce((s, p) => s + p, 0) / e.prices.length),
+        avgPrice: e.prices.length ? Math.round(e.prices.reduce((s, p) => s + p, 0) / e.prices.length) : 0,
       }));
       list.sort((a, b) => (b.latestSeen || '').localeCompare(a.latestSeen || ''));
       setRecordedCards(list);
@@ -306,6 +314,20 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
   const rawSoldStats = useMemo(() => (conditionFilter === 'raw' ? computeStats(soldEstimated) : null), [conditionFilter, soldEstimated]);
   const gradedActiveGroups = useMemo(() => (conditionFilter === 'graded' ? groupGradedStats(activeNormal) : []), [conditionFilter, activeNormal]);
   const gradedSoldGroups = useMemo(() => (conditionFilter === 'graded' ? groupGradedStats(soldEstimated) : []), [conditionFilter, soldEstimated]);
+
+  // 필터와 무관하게, 이 카드에 언어/컨디션별로 매물이 몇 건씩 등록되어 있는지(판매중+판매완료 합계) 한눈에 보여주는 표용 집계.
+  const langConditionCounts = useMemo(() => {
+    const counts = {};
+    listings.forEach((l) => {
+      if (l.classification !== 'normal') return;
+      if (!['active', 'unconfirmed', 'manual', 'sold_estimated'].includes(l.status)) return;
+      const lang = l.language || '한국';
+      const cond = l.conditionType === 'graded' ? 'graded' : 'raw';
+      if (!counts[lang]) counts[lang] = { raw: 0, graded: 0 };
+      counts[lang][cond] += 1;
+    });
+    return counts;
+  }, [listings]);
 
   const pickerResults = useMemo(() => {
     const keyword = pickerFilter.trim().toLowerCase();
@@ -619,7 +641,8 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                   active={selectedCard?.cardKey === w.cardKey}
                   onClick={() => selectCard(w)}
                   onRemove={() => handleRemoveWatchlist(w.id)}
-                  subLabel={recorded ? `${fmtPrice(recorded.avgPrice)} · ${recorded.count}건` : '시세 기록 없음'}
+                  subLabel={recorded ? `판매중 평균 ${fmtPrice(recorded.avgPrice)}` : undefined}
+                  breakdown={recorded?.breakdown}
                 />
               );
             })}
@@ -649,7 +672,8 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                 card={r}
                 active={selectedCard?.cardKey === r.cardKey}
                 onClick={() => selectCard(r)}
-                subLabel={`${fmtPrice(r.avgPrice)} · ${r.count}건`}
+                subLabel={r.count ? `판매중 평균 ${fmtPrice(r.avgPrice)}` : undefined}
+                breakdown={r.breakdown}
               />
             ))}
             {!recordedLoading && recordedCards.length === 0 && (
@@ -786,6 +810,13 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
               )}
               {!loading && conditionFilter === 'graded' && gradedActiveGroups.length === 0 && <span className="market-hint">아직 10등급/9등급 판매중 매물이 없습니다.</span>}
             </div>
+            {!loading && (
+              <LangConditionTable
+                counts={langConditionCounts}
+                className="market-header-lang-table"
+                onSelect={(lang, cond) => { setLangFilter(lang); setConditionFilter(cond); }}
+              />
+            )}
             </div>
 
               <p className="market-hint" style={{ marginBottom: '0.3rem' }}>👁️ 아래 매물 중 뭘 보여줄지 고르는 필터예요. 통계와 그래프에 모두 적용돼요. (기록할 때는 따로 선택해요)</p>
@@ -1055,7 +1086,8 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
   );
 }
 
-function CardTile({ card, onClick, active, onRemove, subLabel }) {
+function CardTile({ card, onClick, active, onRemove, subLabel, breakdown }) {
+  const hasBreakdown = breakdown && Object.keys(breakdown).length > 0;
   return (
     <div className={`market-tile ${active ? 'active' : ''}`} onClick={onClick}>
       {onRemove && (
@@ -1069,9 +1101,48 @@ function CardTile({ card, onClick, active, onRemove, subLabel }) {
             <small>{[card.series, card.cardNumber && `No.${card.cardNumber}`].filter(Boolean).join(' · ')}</small>
           )}
           {subLabel && <small>{subLabel}</small>}
+          {hasBreakdown ? (
+            <LangConditionTable counts={breakdown} className="market-tile-lang-table" compact />
+          ) : (
+            !subLabel && <small>시세 기록 없음</small>
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+// 언어(한국/일본/미국/중국) x 컨디션(싱글/등급) 조합별 매물 건수를 보여주는 작은 표.
+// onSelect가 있으면 칸을 클릭해서 바로 그 조합으로 필터를 바꿀 수 있다.
+function LangConditionTable({ counts, className = '', compact = false, onSelect }) {
+  return (
+    <table className={`market-lang-cond-table ${compact ? 'compact' : ''} ${className}`}>
+      <thead>
+        <tr><th></th><th>싱글</th><th>등급</th></tr>
+      </thead>
+      <tbody>
+        {LANGUAGE_OPTIONS.map((lang) => {
+          const row = counts?.[lang] || { raw: 0, graded: 0 };
+          return (
+            <tr key={lang}>
+              <th scope="row">{lang}</th>
+              <td
+                className={onSelect ? 'clickable' : ''}
+                onClick={onSelect ? (e) => { e.stopPropagation(); onSelect(lang, 'raw'); } : undefined}
+              >
+                {row.raw}
+              </td>
+              <td
+                className={onSelect ? 'clickable' : ''}
+                onClick={onSelect ? (e) => { e.stopPropagation(); onSelect(lang, 'graded'); } : undefined}
+              >
+                {row.graded}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 
