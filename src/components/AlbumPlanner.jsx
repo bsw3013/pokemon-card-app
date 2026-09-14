@@ -35,8 +35,6 @@ const SIGNATURE_COLORS = [
 
 const MAX_HISTORY = 80;
 
-const { krToEn, krToJa } = pokemonMapAll;
-
 function deepCopy(value) {
   return JSON.parse(JSON.stringify(value));
 }
