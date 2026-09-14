@@ -2916,6 +2916,7 @@ select.table-input { appearance: none; cursor: pointer; }
 .market-chart-empty { color: var(--text-muted); text-align: center; padding: 2rem 1rem; background: var(--surface-color); border: 1px dashed var(--border-color); border-radius: 14px; margin-bottom: 1.2rem; }
 
 .market-add-row { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-bottom: 1.2rem; }
+.market-manual-add { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color); }
 .market-manual-form { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
 .market-manual-form input { padding: 0.5rem 0.8rem; border-radius: 8px; border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-main); }
 
@@ -2965,6 +2966,8 @@ select.table-input { appearance: none; cursor: pointer; }
 .market-down { color: #3b82f6; }
 
 .market-chart-range-toggle { display: flex; gap: 0.4rem; margin-bottom: 0.6rem; }
+.market-filter-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.8rem 0; }
+.market-filter-label { font-size: 0.8rem; color: var(--text-muted); }
 
 
 

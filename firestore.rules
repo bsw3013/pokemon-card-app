@@ -19,9 +19,9 @@ service cloud.firestore {
     }
 
     // 카드 도감 마스터 정보(이름/시리즈/카드번호/레어도/이미지 등) - 공용 데이터.
-    // 로그인한 사용자는 누구나 읽을 수 있고, 수정/추가/삭제는 관리자만 가능.
+    // 로그인 없이도 누구나 읽을 수 있고, 수정/추가/삭제는 관리자만 가능.
     match /pokemon_cards/{cardId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if isAdmin();
     }
 
@@ -45,17 +45,19 @@ service cloud.firestore {
     }
 
     // 시세 조회 "기록된 카드"(매물/가격 히스토리) - 공용 데이터.
-    // 로그인한 사용자라면 누구나 읽고 기록할 수 있음.
+    // 로그인 없이도 누구나 읽을 수 있고, 기록(쓰기)은 로그인한 사용자만 가능.
     match /marketListings/{listingId} {
-      allow read, write: if isSignedIn();
+      allow read: if true;
+      allow write: if isSignedIn();
     }
     match /marketPriceHistory/{historyId} {
-      allow read, write: if isSignedIn();
+      allow read: if true;
+      allow write: if isSignedIn();
     }
 
-    // 앱 환경설정(카테고리 옵션 등) - 읽기는 로그인 사용자, 수정은 관리자만.
+    // 앱 환경설정(카테고리 옵션 등) - 읽기는 누구나, 수정은 관리자만.
     match /settings/{settingId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if isAdmin();
     }
 

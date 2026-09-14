@@ -21,23 +21,23 @@ export function useOwnedCards() {
   const [loading, setLoading] = useState(true);
 
   const fetchCards = useCallback(async () => {
-    if (!user) {
-      setCards([]);
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     try {
+      // 로그인 안 한 게스트는 공용 카드 도감(pokemon_cards)만 읽고, 개인 보유현황(cardOwnership)은 건너뛴다.
       const [masterSnap, ownershipSnap] = await Promise.all([
         getDocs(collection(db, 'pokemon_cards')),
-        getDocs(query(collection(db, 'cardOwnership'), where('ownerId', '==', user.uid))),
+        user
+          ? getDocs(query(collection(db, 'cardOwnership'), where('ownerId', '==', user.uid)))
+          : Promise.resolve(null),
       ]);
 
       const ownershipByCardId = new Map();
-      ownershipSnap.forEach((d) => {
-        const data = d.data() || {};
-        if (data.cardId) ownershipByCardId.set(data.cardId, data);
-      });
+      if (ownershipSnap) {
+        ownershipSnap.forEach((d) => {
+          const data = d.data() || {};
+          if (data.cardId) ownershipByCardId.set(data.cardId, data);
+        });
+      }
 
       const merged = masterSnap.docs.map((d) => {
         const master = d.data() || {};

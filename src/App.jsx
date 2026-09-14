@@ -8,7 +8,6 @@ import AdminSettings from './components/AdminSettings';
 import StatsDashboard from './components/StatsDashboard';
 import AlbumPlanner from './components/AlbumPlanner';
 import MarketPrice from './components/MarketPrice';
-import LoginScreen from './components/LoginScreen';
 import { defaultConfig } from './defaultConfig';
 import { sanitizeStatusOptions } from './utils/statusUtils';
 import { useAuth } from './AuthContext';
@@ -50,7 +49,7 @@ function getViewFromHash() {
 }
 
 function App() {
-  const { user, loading: authLoading, isAdmin, signOut } = useAuth();
+  const { user, loading: authLoading, isAdmin, signInWithGoogle, signOut } = useAuth();
   const [currentView, setCurrentView] = useState(getViewFromHash);
   const [appConfig, setAppConfig] = useState(null);
   const [marketPresetCard, setMarketPresetCard] = useState(null);
@@ -160,7 +159,6 @@ function App() {
   }, [currentView]);
 
   useEffect(() => {
-    if (!user) { setAppConfig(null); return; }
     async function fetchConfig() {
        try {
          // 타임아웃 설정 (3초 이상 걸리면 기본값 사용)
@@ -224,7 +222,11 @@ function App() {
     fetchConfig();
   }, [user, isAdmin]);
 
-  const visibleNavItems = NAV_ITEMS.filter((item) => item.id !== 'admin' || isAdmin);
+  const visibleNavItems = NAV_ITEMS.filter((item) => {
+    if (item.id === 'admin') return isAdmin;
+    if (item.id === 'album') return !!user;
+    return true;
+  });
 
   if (authLoading) {
     return (
@@ -233,10 +235,6 @@ function App() {
         <h2>로그인 상태 확인 중...</h2>
       </div>
     );
-  }
-
-  if (!user) {
-    return <LoginScreen />;
   }
 
   return (
@@ -309,10 +307,16 @@ function App() {
           {isAdmin && (
             <button type="button" className="btn btn-primary btn-compact" onClick={() => navigateTo('admin')}>⚙️ 마스터 설정</button>
           )}
-          <span className="navbar-user-info" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '0.6rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            {user.displayName || user.email}{isAdmin && ' (관리자)'}
-          </span>
-          <button type="button" className="btn btn-secondary btn-compact" onClick={signOut}>로그아웃</button>
+          {user ? (
+            <>
+              <span className="navbar-user-info" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '0.6rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                {user.displayName || user.email}{isAdmin && ' (관리자)'}
+              </span>
+              <button type="button" className="btn btn-secondary btn-compact" onClick={signOut}>로그아웃</button>
+            </>
+          ) : (
+            <button type="button" className="btn btn-primary btn-compact" style={{ marginLeft: '0.6rem' }} onClick={signInWithGoogle}>🔐 로그인</button>
+          )}
         </div>
       </nav>
 
@@ -353,11 +357,22 @@ function App() {
       )}
 
       {currentView === 'album' && (
-        <AlbumPlanner appConfig={appConfig} />
+        user ? (
+          <AlbumPlanner appConfig={appConfig} />
+        ) : (
+          <main className="hero fade-in">
+            <h2>🔐 로그인이 필요합니다.</h2>
+            <p>앨범 꾸미기는 로그인한 계정별로 저장돼요.</p>
+            <div className="btn-group">
+              <button type="button" className="btn btn-primary" onClick={signInWithGoogle}>Google로 로그인</button>
+            </div>
+          </main>
+        )
       )}
 
       {currentView === 'market' && (
         <MarketPrice
+          appConfig={appConfig}
           presetCard={marketPresetCard}
           clearPreset={() => setMarketPresetCard(null)}
         />

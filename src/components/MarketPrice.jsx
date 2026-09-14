@@ -27,6 +27,9 @@ const PHOTO_CHECK_ENABLED = false;
 
 const PICKER_RESULT_LIMIT = 60;
 const MARKET_SERVER_URL = 'http://localhost:5175';
+const LANGUAGE_OPTIONS = ['한국', '일본', '미국', '중국'];
+const FALLBACK_GRADING_COMPANIES = ['PSA', 'BGS', 'CGC', '기타'];
+const FALLBACK_GRADING_SCALE = ['10', '9.5', '9', '8', '7', '6', '5'];
 
 function fmtPrice(p) {
   return typeof p === 'number' ? `${p.toLocaleString()}원` : '-';
@@ -39,8 +42,8 @@ function cardLabel(c) {
   return [c.series, c.cardNumber].filter(Boolean).join(' ');
 }
 
-export default function MarketPrice({ presetCard, clearPreset }) {
-  const { user } = useAuth();
+export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
+  const { user, signInWithGoogle } = useAuth();
   const { cards: myCards, loading: myCardsLoading } = useOwnedCards(); // 로그인한 본인의 보유현황이 합쳐진 카드 목록
   const [watchlist, setWatchlist] = useState([]);
   const [recordedCards, setRecordedCards] = useState([]); // 관심 등록 여부와 무관하게, 실제 시세 기록이 있는 카드들
@@ -50,6 +53,8 @@ export default function MarketPrice({ presetCard, clearPreset }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerFilter, setPickerFilter] = useState('');
   const [pendingAdd, setPendingAdd] = useState(null); // {cardKey, cardName, series, cardNumber, imageUrl, query}
+  const [manualAddOpen, setManualAddOpen] = useState(false);
+  const [manualAddForm, setManualAddForm] = useState({ cardName: '', series: '', cardNumber: '' });
 
   const [selectedCard, setSelectedCard] = useState(null); // {cardKey, cardName, series, cardNumber, imageUrl}
   const [listings, setListings] = useState([]);
@@ -57,9 +62,19 @@ export default function MarketPrice({ presetCard, clearPreset }) {
   const [loading, setLoading] = useState(false);
   const [showBundlePanel, setShowBundlePanel] = useState(false);
   const [chartRange, setChartRange] = useState('all'); // 'all' | '30' | '7'
+  const [langFilter, setLangFilter] = useState('all'); // 'all' | '한국' | '일본' | '미국' | '중국'
+  const [conditionFilter, setConditionFilter] = useState('all'); // 'all' | 'raw' | 'graded'
 
   const [manualFormOpen, setManualFormOpen] = useState(false);
-  const [manualForm, setManualForm] = useState({ price: '', date: new Date().toISOString().slice(0, 10), memo: '', url: '' });
+  const [manualForm, setManualForm] = useState({
+    price: '', date: new Date().toISOString().slice(0, 10), memo: '', url: '',
+    language: '한국', conditionType: 'raw', gradingCompany: '', grade: '',
+  });
+
+  const [importLanguage, setImportLanguage] = useState('한국');
+  const [importConditionType, setImportConditionType] = useState('raw');
+  const [importGradingCompany, setImportGradingCompany] = useState('');
+  const [importGrade, setImportGrade] = useState('');
 
   const [marketSearchOpen, setMarketSearchOpen] = useState(false);
   const [marketSearchQuery, setMarketSearchQuery] = useState('');
@@ -76,6 +91,9 @@ export default function MarketPrice({ presetCard, clearPreset }) {
     if (!user) return null;
     return { uid: user.uid, name: user.displayName || user.email || '알 수 없음' };
   }
+
+  const gradingCompanies = appConfig?.gradingCompaniesOptions?.length ? appConfig.gradingCompaniesOptions : FALLBACK_GRADING_COMPANIES;
+  const gradingScale = appConfig?.gradingScaleOptions?.length ? appConfig.gradingScaleOptions : FALLBACK_GRADING_SCALE;
 
   // pokemon_cards(공용 마스터) + 내 cardOwnership(개인 가격)을 합친 목록에서 카드 키 기준으로 중복을 제거한다.
   const ownedCards = useMemo(() => {
@@ -168,6 +186,8 @@ export default function MarketPrice({ presetCard, clearPreset }) {
     setMarketSearchOpen(false);
     setMarketSearchResults([]);
     setMarketSearchError('');
+    setLangFilter('all');
+    setConditionFilter('all');
     if (!selectedCard) {
       setListings([]);
       setHistory([]);
@@ -214,26 +234,36 @@ export default function MarketPrice({ presetCard, clearPreset }) {
     loadRecordedCards(new Map(ownedCards.map((c) => [c.cardKey, c])));
   }
 
+  // 언어/컨디션(싱글 vs 등급) 필터를 먼저 적용한 뒤, 그 결과로 통계/차트를 계산한다.
+  function matchesLangAndCondition(entry) {
+    if (langFilter !== 'all' && (entry.language || '한국') !== langFilter) return false;
+    if (conditionFilter !== 'all' && (entry.conditionType || 'raw') !== conditionFilter) return false;
+    return true;
+  }
+
+  const filteredListings = useMemo(() => listings.filter(matchesLangAndCondition), [listings, langFilter, conditionFilter]);
+  const filteredHistory = useMemo(() => history.filter(matchesLangAndCondition), [history, langFilter, conditionFilter]);
+
   const activeNormal = useMemo(
-    () => listings.filter((l) => l.classification === 'normal' && (l.status === 'active' || l.status === 'unconfirmed' || l.status === 'manual'))
+    () => filteredListings.filter((l) => l.classification === 'normal' && (l.status === 'active' || l.status === 'unconfirmed' || l.status === 'manual'))
       .sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity)),
-    [listings]
+    [filteredListings]
   );
   const soldEstimated = useMemo(
-    () => listings.filter((l) => l.status === 'sold_estimated').sort((a, b) => new Date(b.removedAt || 0) - new Date(a.removedAt || 0)),
-    [listings]
+    () => filteredListings.filter((l) => l.status === 'sold_estimated').sort((a, b) => new Date(b.removedAt || 0) - new Date(a.removedAt || 0)),
+    [filteredListings]
   );
   const bundleOutlier = useMemo(
-    () => listings.filter((l) => ['bundle', 'outlier', 'unpriced'].includes(l.classification)),
-    [listings]
+    () => filteredListings.filter((l) => ['bundle', 'outlier', 'unpriced'].includes(l.classification)),
+    [filteredListings]
   );
 
   const chartHistory = useMemo(() => {
-    if (chartRange === 'all') return history;
+    if (chartRange === 'all') return filteredHistory;
     const days = chartRange === '30' ? 30 : 7;
     const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
-    return history.filter((h) => new Date(h.recordedAt).getTime() >= cutoff);
-  }, [history, chartRange]);
+    return filteredHistory.filter((h) => new Date(h.recordedAt).getTime() >= cutoff);
+  }, [filteredHistory, chartRange]);
 
   const summary = useMemo(() => {
     const priced = activeNormal.filter((l) => typeof l.price === 'number');
@@ -277,8 +307,23 @@ export default function MarketPrice({ presetCard, clearPreset }) {
     setPendingAdd({ ...card, query: card.cardName });
   }
 
+  // 내 도감(pokemon_cards)에 아직 없는 카드도 이름/시리즈/카드번호를 직접 입력해서
+  // 관심카드로 추가할 수 있게 한다. (수집 전 단계의 카드도 시세를 추적하고 싶을 수 있음)
+  function handleManualAddSubmit(e) {
+    e.preventDefault();
+    const cardName = manualAddForm.cardName.trim();
+    if (!cardName) return;
+    const card = { cardName, series: manualAddForm.series.trim(), cardNumber: manualAddForm.cardNumber.trim(), imageUrl: '', price: 0 };
+    const cardKey = buildCardKey(card);
+    if (!cardKey) return;
+    setPendingAdd({ ...card, cardKey, query: cardName });
+    setManualAddOpen(false);
+    setManualAddForm({ cardName: '', series: '', cardNumber: '' });
+  }
+
   async function handleConfirmAddWatchlist() {
-    if (!pendingAdd || !user) return;
+    if (!pendingAdd) return;
+    if (!user) { signInWithGoogle(); return; }
     const already = watchlist.some((w) => w.cardKey === pendingAdd.cardKey);
     if (!already) {
       await addDoc(collection(db, 'marketWatchlist'), {
@@ -306,11 +351,16 @@ export default function MarketPrice({ presetCard, clearPreset }) {
 
   async function handleManualSubmit(e) {
     e.preventDefault();
+    if (!user) { signInWithGoogle(); return; }
     const price = parseInt(manualForm.price, 10);
     if (!selectedCard || Number.isNaN(price)) return;
     const recordedAt = new Date(manualForm.date).toISOString();
     const externalId = `manual_${Date.now()}`;
     const recordedBy = buildRecordedBy();
+    const language = manualForm.language || '한국';
+    const conditionType = manualForm.conditionType || 'raw';
+    const gradingCompany = conditionType === 'graded' ? (manualForm.gradingCompany || '') : '';
+    const grade = conditionType === 'graded' ? (manualForm.grade || '') : '';
 
     await addDoc(collection(db, 'marketListings'), {
       cardKey: selectedCard.cardKey,
@@ -333,6 +383,10 @@ export default function MarketPrice({ presetCard, clearPreset }) {
       removedAt: null,
       memo: manualForm.memo || '',
       recordedBy,
+      language,
+      conditionType,
+      gradingCompany,
+      grade,
     });
     await addDoc(collection(db, 'marketPriceHistory'), {
       cardKey: selectedCard.cardKey,
@@ -341,9 +395,16 @@ export default function MarketPrice({ presetCard, clearPreset }) {
       price,
       recordedAt,
       recordedBy,
+      language,
+      conditionType,
+      gradingCompany,
+      grade,
     });
 
-    setManualForm({ price: '', date: new Date().toISOString().slice(0, 10), memo: '', url: '' });
+    setManualForm({
+      price: '', date: new Date().toISOString().slice(0, 10), memo: '', url: '',
+      language: '한국', conditionType: 'raw', gradingCompany: '', grade: '',
+    });
     setManualFormOpen(false);
     refreshCardAndDashboard(selectedCard.cardKey);
   }
@@ -372,12 +433,15 @@ export default function MarketPrice({ presetCard, clearPreset }) {
 
   async function handleImportListing(result) {
     if (!selectedCard) return;
+    if (!user) { signInWithGoogle(); return; }
     const importKey = `${result.source}_${result.externalId}`;
     setImportingId(importKey);
     try {
       const now = new Date().toISOString();
       const existing = listings.find((l) => l.id === importKey);
       const recordedBy = buildRecordedBy();
+      const gradingCompany = importConditionType === 'graded' ? importGradingCompany : '';
+      const grade = importConditionType === 'graded' ? importGrade : '';
       await setDoc(doc(db, 'marketListings', importKey), {
         cardKey: selectedCard.cardKey,
         cardName: selectedCard.cardName,
@@ -398,6 +462,10 @@ export default function MarketPrice({ presetCard, clearPreset }) {
         lastSeen: now,
         removedAt: existing?.removedAt || null,
         recordedBy,
+        language: importLanguage,
+        conditionType: importConditionType,
+        gradingCompany,
+        grade,
       });
       await addDoc(collection(db, 'marketPriceHistory'), {
         cardKey: selectedCard.cardKey,
@@ -405,6 +473,10 @@ export default function MarketPrice({ presetCard, clearPreset }) {
         externalId: result.externalId,
         price: result.price,
         recordedAt: now,
+        language: importLanguage,
+        conditionType: importConditionType,
+        gradingCompany,
+        grade,
         recordedBy,
       });
       await refreshCardAndDashboard(selectedCard.cardKey);
@@ -549,6 +621,23 @@ export default function MarketPrice({ presetCard, clearPreset }) {
               {pickerResults.length === PICKER_RESULT_LIMIT && <div className="market-hint">결과가 많아 {PICKER_RESULT_LIMIT}개까지만 표시했습니다. 이름을 더 구체적으로 입력해보세요.</div>}
             </div>
           )}
+
+          <div className="market-manual-add">
+            {!manualAddOpen ? (
+              <button type="button" className="btn btn-secondary btn-compact" onClick={() => setManualAddOpen(true)}>
+                + 도감에 없는 카드 직접 입력해서 추가
+              </button>
+            ) : (
+              <form className="market-manual-form" onSubmit={handleManualAddSubmit}>
+                <input type="text" placeholder="카드 이름*" value={manualAddForm.cardName} onChange={(e) => setManualAddForm((f) => ({ ...f, cardName: e.target.value }))} required autoFocus />
+                <input type="text" placeholder="시리즈 (선택)" value={manualAddForm.series} onChange={(e) => setManualAddForm((f) => ({ ...f, series: e.target.value }))} />
+                <input type="text" placeholder="카드번호 (선택)" value={manualAddForm.cardNumber} onChange={(e) => setManualAddForm((f) => ({ ...f, cardNumber: e.target.value }))} />
+                <button type="submit" className="btn btn-primary">다음</button>
+                <button type="button" className="btn" onClick={() => setManualAddOpen(false)}>취소</button>
+              </form>
+            )}
+            <p className="market-hint">아직 수집하지 않은 카드도 시세만 미리 추적할 수 있어요.</p>
+          </div>
         </div>
       )}
 
@@ -598,6 +687,22 @@ export default function MarketPrice({ presetCard, clearPreset }) {
               {!loading && !summary && <span className="market-hint">아직 통계를 낼 만한 정상 매물이 없습니다.</span>}
             </div>
             </div>
+
+              <div className="market-filter-row">
+                <span className="market-filter-label">언어</span>
+                <div className="view-toggle">
+                  <button type="button" className={`btn-toggle ${langFilter === 'all' ? 'active' : ''}`} onClick={() => setLangFilter('all')}>전체</button>
+                  {LANGUAGE_OPTIONS.map((l) => (
+                    <button type="button" key={l} className={`btn-toggle ${langFilter === l ? 'active' : ''}`} onClick={() => setLangFilter(l)}>{l}</button>
+                  ))}
+                </div>
+                <span className="market-filter-label">컨디션</span>
+                <div className="view-toggle">
+                  <button type="button" className={`btn-toggle ${conditionFilter === 'all' ? 'active' : ''}`} onClick={() => setConditionFilter('all')}>전체</button>
+                  <button type="button" className={`btn-toggle ${conditionFilter === 'raw' ? 'active' : ''}`} onClick={() => setConditionFilter('raw')}>싱글</button>
+                  <button type="button" className={`btn-toggle ${conditionFilter === 'graded' ? 'active' : ''}`} onClick={() => setConditionFilter('graded')}>등급카드</button>
+                </div>
+              </div>
 
               {summary && (
                 <div className="market-summary-cards">
@@ -658,6 +763,25 @@ export default function MarketPrice({ presetCard, clearPreset }) {
                   <form className="market-manual-form" onSubmit={handleManualSubmit}>
                     <input type="number" placeholder="가격(원)" value={manualForm.price} onChange={(e) => setManualForm((f) => ({ ...f, price: e.target.value }))} required />
                     <input type="date" value={manualForm.date} onChange={(e) => setManualForm((f) => ({ ...f, date: e.target.value }))} required />
+                    <select value={manualForm.language} onChange={(e) => setManualForm((f) => ({ ...f, language: e.target.value }))} title="언어/국가판">
+                      {LANGUAGE_OPTIONS.map((l) => <option key={l} value={l}>{l}판</option>)}
+                    </select>
+                    <select value={manualForm.conditionType} onChange={(e) => setManualForm((f) => ({ ...f, conditionType: e.target.value }))} title="싱글/등급">
+                      <option value="raw">싱글(미등급)</option>
+                      <option value="graded">등급카드</option>
+                    </select>
+                    {manualForm.conditionType === 'graded' && (
+                      <>
+                        <select value={manualForm.gradingCompany} onChange={(e) => setManualForm((f) => ({ ...f, gradingCompany: e.target.value }))} required>
+                          <option value="">등급사</option>
+                          {gradingCompanies.map((c) => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <select value={manualForm.grade} onChange={(e) => setManualForm((f) => ({ ...f, grade: e.target.value }))} required>
+                          <option value="">등급</option>
+                          {gradingScale.map((g) => <option key={g} value={g}>{g}</option>)}
+                        </select>
+                      </>
+                    )}
                     <input type="text" placeholder="메모 (예: 직거래, 트위터 등)" value={manualForm.memo} onChange={(e) => setManualForm((f) => ({ ...f, memo: e.target.value }))} />
                     <input type="url" placeholder="원본 링크 (선택, 예: 트윗/카페글 주소)" value={manualForm.url} onChange={(e) => setManualForm((f) => ({ ...f, url: e.target.value }))} />
                     <button type="submit" className="btn btn-primary">저장</button>
@@ -680,6 +804,30 @@ export default function MarketPrice({ presetCard, clearPreset }) {
                     </button>
                   </form>
                   <p className="market-hint">번개장터·당근마켓 검색 결과를 보여줍니다. 실제로 이 카드가 맞는지 사진/제목을 직접 확인하고, 맞는 것만 "가져오기"를 눌러주세요.</p>
+
+                  <div className="market-manual-form" style={{ marginBottom: '0.6rem' }}>
+                    <span className="market-hint" style={{ margin: 0 }}>가져올 매물의 언어/컨디션:</span>
+                    <select value={importLanguage} onChange={(e) => setImportLanguage(e.target.value)}>
+                      {LANGUAGE_OPTIONS.map((l) => <option key={l} value={l}>{l}판</option>)}
+                    </select>
+                    <select value={importConditionType} onChange={(e) => setImportConditionType(e.target.value)}>
+                      <option value="raw">싱글(미등급)</option>
+                      <option value="graded">등급카드</option>
+                    </select>
+                    {importConditionType === 'graded' && (
+                      <>
+                        <select value={importGradingCompany} onChange={(e) => setImportGradingCompany(e.target.value)}>
+                          <option value="">등급사</option>
+                          {gradingCompanies.map((c) => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <select value={importGrade} onChange={(e) => setImportGrade(e.target.value)}>
+                          <option value="">등급</option>
+                          {gradingScale.map((g) => <option key={g} value={g}>{g}</option>)}
+                        </select>
+                      </>
+                    )}
+                  </div>
+
                   {marketSearchError && <p className="market-hint market-photo-error">{marketSearchError}</p>}
 
                   {marketSearchResults.length > 0 && (
@@ -791,6 +939,10 @@ function ListingSection({ title, listings, emptyText, onReclassify, onToggleStat
             return (
               <div key={l.id} className="market-listing-row">
                 <span className={`badge-source badge-source-${l.source}`}>{SOURCE_LABELS[l.source] || l.source}</span>
+                {l.language && <span className="badge-classification">{l.language}판</span>}
+                {l.conditionType === 'graded' && (
+                  <span className="badge-classification">{[l.gradingCompany, l.grade].filter(Boolean).join(' ') || '등급카드'}</span>
+                )}
                 {showClassificationBadge && <span className="badge-classification">{CLASSIFICATION_LABELS[l.classification] || l.classification}</span>}
                 <span className="market-listing-title">
                   {l.url ? <a href={l.url} target="_blank" rel="noopener noreferrer">{l.title}</a> : l.title}
