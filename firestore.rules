@@ -1,0 +1,64 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ⚠️ 관리자 이메일 목록. src/config/admins.js 의 ADMIN_EMAILS 와 반드시 동일하게 유지할 것.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email in [
+        'bsw3013@gmail.com'
+      ];
+    }
+
+    function isOwner(field) {
+      return isSignedIn() && field == request.auth.uid;
+    }
+
+    // 카드 도감 마스터 정보(이름/시리즈/카드번호/레어도/이미지 등) - 공용 데이터.
+    // 로그인한 사용자는 누구나 읽을 수 있고, 수정/추가/삭제는 관리자만 가능.
+    match /pokemon_cards/{cardId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // 카드별 개인 보유 현황(보유여부/가격/등급/수량 등). 문서 id는 `${cardId}_${uid}` 형태.
+    // 본인 소유 문서만 읽고 쓸 수 있음.
+    match /cardOwnership/{ownershipId} {
+      allow read, update, delete: if isOwner(resource.data.ownerId);
+      allow create: if isOwner(request.resource.data.ownerId);
+    }
+
+    // 앨범 꾸미기 - 본인 소유 앨범만 읽고 쓸 수 있음.
+    match /album_plans/{albumId} {
+      allow read, update, delete: if isOwner(resource.data.ownerId);
+      allow create: if isOwner(request.resource.data.ownerId);
+    }
+
+    // 시세 조회 "관심카드" - 본인 목록만 읽고 쓸 수 있음.
+    match /marketWatchlist/{watchId} {
+      allow read, update, delete: if isOwner(resource.data.ownerId);
+      allow create: if isOwner(request.resource.data.ownerId);
+    }
+
+    // 시세 조회 "기록된 카드"(매물/가격 히스토리) - 공용 데이터.
+    // 로그인한 사용자라면 누구나 읽고 기록할 수 있음.
+    match /marketListings/{listingId} {
+      allow read, write: if isSignedIn();
+    }
+    match /marketPriceHistory/{historyId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // 앱 환경설정(카테고리 옵션 등) - 읽기는 로그인 사용자, 수정은 관리자만.
+    match /settings/{settingId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // 그 외 모든 문서는 기본적으로 접근 차단.
+  }
+}

@@ -8,7 +8,7 @@ import CardThumbnail from './CardThumbnail';
 
 const { krToEn, krToJa } = pokemonMapAll;
 
-export default function CardDetailModal({ isOpen, card, appConfig, onClose, onSave, onDelete, onDuplicate, onViewMarket }) {
+export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = false, onClose, onSave, onDelete, onDuplicate, onViewMarket }) {
   const [editData, setEditData] = useState({});
   // 'loading' 상태는 null, 기록 없음은 'none', 있으면 {count,min,max,avg}
   const [marketSummary, setMarketSummary] = useState(null);
@@ -254,17 +254,18 @@ export default function CardDetailModal({ isOpen, card, appConfig, onClose, onSa
 
               <div className="image-upload-options">
                 <h5>사진 등록 방식 선택</h5>
+                {!isAdmin && <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>카드 사진/기본 정보 수정은 관리자만 가능합니다.</p>}
 
                 <div className="upload-option">
-                  <button type="button" className="btn btn-secondary fetch-btn" onClick={openPicker}>
+                  <button type="button" className="btn btn-secondary fetch-btn" onClick={openPicker} disabled={!isAdmin}>
                     🌐 스마트 다국어 검색
                   </button>
                 </div>
 
                 <div className="upload-option">
-                  <label className="btn btn-secondary file-upload-btn">
+                  <label className={`btn btn-secondary file-upload-btn ${!isAdmin ? 'disabled' : ''}`}>
                     {uploading ? "📤 업로드 중..." : "📤 기기에서 파일 선택"}
-                    <input type="file" accept="image/*" onChange={handleFileUpload} disabled={uploading} />
+                    <input type="file" accept="image/*" onChange={handleFileUpload} disabled={uploading || !isAdmin} />
                   </label>
                 </div>
 
@@ -274,8 +275,9 @@ export default function CardDetailModal({ isOpen, card, appConfig, onClose, onSa
                     placeholder="이미지 URL 직접 입력..."
                     value={urlInput}
                     onChange={(e) => setUrlInput(e.target.value)}
+                    disabled={!isAdmin}
                   />
-                  <button type="button" className="btn btn-primary" onClick={applyUrlInput}>적용</button>
+                  <button type="button" className="btn btn-primary" onClick={applyUrlInput} disabled={!isAdmin}>적용</button>
                 </div>
               </div>
             </div>
@@ -284,25 +286,25 @@ export default function CardDetailModal({ isOpen, card, appConfig, onClose, onSa
                 {appConfig.displayFields.filter(f => f.visible).sort((a, b) => a.order - b.order).map(f => (
                   <div className="sub-group" key={f.id} style={{ display: 'flex', flexDirection: 'column' }}>
                     <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>{f.label}</label>
-                    {f.id === 'cardName' && <input type="text" name="cardName" value={editData.cardName || ''} onChange={handleEditChange} />}
-                    {f.id === 'pokedexNumber' && <input type="text" name="pokedexNumber" value={editData.pokedexNumber || ''} onChange={handleEditChange} />}
-                    {f.id === 'cardNumber' && <input type="text" name="cardNumber" value={editData.cardNumber || ''} onChange={handleEditChange} />}
+                    {f.id === 'cardName' && <input type="text" name="cardName" value={editData.cardName || ''} onChange={handleEditChange} disabled={!isAdmin} />}
+                    {f.id === 'pokedexNumber' && <input type="text" name="pokedexNumber" value={editData.pokedexNumber || ''} onChange={handleEditChange} disabled={!isAdmin} />}
+                    {f.id === 'cardNumber' && <input type="text" name="cardNumber" value={editData.cardNumber || ''} onChange={handleEditChange} disabled={!isAdmin} />}
                     {f.id === 'price' && <input type="number" name="price" value={editData.price || 0} onChange={handleEditChange} />}
 
                     {f.id === 'series' && (
-                      <select name="series" value={editData.series || ''} onChange={handleEditChange}>
+                      <select name="series" value={editData.series || ''} onChange={handleEditChange} disabled={!isAdmin}>
                         <option value="">시리즈 직접 선택</option>
                         {appConfig.seriesOptions.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     )}
                     {f.id === 'rarity' && (
-                      <select name="rarity" value={editData.rarity || ''} onChange={handleEditChange}>
+                      <select name="rarity" value={editData.rarity || ''} onChange={handleEditChange} disabled={!isAdmin}>
                         <option value="">직접 선택</option>
                         {appConfig.rarityOptions.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     )}
                     {f.id === 'type' && (
-                      <select name="type" value={editData.type || ''} onChange={handleEditChange}>
+                      <select name="type" value={editData.type || ''} onChange={handleEditChange} disabled={!isAdmin}>
                         <option value="">선택</option>
                         {appConfig.typeOptions.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
@@ -392,7 +394,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, onClose, onSa
                     )}
                     {!['cardName', 'pokedexNumber', 'series', 'cardNumber', 'rarity', 'type', 'status', 'price'].includes(f.id)
                       && f.label !== '보유 여부' && f.label !== '보유여부' && (
-                        <input type="text" name={f.id} value={editData[f.id] || ''} onChange={handleEditChange} />
+                        <input type="text" name={f.id} value={editData[f.id] || ''} onChange={handleEditChange} disabled={!isAdmin} />
                       )}
                   </div>
                 ))}

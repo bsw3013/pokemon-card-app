@@ -1,11 +1,9 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { collection, deleteDoc, doc, getDocs, updateDoc, addDoc } from 'firebase/firestore';
-import { db } from '../firebase';
-import { normalizeStatus } from '../utils/statusUtils';
-import { normalizePokedexNumber } from '../utils/numberUtils';
+import React, { useEffect, useMemo, useState } from 'react';
 import { formatCardPayload } from '../utils/cardUtils';
 import { useThumbnailSettings } from '../hooks/useThumbnailSettings';
 import { useMultiSort } from '../hooks/useMultiSort';
+import { useOwnedCards } from '../hooks/useOwnedCards';
+import { useAuth } from '../AuthContext';
 import { sortCards } from '../utils/sortUtils';
 import { compareText } from '../utils/stringUtils';
 import ThumbnailSettings from './ThumbnailSettings';
@@ -60,9 +58,9 @@ function mergeByMasterOrder(masterOptions, cardSet) {
 }
 
 export default function FilterExplorer({ appConfig, isPicker = false, onSelectCards, onClose }) {
+  const { isAdmin } = useAuth();
+  const { cards, loading, saveCard, duplicateCard, deleteCard } = useOwnedCards();
   const { settings: thumbSettings, toggleSetting: toggleThumbSetting } = useThumbnailSettings();
-  const [loading, setLoading] = useState(true);
-  const [cards, setCards] = useState([]);
   const SERIES_VISIBLE_COUNT = 12;
   const [selectedCard, setSelectedCard] = useState(null);
 
@@ -100,25 +98,6 @@ export default function FilterExplorer({ appConfig, isPicker = false, onSelectCa
   const [statusFilter, setStatusFilter] = useState([]);
   const [languageFilter, setLanguageFilter] = useState([]);
   const [seriesExpanded, setSeriesExpanded] = useState(false);
-
-  const fetchCards = useCallback(async () => {
-    setLoading(true);
-    try {
-      const snap = await getDocs(collection(db, 'pokemon_cards'));
-      setCards(snap.docs.map((d) => {
-        const data = d.data();
-        return { id: d.id, ...data, status: normalizeStatus(data.status) };
-      }));
-    } catch (err) {
-      console.error('filter explorer fetch error', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchCards();
-  }, [fetchCards]);
 
   const optionSets = useMemo(() => {
     const fromCards = {
@@ -213,12 +192,7 @@ export default function FilterExplorer({ appConfig, isPicker = false, onSelectCa
     const updatePayload = formatCardPayload(payload);
 
     try {
-      await updateDoc(doc(db, 'pokemon_cards', selectedCard.id), updatePayload);
-      setCards((prev) => prev.map((card) => (
-        card.id === selectedCard.id
-          ? { ...card, ...updatePayload, status: normalizeStatus(updatePayload.status) }
-          : card
-      )));
+      await saveCard(selectedCard.id, updatePayload);
       closeModal();
     } catch (err) {
       console.error('filter explorer save error', err);
@@ -230,8 +204,7 @@ export default function FilterExplorer({ appConfig, isPicker = false, onSelectCa
   const handleModalDuplicate = async (payload) => {
     try {
       const duplicatePayload = formatCardPayload(payload);
-      const ref = await addDoc(collection(db, 'pokemon_cards'), duplicatePayload);
-      setCards((prev) => [{ id: ref.id, ...duplicatePayload, status: normalizeStatus(duplicatePayload.status) }, ...prev]);
+      await duplicateCard(duplicatePayload);
       closeModal();
     } catch (err) {
       console.error('filter explorer duplicate error', err);
@@ -244,8 +217,7 @@ export default function FilterExplorer({ appConfig, isPicker = false, onSelectCa
     if (!selectedCard?.id) return;
 
     try {
-      await deleteDoc(doc(db, 'pokemon_cards', selectedCard.id));
-      setCards((prev) => prev.filter((card) => card.id !== selectedCard.id));
+      await deleteCard(selectedCard.id);
       closeModal();
     } catch (err) {
       console.error('filter explorer delete error', err);
@@ -579,14 +551,15 @@ export default function FilterExplorer({ appConfig, isPicker = false, onSelectCa
         </section>
       </div>
 
-      <CardDetailModal 
+      <CardDetailModal
         isOpen={!!selectedCard}
         card={selectedCard}
         appConfig={appConfig}
+        isAdmin={isAdmin}
         onClose={closeModal}
         onSave={handleModalSave}
-        onDelete={handleModalDelete}
-        onDuplicate={handleModalDuplicate}
+        onDelete={isAdmin ? handleModalDelete : undefined}
+        onDuplicate={isAdmin ? handleModalDuplicate : undefined}
       />
     </div>
   );

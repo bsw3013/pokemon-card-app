@@ -1,20 +1,16 @@
-import React, { useState, useEffect, useMemo, useDeferredValue, useCallback } from 'react';
-import { collection, getDocs, doc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../firebase';
-import pokemonMapAll from '../utils/pokemonMapAll.json';
-import { normalizeStatus } from '../utils/statusUtils';
+import React, { useState, useEffect, useMemo, useDeferredValue } from 'react';
 import { normalizePokedexNumber, displayPokedexNumber } from '../utils/numberUtils';
 import { formatCardPayload } from '../utils/cardUtils';
+import { OWNERSHIP_FIELDS } from '../utils/ownershipUtils';
 import { useThumbnailSettings } from '../hooks/useThumbnailSettings';
 import { useMultiSort } from '../hooks/useMultiSort';
+import { useOwnedCards } from '../hooks/useOwnedCards';
+import { useAuth } from '../AuthContext';
 import { sortCards } from '../utils/sortUtils';
 import ThumbnailSettings from './ThumbnailSettings';
 import CardDetailModal from './CardDetailModal';
 import CardThumbnail from './CardThumbnail';
 import MultiSortPanel from './MultiSortPanel';
-
-const { krToEn, krToJa } = pokemonMapAll;
 
 const getFlagEmoji = (lang) => {
   if (!lang) return '🇰🇷';
@@ -32,11 +28,11 @@ const getStatusClass = (status) => {
 };
 
 export default function CardList({ appConfig, onViewMarket }) {
-  const [cards, setCards] = useState([]);
+  const { isAdmin } = useAuth();
+  const { cards, setCards, loading, saveCard, saveOwnership, createCard, duplicateCard, deleteCard } = useOwnedCards();
    const { settings: thumbSettings, toggleSetting: toggleThumbSetting } = useThumbnailSettings();
 
-   const [loading, setLoading] = useState(true);
-  
+
   // 필터 및 정렬 상태
    const [searchTerm, setSearchTerm] = useState('');
    const deferredSearchTerm = useDeferredValue(searchTerm);
@@ -75,30 +71,6 @@ export default function CardList({ appConfig, onViewMarket }) {
          .sort((a, b) => a.order - b.order);
    }, [appConfig.displayFields]);
 
-  const fetchCards = useCallback(async () => {
-    setLoading(true);
-    try {
-      const snap = await getDocs(collection(db, "pokemon_cards"));
-      const fetched = [];
-      snap.forEach(doc => {
-        const data = doc.data();
-        if (data.possessions && typeof data.possessions === 'string' && data.possessions.trim().startsWith('[')) {
-           try { data.possessions = JSON.parse(data.possessions); } catch(e) {}
-        }
-        fetched.push({ id: doc.id, ...data, status: normalizeStatus(data.status) });
-      });
-      setCards(fetched);
-    } catch(err) {
-      console.error("데이터 불러오기 실패", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchCards();
-  }, [fetchCards]);
-
    const filteredAndSortedCards = useMemo(() => {
     let result = [...cards];
       if (deferredSearchTerm) {
@@ -134,11 +106,15 @@ export default function CardList({ appConfig, onViewMarket }) {
       const normalizedCurrent = field === 'price' ? Number(currentValue || 0) : String(currentValue ?? '');
       if (normalizedFinalNext === normalizedCurrent) return;
 
+      if (!OWNERSHIP_FIELDS.includes(field) && !isAdmin) return;
+
       setIsRowSaving(prev => ({ ...prev, [id]: true }));
       try {
-         const cardRef = doc(db, "pokemon_cards", id);
-         await updateDoc(cardRef, { [field]: finalNext });
-         setCards(prev => prev.map(card => card.id === id ? { ...card, [field]: finalNext } : card));
+         if (OWNERSHIP_FIELDS.includes(field)) {
+            await saveOwnership(id, { [field]: finalNext });
+         } else {
+            await saveCard(id, { [field]: finalNext });
+         }
          setTableDrafts(prev => {
             const nextDrafts = { ...prev };
             if (nextDrafts[id]) {
@@ -217,12 +193,9 @@ export default function CardList({ appConfig, onViewMarket }) {
         const updatePayload = formatCardPayload(payload);
 
         if (selectedCard && selectedCard.isNew) {
-           const ref = await addDoc(collection(db, 'pokemon_cards'), updatePayload);
-           setCards(prev => [{ id: ref.id, ...updatePayload }, ...prev]);
+           await createCard(updatePayload);
         } else if (selectedCard && selectedCard.id) {
-           const cardRef = doc(db, "pokemon_cards", selectedCard.id);
-           await updateDoc(cardRef, updatePayload);
-           setCards(prev => prev.map(c => c.id === selectedCard.id ? { ...c, ...updatePayload } : c));
+           await saveCard(selectedCard.id, updatePayload);
         }
         closeModal();
      } catch(err) {
@@ -235,8 +208,7 @@ export default function CardList({ appConfig, onViewMarket }) {
   const handleModalDuplicate = async (payload) => {
      try {
         const duplicatePayload = formatCardPayload(payload);
-        const ref = await addDoc(collection(db, 'pokemon_cards'), duplicatePayload);
-        setCards(prev => [{ id: ref.id, ...duplicatePayload }, ...prev]);
+        await duplicateCard(duplicatePayload);
         closeModal();
      } catch(err) {
         console.error(err);
@@ -247,8 +219,7 @@ export default function CardList({ appConfig, onViewMarket }) {
 
   const handleModalDelete = async () => {
      try {
-        await deleteDoc(doc(db, "pokemon_cards", selectedCard.id));
-        setCards(prev => prev.filter(c => c.id !== selectedCard.id));
+        await deleteCard(selectedCard.id);
         closeModal();
      } catch(err) {
         console.error(err);
@@ -260,8 +231,7 @@ export default function CardList({ appConfig, onViewMarket }) {
   const handleDeleteSub = async (id) => {
     if(!window.confirm("정말로 이 카드를 창고에서 삭제할까요?")) return;
     try {
-      await deleteDoc(doc(db, "pokemon_cards", id));
-      setCards(prev => prev.filter(c => c.id !== id));
+      await deleteCard(id);
     } catch(err) {
       console.error(err);
       alert("삭제 실패");
@@ -352,7 +322,7 @@ export default function CardList({ appConfig, onViewMarket }) {
                 <input type="number" min="2" max="12" value={gridColumns} onChange={(e) => setGridColumns(Number(e.target.value) || 6)} style={{ width: '36px', background: 'transparent', border: 'none', color: 'white', outline: 'none', textAlign: 'center', fontWeight: 'bold', fontSize: '0.9rem' }} />
              </div>
              <ThumbnailSettings settings={thumbSettings} toggleSetting={toggleThumbSetting} />
-             <button type="button" className="btn btn-primary" style={{marginRight: '0.6rem'}} onClick={openCreate}>➕ 카드 추가</button>
+             {isAdmin && <button type="button" className="btn btn-primary" style={{marginRight: '0.6rem'}} onClick={openCreate}>➕ 카드 추가</button>}
              <input type="text" className="search-input" placeholder="🔍 이름, 일련번호, 도감번호 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
              <div style={{ position: 'relative' }}>
                <button type="button" className="btn btn-secondary" style={{marginLeft: '0.6rem'}} onClick={() => setSortPanelOpen(p => !p)}>정렬 설정</button>
@@ -392,12 +362,12 @@ export default function CardList({ appConfig, onViewMarket }) {
                         const rowDrafts = tableDrafts[card.id] || {};
 
                         const cellInputs = {
-                        cardName: <input type="text" className="table-input" value={rowDrafts.cardName ?? data.cardName ?? ''} onChange={(e) => handleTableEditChange(card.id, 'cardName', e.target.value)} onBlur={() => handleTableEditBlur(card.id, 'cardName')} />,
-                        pokedexNumber: <input type="text" className="table-input" style={{width: '60px', textAlign: 'center'}} value={rowDrafts.pokedexNumber ?? displayPokedexNumber(data.pokedexNumber) ?? ''} onChange={(e) => handleTableEditChange(card.id, 'pokedexNumber', e.target.value)} onBlur={() => handleTableEditBlur(card.id, 'pokedexNumber')} />,
-                        series: <select className="table-input" value={rowDrafts.series ?? data.series ?? ''} onChange={(e) => handleTableSelectChange(card.id, 'series', e.target.value)}><option value="">선택</option>{appConfig.seriesOptions.map(s => <option key={s} value={s}>{s}</option>)}</select>,
-                        cardNumber: <input type="text" className="table-input" style={{width: '90px'}} value={rowDrafts.cardNumber ?? data.cardNumber ?? ''} onChange={(e) => handleTableEditChange(card.id, 'cardNumber', e.target.value)} onBlur={() => handleTableEditBlur(card.id, 'cardNumber')} />,
-                        rarity: <select className="table-input" style={{width: '90px'}} value={rowDrafts.rarity ?? data.rarity ?? ''} onChange={(e) => handleTableSelectChange(card.id, 'rarity', e.target.value)}><option value="">선택</option>{appConfig.rarityOptions.map(s => <option key={s} value={s}>{s}</option>)}</select>,
-                        type: <select className="table-input" style={{width: '100px'}} value={rowDrafts.type ?? data.type ?? ''} onChange={(e) => handleTableSelectChange(card.id, 'type', e.target.value)}><option value="">선택</option>{appConfig.typeOptions.map(s => <option key={s} value={s}>{s}</option>)}</select>,
+                        cardName: <input type="text" className="table-input" disabled={!isAdmin} value={rowDrafts.cardName ?? data.cardName ?? ''} onChange={(e) => handleTableEditChange(card.id, 'cardName', e.target.value)} onBlur={() => handleTableEditBlur(card.id, 'cardName')} />,
+                        pokedexNumber: <input type="text" className="table-input" disabled={!isAdmin} style={{width: '60px', textAlign: 'center'}} value={rowDrafts.pokedexNumber ?? displayPokedexNumber(data.pokedexNumber) ?? ''} onChange={(e) => handleTableEditChange(card.id, 'pokedexNumber', e.target.value)} onBlur={() => handleTableEditBlur(card.id, 'pokedexNumber')} />,
+                        series: <select className="table-input" disabled={!isAdmin} value={rowDrafts.series ?? data.series ?? ''} onChange={(e) => handleTableSelectChange(card.id, 'series', e.target.value)}><option value="">선택</option>{appConfig.seriesOptions.map(s => <option key={s} value={s}>{s}</option>)}</select>,
+                        cardNumber: <input type="text" className="table-input" disabled={!isAdmin} style={{width: '90px'}} value={rowDrafts.cardNumber ?? data.cardNumber ?? ''} onChange={(e) => handleTableEditChange(card.id, 'cardNumber', e.target.value)} onBlur={() => handleTableEditBlur(card.id, 'cardNumber')} />,
+                        rarity: <select className="table-input" disabled={!isAdmin} style={{width: '90px'}} value={rowDrafts.rarity ?? data.rarity ?? ''} onChange={(e) => handleTableSelectChange(card.id, 'rarity', e.target.value)}><option value="">선택</option>{appConfig.rarityOptions.map(s => <option key={s} value={s}>{s}</option>)}</select>,
+                        type: <select className="table-input" disabled={!isAdmin} style={{width: '100px'}} value={rowDrafts.type ?? data.type ?? ''} onChange={(e) => handleTableSelectChange(card.id, 'type', e.target.value)}><option value="">선택</option>{appConfig.typeOptions.map(s => <option key={s} value={s}>{s}</option>)}</select>,
                         status: <select className="table-input" style={{width: '110px'}} value={rowDrafts.status ?? data.status ?? ''} onChange={(e) => handleTableSelectChange(card.id, 'status', e.target.value)}><option value="">선택</option>{appConfig.statusOptions.map(s => <option key={s} value={s}>{s}</option>)}</select>,
                         price: <input type="number" className="table-input price-input" value={rowDrafts.price ?? data.price ?? 0} onChange={(e) => handleTableEditChange(card.id, 'price', e.target.value)} onBlur={() => handleTableEditBlur(card.id, 'price')} />
                         };
@@ -411,7 +381,7 @@ export default function CardList({ appConfig, onViewMarket }) {
                               {visibleDisplayFields.map(f => (
                                  <td key={f.id}>
                                      {cellInputs[f.id] ? cellInputs[f.id] : (
-                                        <input type="text" className="table-input" value={rowDrafts[f.id] ?? data[f.id] ?? ''} onChange={(e) => handleTableEditChange(card.id, f.id, e.target.value)} onBlur={() => handleTableEditBlur(card.id, f.id)} />
+                                        <input type="text" className="table-input" disabled={!OWNERSHIP_FIELDS.includes(f.id) && !isAdmin} value={rowDrafts[f.id] ?? data[f.id] ?? ''} onChange={(e) => handleTableEditChange(card.id, f.id, e.target.value)} onBlur={() => handleTableEditBlur(card.id, f.id)} />
                                      )}
                                  </td>
                               ))}
@@ -474,14 +444,15 @@ export default function CardList({ appConfig, onViewMarket }) {
        )}
 
        {/* 상세 및 수정 모달 (공통 모달 컴포넌트로 분리) */}
-       <CardDetailModal 
+       <CardDetailModal
          isOpen={!!selectedCard}
          card={selectedCard}
          appConfig={appConfig}
+         isAdmin={isAdmin}
          onClose={closeModal}
          onSave={handleModalSave}
-         onDelete={!selectedCard?.isNew ? handleModalDelete : undefined}
-         onDuplicate={!selectedCard?.isNew ? handleModalDuplicate : undefined}
+         onDelete={isAdmin && !selectedCard?.isNew ? handleModalDelete : undefined}
+         onDuplicate={isAdmin && !selectedCard?.isNew ? handleModalDuplicate : undefined}
          onViewMarket={onViewMarket}
        />
     </div>
