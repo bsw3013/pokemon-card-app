@@ -67,7 +67,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
 
   const [manualFormOpen, setManualFormOpen] = useState(false);
   const [manualForm, setManualForm] = useState({
-    price: '', date: new Date().toISOString().slice(0, 10), memo: '', url: '', marketplace: '',
+    price: '', date: new Date().toISOString().slice(0, 10), title: '', memo: '', url: '', marketplace: '',
     language: '한국', conditionType: 'raw', gradingCompany: '', grade: '',
   });
 
@@ -424,7 +424,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
       source: 'manual',
       marketplace,
       externalId,
-      title: manualForm.memo || '직접 입력한 시세',
+      title: manualForm.title.trim() || manualForm.memo.trim() || '직접 입력한 시세',
       price,
       url: manualForm.url.trim() || null,
       imageUrl: null,
@@ -458,7 +458,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
     });
 
     setManualForm({
-      price: '', date: new Date().toISOString().slice(0, 10), memo: '', url: '', marketplace: '',
+      price: '', date: new Date().toISOString().slice(0, 10), title: '', memo: '', url: '', marketplace: '',
       language: '한국', conditionType: 'raw', gradingCompany: '', grade: '',
     });
     setManualFormOpen(false);
@@ -550,6 +550,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
       id: listing.id,
       price: listing.price ?? '',
       url: listing.url || '',
+      title: listing.title || '',
       memo: listing.memo || '',
       marketplace: listing.marketplace || SOURCE_LABELS[listing.source] || '',
       language: listing.language || '한국',
@@ -570,6 +571,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
     await updateDoc(doc(db, 'marketListings', editingListing.id), {
       price,
       url: editingListing.url.trim() || null,
+      title: editingListing.title.trim() || '(제목 없음)',
       memo: editingListing.memo,
       marketplace: editingListing.marketplace.trim() || null,
       language: editingListing.language,
@@ -779,7 +781,8 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                   </>
                 )}
                 <input type="text" placeholder="판매처 (예: 번개장터, 트위터, 지인거래 등)" value={editingListing.marketplace} onChange={(e) => setEditingListing((l) => ({ ...l, marketplace: e.target.value }))} />
-                <input type="text" placeholder="메모" value={editingListing.memo} onChange={(e) => setEditingListing((l) => ({ ...l, memo: e.target.value }))} />
+                <input type="text" placeholder="제목 (매물 목록에 표시돼요)" value={editingListing.title} onChange={(e) => setEditingListing((l) => ({ ...l, title: e.target.value }))} />
+                <input type="text" placeholder="메모 (목록엔 안 보여요)" value={editingListing.memo} onChange={(e) => setEditingListing((l) => ({ ...l, memo: e.target.value }))} />
                 <input type="url" placeholder="원본 링크" value={editingListing.url} onChange={(e) => setEditingListing((l) => ({ ...l, url: e.target.value }))} />
                 <button type="submit" className="btn btn-primary">저장</button>
                 <button type="button" className="btn" onClick={() => setEditingListing(null)}>취소</button>
@@ -984,7 +987,8 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                       </>
                     )}
                     <input type="text" placeholder="판매처 (예: 트위터, 카페, 지인거래 등)" value={manualForm.marketplace} onChange={(e) => setManualForm((f) => ({ ...f, marketplace: e.target.value }))} />
-                    <input type="text" placeholder="메모 (예: 직거래 등)" value={manualForm.memo} onChange={(e) => setManualForm((f) => ({ ...f, memo: e.target.value }))} />
+                    <input type="text" placeholder="제목 (매물 목록에 표시돼요, 비우면 메모로 채워짐)" value={manualForm.title} onChange={(e) => setManualForm((f) => ({ ...f, title: e.target.value }))} />
+                    <input type="text" placeholder="메모 (목록엔 안 보여요)" value={manualForm.memo} onChange={(e) => setManualForm((f) => ({ ...f, memo: e.target.value }))} />
                     <input type="url" placeholder="원본 링크 (선택, 예: 트윗/카페글 주소)" value={manualForm.url} onChange={(e) => setManualForm((f) => ({ ...f, url: e.target.value }))} />
                     <button type="submit" className="btn btn-primary">저장</button>
                     <button type="button" className="btn" onClick={() => setManualFormOpen(false)}>취소</button>
