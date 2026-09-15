@@ -289,9 +289,9 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
     return new Date(iso).getTime() >= cutoff;
   }
 
-  // 판매중 매물은 마지막으로 확인된 시점(lastSeen), 판매완료 매물은 판매완료 처리된 시점(removedAt) 기준으로 기간을 따진다.
+  // 판매중 매물은 마지막으로 확인된 시점(lastSeen), 판매완료 매물은 처음 등록한 날짜(firstSeen) 기준으로 기간을 따진다.
   function listingDateForRange(l) {
-    return l.status === 'sold_estimated' ? (l.removedAt || l.firstSeen) : (l.lastSeen || l.firstSeen);
+    return l.status === 'sold_estimated' ? l.firstSeen : (l.lastSeen || l.firstSeen);
   }
 
   const filteredListings = useMemo(
@@ -582,6 +582,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
     setEditingListing({
       id: listing.id,
       price: listing.price ?? '',
+      date: listing.firstSeen ? listing.firstSeen.slice(0, 10) : new Date().toISOString().slice(0, 10),
       url: listing.url || '',
       title: listing.title || '',
       memo: listing.memo || '',
@@ -603,6 +604,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
     const grade = editingListing.conditionType === 'graded' ? editingListing.grade : '';
     await updateDoc(doc(db, 'marketListings', editingListing.id), {
       price,
+      firstSeen: new Date(editingListing.date).toISOString(),
       url: editingListing.url.trim() || null,
       title: editingListing.title.trim() || '(제목 없음)',
       memo: editingListing.memo,
@@ -794,6 +796,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
               <h4>매물 정보 수정</h4>
               <form className="market-manual-form" onSubmit={handleUpdateListing}>
                 <input type="number" placeholder="가격(원)" value={editingListing.price} onChange={(e) => setEditingListing((l) => ({ ...l, price: e.target.value }))} required />
+                <input type="date" value={editingListing.date} onChange={(e) => setEditingListing((l) => ({ ...l, date: e.target.value }))} required />
                 <select value={editingListing.language} onChange={(e) => setEditingListing((l) => ({ ...l, language: e.target.value }))}>
                   {LANGUAGE_OPTIONS.map((lang) => <option key={lang} value={lang}>{lang}판</option>)}
                 </select>
@@ -1122,7 +1125,6 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                 onDelete={handleDeleteListing}
                 photoChecks={photoChecks}
                 statusActionLabel="판매중으로 되돌리기"
-                dateField="removedAt"
                 nicknameByUid={nicknameByUid}
               />
 
