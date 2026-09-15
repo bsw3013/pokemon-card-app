@@ -29,7 +29,7 @@ export default function PriceTrendChart({ history }) {
     () => (history || []).filter((h) => typeof h.price === 'number').slice().sort((a, b) => new Date(a.recordedAt) - new Date(b.recordedAt)),
     [history]
   );
-  // 판매처(사용자가 직접 입력한 이름 포함)별로 묶어서 선/범례를 그린다.
+  // 판매처(사용자가 직접 입력한 이름 포함)별로 묶어서 점 색상/범례를 정한다. (선은 판매처 구분 없이 날짜별 평균 하나로만 그림)
   const byMarketplace = useMemo(() => {
     const map = {};
     for (const p of points) {
@@ -38,6 +38,21 @@ export default function PriceTrendChart({ history }) {
       map[label].push(p);
     }
     return map;
+  }, [points]);
+
+  // 같은 날짜에 매물이 여러 건 있으면 평균가로 묶어서 하나의 선으로 이어준다.
+  const dailyAverages = useMemo(() => {
+    const map = new Map(); // dayKey -> { sum, count, date }
+    points.forEach((p) => {
+      const dayKey = p.recordedAt.slice(0, 10);
+      const entry = map.get(dayKey) || { sum: 0, count: 0, date: p.recordedAt };
+      entry.sum += p.price;
+      entry.count += 1;
+      map.set(dayKey, entry);
+    });
+    return Array.from(map.values())
+      .map(({ sum, count, date }) => ({ date, price: Math.round(sum / count) }))
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
   }, [points]);
 
   const colorByLabel = useMemo(() => {
@@ -89,12 +104,19 @@ export default function PriceTrendChart({ history }) {
         <text x={PAD.left} y={HEIGHT - 6} className="market-chart-axis-label">{formatDate(points[0].recordedAt)}</text>
         <text x={WIDTH - PAD.right - 28} y={HEIGHT - 6} className="market-chart-axis-label">{formatDate(points[points.length - 1].recordedAt)}</text>
 
+        {dailyAverages.length > 1 && (
+          <path
+            d={dailyAverages.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xFor(p.date)} ${yFor(p.price)}`).join(' ')}
+            fill="none"
+            stroke="var(--accent-color)"
+            strokeWidth="2.5"
+          />
+        )}
+
         {Object.entries(byMarketplace).map(([label, pts]) => {
-          const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xFor(p.recordedAt)} ${yFor(p.price)}`).join(' ');
           const color = colorByLabel[label] || '#94a3b8';
           return (
             <g key={label}>
-              <path d={path} fill="none" stroke={color} strokeWidth="2" />
               {pts.map((p, i) => (
                 <circle key={i} cx={xFor(p.recordedAt)} cy={yFor(p.price)} r="3" fill={color} />
               ))}
@@ -103,6 +125,10 @@ export default function PriceTrendChart({ history }) {
         })}
       </svg>
       <div className="market-chart-legend">
+        <span className="market-chart-legend-item">
+          <i style={{ background: 'var(--accent-color)' }} />
+          날짜별 평균
+        </span>
         {Object.keys(byMarketplace).map((label) => (
           <span key={label} className="market-chart-legend-item">
             <i style={{ background: colorByLabel[label] || '#94a3b8' }} />
