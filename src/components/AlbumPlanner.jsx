@@ -528,7 +528,9 @@ export default function AlbumPlanner({ appConfig }) {
     }
 
     setCurrentPageIndex(0);
-    setEditorViewMode('canvas');
+    // 모바일 화면에서는 "전체 캔버스"로 열면 페이지마다 카드가 너무 작게 나와서
+    // 알아보기 힘드니, 좁은 화면에서는 카드가 크게 보이는 "페이지 보기"로 기본 진입한다.
+    setEditorViewMode(typeof window !== 'undefined' && window.innerWidth <= 768 ? 'page' : 'canvas');
     setBookStep(0);
     setActiveSlotIndex(null);
     setHistoryPast([]);
