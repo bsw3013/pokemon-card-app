@@ -321,9 +321,9 @@ export default function CardList({ appConfig, onViewMarket }) {
        <div className="gallery-header">
           <h2>나만의 포켓몬 도감 <span>({filteredAndSortedCards.length}장)</span></h2>
           <div className="gallery-controls">
-             <div className="grid-columns-control" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(255,255,255,0.05)', padding: '0.3rem 0.8rem', borderRadius: '999px', border: '1px solid var(--border-color)', height: '100%', marginRight: '0.6rem' }}>
+             <div className="grid-columns-control" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'var(--overlay-faint)', padding: '0.3rem 0.8rem', borderRadius: '999px', border: '1px solid var(--border-color)', height: '100%', marginRight: '0.6rem' }}>
                 <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>가로칸수:</span>
-                <input type="number" min="2" max="12" value={gridColumns} onChange={(e) => setGridColumns(Number(e.target.value) || 6)} style={{ width: '36px', background: 'transparent', border: 'none', color: 'white', outline: 'none', textAlign: 'center', fontWeight: 'bold', fontSize: '0.9rem' }} />
+                <input type="number" min="2" max="12" value={gridColumns} onChange={(e) => setGridColumns(Number(e.target.value) || 6)} style={{ width: '36px', background: 'transparent', border: 'none', color: 'var(--text-main)', outline: 'none', textAlign: 'center', fontWeight: 'bold', fontSize: '0.9rem' }} />
              </div>
              <ThumbnailSettings settings={thumbSettings} toggleSetting={toggleThumbSetting} />
              {isAdmin && <button type="button" className="btn btn-primary" style={{marginRight: '0.6rem'}} onClick={openCreate}>➕ 카드 추가</button>}

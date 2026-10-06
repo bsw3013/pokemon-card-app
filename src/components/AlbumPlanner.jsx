@@ -1881,11 +1881,11 @@ export default function AlbumPlanner({ appConfig }) {
                   setImportSourceAlbumId(e.target.value);
                   setImportSelectedPageIndex(null);
                 }}
-                style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', background: 'var(--bg-lighter)', color: 'white', border: '1px solid var(--border-color)' }}
+                style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', background: 'var(--surface-color)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }}
               >
-                <option value="" style={{ background: '#1e293b', color: 'white' }}>-- 복사해 올 대상 앨범을 골라주세요 --</option>
+                <option value="" style={{ background: 'var(--surface-color)', color: 'var(--text-main)' }}>-- 복사해 올 대상 앨범을 골라주세요 --</option>
                 {albums.filter(a => a.id !== editingAlbum.id && !a.isDeleted).map(album => (
-                  <option key={album.id} value={album.id} style={{ background: '#1e293b', color: 'white' }}>{album.name} ({album.layoutKey} · 페이지 {album.pages?.length || 1}장)</option>
+                  <option key={album.id} value={album.id} style={{ background: 'var(--surface-color)', color: 'var(--text-main)' }}>{album.name} ({album.layoutKey} · 페이지 {album.pages?.length || 1}장)</option>
                 ))}
               </select>
             </div>

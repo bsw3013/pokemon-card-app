@@ -10,6 +10,7 @@ import AlbumPlanner from './components/AlbumPlanner';
 import MarketPrice from './components/MarketPrice';
 import NicknameModal from './components/NicknameModal';
 import HomeDashboard from './components/home/HomeDashboard';
+import ThemeToggle from './components/ThemeToggle';
 import { defaultConfig } from './defaultConfig';
 import { sanitizeStatusOptions } from './utils/statusUtils';
 import { useAuth } from './AuthContext';
@@ -310,6 +311,7 @@ function App() {
           {isAdmin && (
             <button type="button" className="btn btn-primary btn-compact" onClick={() => navigateTo('admin')}>⚙️ 마스터 설정</button>
           )}
+          <ThemeToggle />
           {user ? (
             <>
               <span

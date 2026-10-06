@@ -887,7 +887,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
                   type="text" 
                   value={item} 
                   onChange={(e) => handleArrayEdit(key, idx, e.target.value)} 
-                  style={{ width: '100%', background: 'transparent', border: 'none', color: 'white', borderBottom: '1px solid rgba(255,255,255,0.1)', padding: '2px 4px', outline: 'none' }}
+                  style={{ width: '100%', background: 'transparent', border: 'none', color: 'var(--text-main)', borderBottom: '1px solid var(--overlay-strong)', padding: '2px 4px', outline: 'none' }}
                 />
              </div>
              <button className="btn btn-danger" style={{ padding: '2px 5px', fontSize: '0.75rem' }} onClick={() => handleArrayDelete(key, idx)}>✕</button>
@@ -948,7 +948,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
                      <input 
                        type="text" 
                        className="table-input" 
-                       style={{ background: 'rgba(0,0,0,0.3)', width: 'auto', flex: 1 }}
+                       style={{ background: 'var(--overlay-strong)', width: 'auto', flex: 1 }}
                        value={field.label} 
                        onChange={(e) => handleFieldLabelChange(idx, e.target.value)} 
                        placeholder="표시 화면 타이틀"
@@ -974,7 +974,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
           </div>
 
 
-          <div className="add-field-container" style={{ marginTop: '2rem', padding: '1.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '12px' }}>
+          <div className="add-field-container" style={{ marginTop: '2rem', padding: '1.5rem', background: 'var(--overlay-soft)', borderRadius: '12px' }}>
              <h4 style={{ margin: '0 0 1rem 0', color: 'var(--primary-color)' }}>➕ 새로운 빈칸 정보 추가 (Custom Field 커스텀 필드)</h4>
              <div className="add-field">
                 <input 
@@ -1015,7 +1015,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
           </div>
 
           {ghStatus && (
-             <div style={{ marginTop: '1rem', padding: '0.8rem 1rem', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', color: ghStatus.startsWith('✅') ? '#10b981' : ghStatus.startsWith('❌') ? '#ef4444' : '#facc15', fontWeight: 'bold', fontSize: '0.9rem' }}>
+             <div style={{ marginTop: '1rem', padding: '0.8rem 1rem', background: 'var(--overlay-strong)', borderRadius: '8px', color: ghStatus.startsWith('✅') ? '#10b981' : ghStatus.startsWith('❌') ? '#ef4444' : '#facc15', fontWeight: 'bold', fontSize: '0.9rem' }}>
                 {ghStatus}
              </div>
           )}
@@ -1030,7 +1030,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
           </p>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginTop: '1.5rem' }}>
-             <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '8px' }}>
+             <div style={{ background: 'var(--overlay-strong)', padding: '1.5rem', borderRadius: '8px' }}>
                 <h4 style={{ color: '#3b82f6', marginBottom: '1rem' }}>📥 대량 데이터 업로드 (Import)</h4>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>엑셀(.csv) 파일을 올려 수천 장의 카드를 등록하고 항목 설정까지 자동 동기화합니다.</p>
                 <input 
@@ -1044,13 +1044,13 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
                    📂 CSV 엑셀 파일 업로드
                 </label>
                 <div style={{ marginTop: '1rem', textAlign: 'center' }}>
-                   <button className="btn" style={{ fontSize: '0.8rem', padding: '0.3rem 0.6rem', border: '1px solid rgba(255,255,255,0.2)' }} onClick={handleExportTemplate}>
+                   <button className="btn" style={{ fontSize: '0.8rem', padding: '0.3rem 0.6rem', border: '1px solid var(--overlay-strong)' }} onClick={handleExportTemplate}>
                       📄 빈 엑셀 템플릿 다운로드
                    </button>
                 </div>
              </div>
 
-              <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '8px' }}>
+              <div style={{ background: 'var(--overlay-strong)', padding: '1.5rem', borderRadius: '8px' }}>
                 <h4 style={{ color: '#10b981', marginBottom: '1rem' }}>📤 전체 데이터 풀 백업 & 열람</h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
                    <button className="btn" style={{ background: '#10b981', color: 'white', width: '100%', padding: '0.8rem' }} onClick={handleExportDatabase}>
@@ -1064,7 +1064,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
           </div>
           
           {showRawDb && rawDbData && (
-             <div style={{ marginTop: '2rem', padding: '1rem', background: 'rgba(0,0,0,0.5)', borderRadius: '8px', border: '1px solid var(--border-color)', overflowX: 'auto' }}>
+             <div style={{ marginTop: '2rem', padding: '1rem', background: 'var(--overlay-strong)', borderRadius: '8px', border: '1px solid var(--border-color)', overflowX: 'auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                    <h4 style={{ color: 'var(--primary-color)', margin: 0 }}>
                        🔎 실시간 원본 데이터베이스 뷰어 (총 {rawDbData.length}건, 🐙 GitHub 기준 정렬됨)
@@ -1114,9 +1114,9 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
                                             border: 'none', 
                                             width: '100%', 
                                             padding: '0.5rem', 
-                                            outline: 'none', 
-                                            color: 'white' 
-                                         }} 
+                                            outline: 'none',
+                                            color: 'var(--text-main)'
+                                         }}
                                                              value={rawCellDrafts[row.raw_database_id]?.[k] ?? (typeof row[k] === 'object' ? JSON.stringify(row[k]) : (row[k] || ''))} 
                                                              onChange={(e) => handleRawEditChange(row.raw_database_id, k, e.target.value)} 
                                                              onBlur={() => commitRawEditChange(row.raw_database_id, k)}
