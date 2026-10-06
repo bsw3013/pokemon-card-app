@@ -90,25 +90,6 @@ export function IconSettings(props) {
   );
 }
 
-export function IconTarget(props) {
-  return (
-    <IconBase {...props}>
-      <circle cx="12" cy="12" r="8" />
-      <circle cx="12" cy="12" r="4.2" />
-      <circle cx="12" cy="12" r="0.6" fill="currentColor" stroke="none" />
-    </IconBase>
-  );
-}
-
-export function IconArrowRight(props) {
-  return (
-    <IconBase {...props}>
-      <path d="M4 12h15" />
-      <path d="M13 6l6 6-6 6" />
-    </IconBase>
-  );
-}
-
 // 로그인 버튼용 아이콘. 특정 브랜드 색 대신 currentColor만 사용한다.
 export function IconLogin(props) {
   return (
