@@ -3100,8 +3100,16 @@ select.table-input { appearance: none; cursor: pointer; }
 /* =====================================================
    홈 대시보드 (HomeDashboard)
    클래스는 전부 .home- 접두사. 색은 전부 :root 의 CSS 변수만 사용한다.
+   예외: 레어도 구성 막대 차트 색은 아래 --home-chart-1~5 변수로 한 번만 정의.
 ===================================================== */
-.home-dashboard { padding: 2rem 3rem 4rem; max-width: 1200px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 1.6rem; }
+.home-dashboard {
+  --home-chart-1: #7c3aed;
+  --home-chart-2: #0d9488;
+  --home-chart-3: #db2777;
+  --home-chart-4: #d97706;
+  --home-chart-5: #6b7280;
+  padding: 2rem 3rem 4rem; max-width: 1200px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 1.6rem;
+}
 
 /* 요약 카드 (게스트/로그인 공통) */
 .home-summary-card { background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 20px; padding: 1.6rem 1.9rem; }
@@ -3133,32 +3141,25 @@ select.table-input { appearance: none; cursor: pointer; }
 .home-shortcut-tile:hover { border-color: var(--accent-color); transform: translateY(-2px); }
 .home-shortcut-tile svg { color: var(--accent-color); }
 
-/* 위젯 영역 */
-.home-widget-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; align-items: start; }
-.home-widget-pokedex { grid-column: 1 / -1; }
-
+/* 위젯 공통 */
 .home-widget { background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 18px; padding: 1.3rem 1.5rem; }
-.home-widget-header { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; margin-bottom: 0.6rem; flex-wrap: wrap; }
-.home-widget-header h3 { display: flex; align-items: center; gap: 0.5rem; font-size: 1.05rem; margin: 0; color: var(--text-main); }
-.home-widget-header h3 svg { color: var(--accent-color); }
+.home-widget-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.8rem; margin-bottom: 0.4rem; flex-wrap: wrap; }
+.home-widget-header h3 { font-size: 1.05rem; margin: 0; color: var(--text-main); }
 .home-widget-link {
   display: inline-flex; align-items: center; gap: 0.3rem; background: none; border: none; padding: 0;
   color: var(--accent-color); font-weight: 700; font-size: 0.85rem; font-family: inherit; cursor: pointer;
 }
 .home-widget-link:hover { text-decoration: underline; }
-.home-widget-count { font-size: 0.85rem; color: var(--text-muted); font-weight: 700; }
-.home-widget-desc { color: var(--text-muted); font-size: 0.82rem; margin-bottom: 0.9rem; }
+.home-widget-count { font-size: 0.82rem; color: var(--text-muted); font-weight: 700; }
+.home-widget-count-group { display: flex; flex-direction: column; align-items: flex-end; gap: 0.15rem; text-align: right; }
+.home-widget-count-big { font-size: 1.15rem; color: var(--text-main); }
 .home-widget-subtitle { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.8rem; }
-.home-widget-footnote { margin-top: 0.8rem; font-size: 0.8rem; color: var(--text-muted); }
 .home-widget-empty { color: var(--text-muted); font-size: 0.9rem; padding: 0.6rem 0; }
-.home-widget-empty-block { display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-start; }
-.home-widget-error { color: var(--primary-color); font-size: 0.85rem; }
 
-/* 카드 썸네일 한 줄 (다음 목표 / 레어 쇼케이스 공용) */
-.home-thumb-row { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+/* 카드 썸네일 (도감 항목 팝업에서 씀) */
 .home-thumb {
-  position: relative; width: 84px; aspect-ratio: 2.5 / 3.5; border-radius: 10px; overflow: hidden;
-  background: var(--bg-color); border: 1px solid var(--border-color); cursor: pointer; padding: 0; display: block;
+  position: relative; width: 100%; aspect-ratio: 2.5 / 3.5; border-radius: 10px; overflow: hidden;
+  background: var(--bg-color); border: 1px solid var(--border-color); padding: 0; display: block;
 }
 .home-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .home-thumb-badge {
@@ -3181,18 +3182,45 @@ select.table-input { appearance: none; cursor: pointer; }
   .home-thumb-info { opacity: 1; transform: translateY(0); position: relative; left: auto; right: auto; bottom: auto; background: none; padding: 0.3rem 0 0; }
 }
 
-/* 내 앨범 위젯 */
-.home-album-list { display: flex; flex-direction: column; gap: 0.9rem; margin-bottom: 0.8rem; list-style: none; padding: 0; }
-.home-album-row { display: flex; align-items: center; gap: 0.8rem; }
-.home-album-swatch { width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0; border: 1px solid var(--border-color); }
-.home-album-row-body { flex: 1; min-width: 0; }
-.home-album-name { display: block; font-size: 0.92rem; margin-bottom: 0.3rem; color: var(--text-main); }
-.home-album-continue { margin-top: 0.3rem; }
+/* 내 포켓몬 도감 위젯 */
+.home-pokedex-gen-tabs { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-bottom: 0.7rem; }
+.home-pokedex-gen-tab {
+  padding: 0.4rem 0.75rem; border-radius: 999px; border: 1px solid var(--border-color); background: var(--surface-color-hover);
+  color: var(--text-main); font-size: 0.8rem; font-weight: 700; font-family: inherit; cursor: pointer;
+}
+.home-pokedex-gen-tab.active { background: var(--primary-color); border-color: var(--primary-color); color: var(--text-main); }
 
-/* 내 포켓몬 도감 격자 */
-.home-pokedex-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(9px, 1fr)); gap: 2px; }
-.home-pokedex-cell { aspect-ratio: 1 / 1; border-radius: 2px; background: var(--border-color); }
-.home-pokedex-cell.filled { background: var(--primary-color); }
+.home-pokedex-infobar { min-height: 1.4em; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.6rem; }
+@media (hover: hover) { .home-pokedex-hint-touch { display: none; } }
+@media (hover: none) { .home-pokedex-hint-mouse { display: none; } }
+
+.home-pokedex-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 4px; }
+.home-pokedex-cell {
+  aspect-ratio: 1 / 1; border-radius: 6px; font-size: 11px; font-weight: 700; font-family: inherit;
+  display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+  border: 1px solid transparent; background: transparent; color: var(--text-main);
+}
+.home-pokedex-cell.owned { background: var(--primary-color); color: var(--text-main); }
+.home-pokedex-cell.unowned { background: var(--surface-color); border-color: var(--primary-color); color: var(--text-main); }
+.home-pokedex-cell.none { background: transparent; border: 1px dashed var(--border-color); color: var(--text-muted); }
+
+.home-pokedex-legend { display: flex; flex-wrap: wrap; gap: 0.9rem; margin-top: 0.8rem; }
+.home-pokedex-legend-item { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: var(--text-muted); }
+.home-pokedex-legend-swatch { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
+.home-pokedex-legend-swatch.owned { background: var(--primary-color); }
+.home-pokedex-legend-swatch.unowned { background: var(--surface-color); border: 1px solid var(--primary-color); }
+.home-pokedex-legend-swatch.none { background: transparent; border: 1px dashed var(--border-color); }
+
+/* 도감 항목 팝업(기존 .modal-backdrop/.modal-content 재사용) */
+.home-pokedex-modal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 0.8rem; margin: 0.8rem 0 1.2rem; }
+.home-pokedex-modal-link { margin-top: 0.4rem; }
+
+/* 레어도 구성 위젯 */
+.home-rarity-bar { display: flex; height: 12px; border-radius: 999px; overflow: hidden; gap: 2px; background: var(--border-color); }
+.home-rarity-bar-segment { height: 100%; min-width: 2px; }
+.home-rarity-legend { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; margin-top: 0.8rem; }
+.home-rarity-legend-item { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: var(--text-muted); }
+.home-rarity-legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 
 /* 스켈레톤(로딩) */
 .home-skeleton {
@@ -3201,20 +3229,16 @@ select.table-input { appearance: none; cursor: pointer; }
 }
 @keyframes home-skeleton-pulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 .home-skeleton-number { width: 160px; height: 2rem; }
-.home-skeleton-row { display: flex; flex-direction: column; gap: 0.8rem; }
-.home-skeleton-text { width: 60%; height: 1rem; }
-.home-skeleton-thumbs { display: flex; gap: 0.8rem; }
-.home-skeleton-thumb { width: 84px; aspect-ratio: 2.5 / 3.5; }
-.home-skeleton-album-row { height: 48px; }
-.home-skeleton-pokedex { height: 120px; width: 100%; }
+.home-skeleton-pokedex { height: 260px; width: 100%; }
+.home-skeleton-rarity-bar { height: 12px; width: 100%; border-radius: 999px; }
 
 @media (max-width: 640px) {
   .home-dashboard { padding: 1rem; gap: 1.2rem; }
   .home-summary-top { flex-direction: column; align-items: flex-start; }
   .home-summary-chips { margin-left: 0; }
   .home-shortcut-grid { grid-template-columns: repeat(3, 1fr); }
-  .home-widget-grid { grid-template-columns: 1fr; }
-  .home-pokedex-grid { grid-template-columns: repeat(auto-fill, minmax(8px, 1fr)); }
+  .home-widget-count-group { align-items: flex-start; text-align: left; }
+  .home-pokedex-grid { grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); }
 }
 
 
