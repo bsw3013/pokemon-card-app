@@ -8,7 +8,7 @@
   --primary-hover: #bf3123;
   --accent-color: #2563eb;
   --text-main: #1c1917;
-  --text-muted: #78716c;
+  --text-muted: #57534e;
   --border-color: rgba(0, 0, 0, 0.10);
 
   /* 옅은 "덧칠"용 변수: 다크에서는 흰 반투명, 라이트에서는 검은 반투명으로 대응 */
@@ -628,7 +628,7 @@ body { margin: 0; font-family: 'Outfit', sans-serif; background-color: var(--bg-
 
 .filter-group h4 {
    font-size: 0.88rem;
-   color: #cbd5e1;
+   color: var(--text-main);
    display: inline-flex;
    align-items: center;
    gap: 0.35rem;
@@ -679,7 +679,7 @@ body { margin: 0; font-family: 'Outfit', sans-serif; background-color: var(--bg-
 .filter-chip {
    border: 1px solid var(--overlay-soft);
    background: var(--overlay-faint);
-   color: #cbd5e1;
+   color: var(--text-muted);
    border-radius: 999px;
    padding: 0.3rem 0.65rem;
    font-size: 0.76rem;
@@ -1009,7 +1009,7 @@ select.table-input { appearance: none; cursor: pointer; }
 }
 
 .stats-table .num.owned { color: #22c55e; }
-.stats-table .num.unowned { color: #cbd5e1; }
+.stats-table .num.unowned { color: var(--text-muted); }
 .stats-table .num.graded { color: #f59e0b; }
 .stats-table .num.total { color: #60a5fa; }
 
@@ -1069,7 +1069,7 @@ select.table-input { appearance: none; cursor: pointer; }
 }
 
 .stats-mobile-card b.owned { color: #22c55e; }
-.stats-mobile-card b.unowned { color: #cbd5e1; }
+.stats-mobile-card b.unowned { color: var(--text-muted); }
 .stats-mobile-card b.graded { color: #f59e0b; }
 
 .stats-empty {
@@ -1249,7 +1249,7 @@ select.table-input { appearance: none; cursor: pointer; }
 }
 
 .info-val {
-   color: #e2e8f0;
+   color: var(--text-main);
    font-weight: 600;
    white-space: nowrap;
 }
@@ -1713,7 +1713,7 @@ select.table-input { appearance: none; cursor: pointer; }
 
 .album-card-item .info small {
    font-size: 0.74rem;
-   color: #cbd5e1;
+   color: var(--text-muted);
 }
 
 .picker-status {
@@ -2956,10 +2956,10 @@ select.table-input { appearance: none; cursor: pointer; }
 
 .market-header-lang-table { margin-left: auto; flex-shrink: 0; }
 
-.market-lang-cond-table.compact { font-size: 0.62rem; color: #e2e8f0; }
+.market-lang-cond-table.compact { font-size: 0.62rem; color: var(--text-main); }
 .market-lang-cond-table.compact th, .market-lang-cond-table.compact td { padding: 0.06rem 0.35rem; border-bottom: none; }
 .market-lang-cond-table.compact thead th { color: var(--text-muted); }
-.market-lang-cond-table.compact th[scope="row"] { color: #cbd5e1; }
+.market-lang-cond-table.compact th[scope="row"] { color: var(--text-muted); }
 .market-preview-image { width: 84px; height: 84px; object-fit: cover; border-radius: 12px; background: var(--bg-color); flex-shrink: 0; }
 .market-preview-info { display: flex; flex-direction: column; gap: 0.3rem; }
 .market-preview-range { font-weight: 700; color: var(--text-main); }
