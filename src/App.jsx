@@ -9,6 +9,7 @@ import StatsDashboard from './components/StatsDashboard';
 import AlbumPlanner from './components/AlbumPlanner';
 import MarketPrice from './components/MarketPrice';
 import NicknameModal from './components/NicknameModal';
+import HomeDashboard from './components/home/HomeDashboard';
 import { defaultConfig } from './defaultConfig';
 import { sanitizeStatusOptions } from './utils/statusUtils';
 import { useAuth } from './AuthContext';
@@ -386,20 +387,7 @@ function App() {
       )}
 
       {currentView === 'home' && (
-        <main className="hero fade-in">
-          <h1>편리하고 아름다운<br />포켓몬 카드 도감 관리자</h1>
-          <p>소중한 포켓몬 카드를 일목요연하게 등록 및 관리하고, 앨범 기획기 시뮬레이션을 통해 나만의 컬렉션을 아름답게 배치해 보세요.</p>
-          
-          <div className="btn-group">
-            <button type="button" className="btn btn-primary" onClick={() => navigateTo('gallery')}>내 도감 갤러리 입장 (🔀)</button>
-          </div>
-
-          <div className="ai-preview-card">
-            <span>🚀</span>
-            <h3>1,600장의 도감 부활 완료!</h3>
-            <p>기존 노션 데이터들이 완벽하게 Firebase로 이사했습니다.</p>
-          </div>
-        </main>
+        <HomeDashboard onNavigate={navigateTo} />
       )}
       </>
       )}

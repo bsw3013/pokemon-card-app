@@ -11,6 +11,18 @@ export function normalizeStatus(rawStatus) {
   return status;
 }
 
+// StatsDashboard.jsx 의 classifyStatus 와 완전히 동일한 로직. 홈 대시보드 등에서도
+// 같은 기준으로 보유/미보유/등급카드를 판정해야 통계 탭과 숫자가 일치한다.
+export function classifyStatus(status) {
+  const normalized = String(status || '').trim();
+
+  if (normalized.includes('등급')) return 'graded';
+  if (normalized.includes('미보유') || normalized.includes('위시')) return 'unowned';
+  if (normalized.includes('보유') || normalized.includes('수집') || normalized.includes('소장') || normalized.includes('배송')) return 'owned';
+
+  return 'unowned';
+}
+
 export function sanitizeStatusOptions(statusOptions) {
   const source = Array.isArray(statusOptions) ? statusOptions : [];
   const normalized = source
