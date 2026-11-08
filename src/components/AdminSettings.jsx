@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { doc, updateDoc, collection, getDocs, deleteDoc, deleteField, writeBatch } from 'firebase/firestore';
 import { db, functions } from '../firebase';
 import { OWNERSHIP_FIELDS } from '../utils/ownershipUtils';
+import { normalizePokedexNumber } from '../utils/numberUtils';
 import { useAuth } from '../AuthContext';
 import Papa from 'papaparse';
 
@@ -309,6 +310,53 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
       let direction = 'asc';
       if (rawSortConfig.key === key && rawSortConfig.direction === 'asc') direction = 'desc';
       setRawSortConfig({ key, direction });
+  };
+
+  // 카드 이미지를 보고 정리해 둔 이름/도감번호(src/data/cardNameFill.json)를 DB에 반영한다.
+  // 비어 있는 칸만 채우고, 이름은 알려진 오타(fixFrom)와 정확히 같을 때만 고친다 — 그 사이 직접 고친 값은 건드리지 않는다.
+  // 도감번호는 카드 이름이 데이터의 이름과 같을 때만 채운다 (이름을 직접 바꾼 카드에 엉뚱한 번호가 들어가지 않도록).
+  const handleFillCardNames = async () => {
+      setIsGlobalProcessing(true);
+      try {
+          const { default: fill } = await import('../data/cardNameFill.json');
+          const snapshot = await getDocs(collection(db, "pokemon_cards"));
+          const updates = [];
+          let names = 0, fixes = 0, dexes = 0;
+          snapshot.docs.forEach((d) => {
+              const entry = fill[d.id];
+              if (!entry) return;
+              const data = d.data();
+              const currentName = String(data.cardName || '').trim();
+              const patch = {};
+              if (!currentName) { patch.cardName = entry.name; names++; }
+              else if (entry.fixFrom && currentName === entry.fixFrom) { patch.cardName = entry.name; fixes++; }
+              const finalName = patch.cardName || currentName;
+              if (entry.dex && finalName === entry.name && !String(data.pokedexNumber || '').trim()) {
+                  patch.pokedexNumber = normalizePokedexNumber(entry.dex);
+                  dexes++;
+              }
+              if (Object.keys(patch).length) updates.push([d.id, patch]);
+          });
+
+          if (updates.length === 0) {
+              alert('채울 항목이 없습니다. (이미 모두 채워져 있어요)');
+              return;
+          }
+          if (!window.confirm(`카드 ${updates.length}장을 수정합니다.\n\n· 빈 카드 이름 채우기: ${names}장\n· 카드 이름 오타 수정: ${fixes}장\n· 빈 도감번호 채우기: ${dexes}장\n\n비어 있는 칸만 채우고, 이미 입력된 값은 바꾸지 않습니다. 진행할까요?`)) return;
+
+          const BATCH_LIMIT = 400;
+          for (let i = 0; i < updates.length; i += BATCH_LIMIT) {
+              const batch = writeBatch(db);
+              updates.slice(i, i + BATCH_LIMIT).forEach(([id, patch]) => batch.update(doc(db, "pokemon_cards", id), patch));
+              await batch.commit();
+          }
+          alert(`✅ 완료! 카드 ${updates.length}장을 업데이트했습니다.\n새로고침하면 도감에 반영된 이름을 볼 수 있어요.`);
+      } catch (err) {
+          console.error(err);
+          alert('자동 채우기 중 오류가 발생했습니다: ' + err.message);
+      } finally {
+          setIsGlobalProcessing(false);
+      }
   };
 
   const handleRawAddColumn = async () => {
@@ -1058,6 +1106,9 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
                    </button>
                    <button className="btn" style={{ border: '1px solid #10b981', color: '#10b981', width: '100%', padding: '0.8rem', background: 'transparent' }} onClick={fetchRawDb}>
                       {loadingRaw ? '불러오는 중...' : showRawDb ? '📋 원격 데이터 뷰어 닫기' : '📋 웹에서 원시 표 즉시 펼치기'}
+                   </button>
+                   <button className="btn btn-secondary" style={{ width: '100%', padding: '0.8rem' }} disabled={isGlobalProcessing} onClick={handleFillCardNames}>
+                      {isGlobalProcessing ? '처리 중...' : '🪄 빈 카드 이름·도감번호 자동 채우기'}
                    </button>
                 </div>
              </div>
