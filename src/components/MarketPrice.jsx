@@ -14,7 +14,7 @@ import {
 import { db } from '../firebase';
 import { useAuth } from '../AuthContext';
 import { useOwnedCards } from '../hooks/useOwnedCards';
-import { buildCardKey } from '../utils/cardKey';
+import { buildCardKey, buildLegacyCardKey, cardIdFromKey, isIdCardKey, resolveLegacyCardKey } from '../utils/cardKey';
 import { looksLikeBundle } from '../utils/bundleHint';
 import PriceTrendChart from './PriceTrendChart';
 
@@ -204,6 +204,25 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCard]);
 
+  // 예전 방식(이름+시리즈+번호) 키로 저장된 내 관심카드를 카드 ID 키로 바꿔 둔다. (한 번만 하면 됨)
+  useEffect(() => {
+    if (!user || myCardsLoading || myCards.length === 0) return;
+    const stale = watchlist
+      .filter((w) => w.cardKey && !isIdCardKey(w.cardKey))
+      .map((w) => ({ w, cardId: resolveLegacyCardKey(w.cardKey, myCards) }))
+      .filter((x) => x.cardId);
+    if (stale.length === 0) return;
+    (async () => {
+      try {
+        await Promise.all(stale.map(({ w, cardId }) => updateDoc(doc(db, 'marketWatchlist', w.id), { cardKey: `id:${cardId}`, legacyCardKey: w.cardKey })));
+        await loadWatchlist();
+      } catch (err) {
+        console.error('관심카드 연결 변경 실패', err);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, myCardsLoading, myCards, watchlist]);
+
   async function loadWatchlist() {
     if (!user) { setWatchlist([]); return; }
     try {
@@ -217,12 +236,19 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
   async function loadCardData(cardKey) {
     setLoading(true);
     try {
-      const [listingsSnap, historySnap] = await Promise.all([
-        getDocs(query(collection(db, 'marketListings'), where('cardKey', '==', cardKey))),
-        getDocs(query(collection(db, 'marketPriceHistory'), where('cardKey', '==', cardKey))),
-      ]);
-      setListings(listingsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setHistory(historySnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      // 관리자가 "카드 정보 정리하기"를 실행하기 전에 쌓인 기록은 예전 방식 키로 저장돼 있으므로 같이 읽는다.
+      const card = isIdCardKey(cardKey) ? myCards.find((c) => c.id === cardIdFromKey(cardKey)) : null;
+      const legacyKey = card ? buildLegacyCardKey(card) : '';
+      const keys = legacyKey && legacyKey !== cardKey ? [cardKey, legacyKey] : [cardKey];
+      const readAll = async (colName) => {
+        const snaps = await Promise.all(keys.map((k) => getDocs(query(collection(db, colName), where('cardKey', '==', k)))));
+        const byId = new Map();
+        snaps.forEach((snap) => snap.docs.forEach((d) => byId.set(d.id, { id: d.id, ...d.data() })));
+        return [...byId.values()];
+      };
+      const [listingDocs, historyDocs] = await Promise.all([readAll('marketListings'), readAll('marketPriceHistory')]);
+      setListings(listingDocs);
+      setHistory(historyDocs);
     } catch (err) {
       console.error('시세 데이터 로드 실패', err);
       setListings([]);
