@@ -283,8 +283,9 @@ function App() {
             }}
             disabled={isMobile}
             title={isMobile ? '모바일에서는 고정 모드가 비활성화됩니다.' : '목차 패널 고정'}
+            aria-label="목차 패널 고정"
           >
-            📌
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 3h6l-1 6 4 4H6l4-4z" /><path d="M12 13v8" /></svg>
           </button>
         </div>
 
@@ -309,12 +310,12 @@ function App() {
       {isMobile && isNavOpen && <div className="side-nav-backdrop" onClick={closeSideNav} />}
 
       <nav className="navbar">
-        <div className="logo" onClick={() => navigateTo('home')} style={{cursor: 'pointer'}}>PokéDex AI</div>
+        <div className="logo" onClick={() => navigateTo('home')} style={{cursor: 'pointer'}}>PokéDex</div>
         <div className="btn-group top-nav-actions">
           <button type="button" className="btn btn-secondary btn-compact" onClick={() => navigateTo('gallery')}>나의 도감</button>
           <button type="button" className="btn btn-secondary btn-compact" onClick={() => navigateTo('filter')}>필터</button>
           {isAdmin && (
-            <button type="button" className="btn btn-primary btn-compact" onClick={() => navigateTo('admin')}>⚙️ 마스터 설정</button>
+            <button type="button" className="btn btn-primary btn-compact" onClick={() => navigateTo('admin')}>마스터 설정</button>
           )}
           <ThemeToggle />
           {user ? (
@@ -330,7 +331,7 @@ function App() {
               <button type="button" className="btn btn-secondary btn-compact" onClick={signOut}>로그아웃</button>
             </>
           ) : (
-            <button type="button" className="btn btn-primary btn-compact" style={{ marginLeft: '0.6rem' }} onClick={signInWithGoogle}>🔐 로그인</button>
+            <button type="button" className="btn btn-primary btn-compact" style={{ marginLeft: '0.6rem' }} onClick={signInWithGoogle}>로그인</button>
           )}
         </div>
       </nav>
@@ -360,7 +361,7 @@ function App() {
               <AdminSettings appConfig={appConfig} setAppConfig={setAppConfig} />
             ) : (
               <div className="loading-config fade-in">
-                <h2>⛔ 접근 권한이 없습니다.</h2>
+                <h2>접근 권한이 없습니다.</h2>
                 <p>마스터 설정은 관리자 계정만 사용할 수 있습니다.</p>
               </div>
             )}
@@ -376,7 +377,7 @@ function App() {
           <AlbumPlanner appConfig={appConfig} />
         ) : (
           <main className="hero fade-in">
-            <h2>🔐 로그인이 필요합니다.</h2>
+            <h2>로그인이 필요합니다.</h2>
             <p>앨범 꾸미기는 로그인한 계정별로 저장돼요.</p>
             <div className="btn-group">
               <button type="button" className="btn btn-primary" onClick={signInWithGoogle}>Google로 로그인</button>
