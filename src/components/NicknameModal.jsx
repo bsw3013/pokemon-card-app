@@ -26,7 +26,7 @@ export default function NicknameModal({ forced = false, onClose }) {
   return (
     <div className="market-confirm-backdrop" onClick={forced ? undefined : onClose} style={{ zIndex: 1400 }}>
       <div className="market-confirm-card" onClick={(e) => e.stopPropagation()} style={{ flexDirection: 'column', maxWidth: '380px' }}>
-        <h4 style={{ margin: 0 }}>{forced ? '👋 닉네임을 정해주세요' : '닉네임 변경'}</h4>
+        <h4 style={{ margin: 0 }}>{forced ? '닉네임을 정해주세요' : '닉네임 변경'}</h4>
         <p className="market-hint" style={{ marginTop: '0.3rem' }}>
           {forced
             ? '구글 계정 실명 대신, 시세 기록 등에 표시될 닉네임을 정해주세요.'

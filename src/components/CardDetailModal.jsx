@@ -251,7 +251,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
       <div className="modal-backdrop fade-in" onClick={onClose} style={{ zIndex: 1000 }}>
         <div className="modal-content slide-up" onClick={(e) => e.stopPropagation()}>
           <button className="modal-close" onClick={onClose}>✕</button>
-          <h2 className="modal-title">💎 카드 상세 / 편집기</h2>
+          <h2 className="modal-title">카드 상세 / 편집기</h2>
           <div className="modal-body">
             <div className="modal-image-col">
               <div className="modal-card-image">
@@ -264,13 +264,13 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
 
                 <div className="upload-option">
                   <button type="button" className="btn btn-secondary fetch-btn" onClick={openPicker} disabled={!isAdmin}>
-                    🌐 스마트 다국어 검색
+                    스마트 다국어 검색
                   </button>
                 </div>
 
                 <div className="upload-option">
                   <label className={`btn btn-secondary file-upload-btn ${!isAdmin ? 'disabled' : ''}`}>
-                    {uploading ? "📤 업로드 중..." : "📤 기기에서 파일 선택"}
+                    {uploading ? "업로드 중..." : "기기에서 파일 선택"}
                     <input type="file" accept="image/*" onChange={handleFileUpload} disabled={uploading || !isAdmin} />
                   </label>
                 </div>
@@ -391,14 +391,14 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
                                   title="보유 정보 삭제"
                                   onClick={() => removePossession(idx)}
                                 >
-                                  <span className="icon" aria-hidden>🗑</span>
+                                  <span className="icon" aria-hidden>✕</span>
                                 </button>
                               </div>
                             </div>
                           ))}
 
                           <div style={{ marginTop: '0.5rem' }}>
-                            <button type="button" className="btn btn-secondary" onClick={addPossession}>➕ 보유 정보 추가</button>
+                            <button type="button" className="btn btn-secondary" onClick={addPossession}>보유 정보 추가</button>
                           </div>
                         </div>
                       </div>
@@ -413,7 +413,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
 
               <div className="market-summary-inline">
                 <div className="market-summary-inline-header">
-                  <h4>📊 실시간 시세</h4>
+                  <h4>실시간 시세</h4>
                   {onViewMarket && (
                     <button
                       type="button"
@@ -458,11 +458,11 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
 
               <div className="modal-actions">
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  {onDelete && <button type="button" className="btn btn-danger" onClick={handleDeleteInternal}>🗑 카드 지우기</button>}
-                  {onDuplicate && !card?.isNew && <button type="button" className="btn btn-secondary" onClick={handleDuplicateInternal}>👯 카드 복제</button>}
+                  {onDelete && <button type="button" className="btn btn-danger" onClick={handleDeleteInternal}>카드 지우기</button>}
+                  {onDuplicate && !card?.isNew && <button type="button" className="btn btn-secondary" onClick={handleDuplicateInternal}>카드 복제</button>}
                 </div>
                 <button type="submit" className="btn btn-primary" disabled={isSaving}>
-                  {isSaving ? "저장 중..." : user ? "수정사항 덮어쓰기" : "🔐 로그인하고 저장하기"}
+                  {isSaving ? "저장 중..." : user ? "수정사항 덮어쓰기" : "로그인하고 저장하기"}
                 </button>
               </div>
             </form>
@@ -475,7 +475,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
           <div className="picker-content slide-up" onClick={e => e.stopPropagation()}>
             <button className="modal-close" onClick={closePicker}>✕</button>
             <div className="picker-header">
-              <h2>🌐 글로벌 카드 라이브러리 검색</h2>
+              <h2>글로벌 카드 라이브러리 검색</h2>
               <p>전 세계의 서버에서 실시간으로 정품 고해상도 카드 디자인을 끌어옵니다.</p>
             </div>
 

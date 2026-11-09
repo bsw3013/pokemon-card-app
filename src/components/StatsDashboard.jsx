@@ -80,7 +80,7 @@ export default function StatsDashboard() {
     <main className="stats-page slide-up">
       <div className="stats-header">
         <div>
-          <h2>📊 레어도 통계</h2>
+          <h2>레어도 통계</h2>
           <p>각 레어도별 보유/미보유/등급카드 수를 확인할 수 있습니다.</p>
         </div>
         <input
