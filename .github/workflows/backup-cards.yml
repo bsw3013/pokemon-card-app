@@ -1,0 +1,43 @@
+# 카드 도감(pokemon_cards)을 매일 자동으로 CSV 백업해서 저장소에 커밋한다.
+# - 매일 새벽 3시 17분(한국 시간)에 자동 실행
+# - Actions 탭 → "Backup card database" → "Run workflow" 버튼으로 언제든 바로 실행 가능
+# - 바뀐 내용이 없으면 커밋하지 않는다.
+# 깃허브가 자동으로 주는 임시 토큰(GITHUB_TOKEN)만 쓰므로, 따로 만든 토큰이 필요 없다.
+name: Backup card database
+
+on:
+  schedule:
+    - cron: '17 18 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: backup-cards
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: node scripts/backup-cards.mjs database_backups/main_dataset.csv
+      - name: 바뀐 내용이 있으면 커밋
+        run: |
+          if git diff --quiet -- database_backups/main_dataset.csv; then
+            echo "바뀐 카드가 없어서 커밋하지 않습니다."
+            exit 0
+          fi
+          STAMP=$(TZ=Asia/Seoul date +%Y-%m-%d_%H-%M-%S)
+          cp database_backups/main_dataset.csv "database_backups/backup_${STAMP}.csv"
+          COUNT=$(($(grep -c '' database_backups/main_dataset.csv) - 1))
+          git config user.name "github-actions[bot]"
+          git config user.email "41898699+github-actions[bot]@users.noreply.github.com"
+          git add database_backups
+          git commit -m "카드 DB 자동 백업: ${STAMP} (총 ${COUNT}건)"
+          git push

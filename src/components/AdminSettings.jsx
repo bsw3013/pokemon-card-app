@@ -162,7 +162,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
       let csvRowIds = [];
        try {
              const listRes = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/database_backups`, {
-           headers: { Authorization: `token ${GH_TOKEN}`, 'User-Agent': 'pokedex-app' }
+           headers: { Accept: 'application/vnd.github+json' }
          });
 
              if (!listRes.ok) throw new Error('백업 폴더 목록을 가져올 수 없습니다.');
@@ -174,7 +174,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
 
              const latestFile = backupFiles[backupFiles.length - 1];
              const contentRes = await fetch(latestFile.url, {
-                headers: { Authorization: `token ${GH_TOKEN}`, 'User-Agent': 'pokedex-app' }
+                headers: { Accept: 'application/vnd.github+json' }
              });
 
          if (contentRes.ok) {
@@ -456,78 +456,25 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
         });
      }, [rawDbData]);
 
-  // --- 깃허브 직접 연동 로직 ---
-   // Security change: client must not hold a GitHub PAT.
-   // All GitHub write/read operations should be performed server-side (Functions/Actions).
-   const GH_TOKEN  = import.meta.env.VITE_GITHUB_TOKEN;
-   const GH_OWNER  = import.meta.env.VITE_GITHUB_OWNER;
-   const GH_REPO   = import.meta.env.VITE_GITHUB_REPO;
-   const GH_MAIN_PATH = import.meta.env.VITE_GITHUB_BACKUP_PATH || 'database_backups/main_dataset.csv';
+  // --- 깃허브 백업/복원 ---
+  // 보안: 사이트(브라우저) 코드에는 깃허브 토큰을 넣지 않는다. 배포된 코드는 누구나 열어볼 수 있기 때문.
+  // - 백업: 깃허브 Actions(.github/workflows/backup-cards.yml)가 매일 자동으로 하고, 아래 버튼은 그 실행 페이지를 연다.
+  // - 복원·열람: 저장소가 공개라서 백업 CSV는 토큰 없이 읽을 수 있다.
+  const GH_OWNER  = import.meta.env.VITE_GITHUB_OWNER || 'bsw3013';
+  const GH_REPO   = import.meta.env.VITE_GITHUB_REPO || 'pokemon-card-app';
+  const GH_MAIN_PATH = import.meta.env.VITE_GITHUB_BACKUP_PATH || 'database_backups/main_dataset.csv';
+  const GH_BACKUP_WORKFLOW_URL = `https://github.com/${GH_OWNER}/${GH_REPO}/actions/workflows/backup-cards.yml`;
+  const GH_BACKUP_FOLDER_URL = `https://github.com/${GH_OWNER}/${GH_REPO}/tree/main/database_backups`;
 
   const [ghStatus, setGhStatus] = useState('');
 
-  const handleGithubBackup = async () => {
-     if (!window.confirm('🚀 파이어베이스 데이터를 깃허브에 누적 백업하시겠습니까?')) return;
-     if (!GH_TOKEN) return alert("VITE_GITHUB_TOKEN 설정이 필요합니다.");
-     setGhStatus('⏳ 백업 데이터 준비 중...');
-     try {
-        const snapshot = await getDocs(collection(db, 'pokemon_cards'));
-        const allData = snapshot.docs
-          .map(d => ({ raw_database_id: d.id, ...d.data() }))
-          .sort((a, b) => (Number(a.displayOrder) || 0) - (Number(b.displayOrder) || 0));
-
-        const allKeys = new Set(['raw_database_id']);
-        allData.forEach(item => Object.keys(item).forEach(k => allKeys.add(k)));
-        
-        const csvStr = Papa.unparse(allData, { columns: Array.from(allKeys) });
-        const bom = "\uFEFF";
-        const encodedContent = btoa(unescape(encodeURIComponent(bom + csvStr)));
-        const now = new Date();
-        const timestamp = now.toISOString().replace(/[:.]/g, '-');
-        const filename = `database_backups/backup_${timestamp}.csv`;
-
-        // 1. 타임스탬프 로그 백업
-        setGhStatus('⏳ 로그 백업 파일 업로드 중...');
-        const logRes = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${filename}`, {
-           method: 'PUT',
-           headers: { Authorization: `token ${GH_TOKEN}`, 'Content-Type': 'application/json' },
-           body: JSON.stringify({ message: `🔒 누적 백업: ${timestamp} (총 ${allData.length}건)`, content: encodedContent })
-        });
-        if (!logRes.ok) throw new Error("로그 백업 실패");
-
-        // 2. 메인 데이터셋 갱신 (항상 최신 상태 유지)
-        setGhStatus('⏳ 메인 데이터셋(main_dataset.csv) 동기화 중...');
-        let sha = null;
-        const checkRes = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_MAIN_PATH}`, {
-           headers: { Authorization: `token ${GH_TOKEN}` }
-        });
-        if (checkRes.ok) {
-           const json = await checkRes.json();
-           sha = json.sha;
-        }
-
-        const mainRes = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_MAIN_PATH}`, {
-           method: 'PUT',
-           headers: { Authorization: `token ${GH_TOKEN}`, 'Content-Type': 'application/json' },
-           body: JSON.stringify({ message: `✅ 최신 데이터 동기화: ${timestamp}`, content: encodedContent, sha })
-        });
-        if (!mainRes.ok) throw new Error("메인 데이터셋 갱신 실패");
-
-        setGhStatus(`✅ 백업 성공! (${allData.length}건)`);
-     } catch (err) {
-        console.error(err);
-        setGhStatus('❌ 백업 실패: ' + err.message);
-     }
-  };
-
   const handleGithubRestore = async () => {
-    if (!GH_TOKEN) return alert("VITE_GITHUB_TOKEN 설정이 필요합니다.");
     if (!window.confirm(`⚠️ GitHub의 'main_dataset.csv' 파일로 현재 DB를 덮어씁니다.\n\n이 작업은 Firestore의 모든 데이터를 CSV 내용과 100% 일치시킵니다.\n(수동으로 수정한 CSV를 DB에 즉시 반영하기에 아주 좋습니다)`)) return;
     
     setGhStatus('⏳ GitHub에서 데이터 가져오는 중...');
     try {
        const res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_MAIN_PATH}`, {
-          headers: { Authorization: `token ${GH_TOKEN}`, 'Accept': 'application/vnd.github.v3.raw' }
+          headers: { Accept: 'application/vnd.github.v3.raw' }
        });
        if (!res.ok) throw new Error("GitHub CSV 파일을 찾을 수 없습니다.");
        const csvStr = await res.text();
@@ -1048,10 +995,16 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginTop: '1.5rem' }}>
              <div style={{ background: 'rgba(124,58,237,0.1)', padding: '1.5rem', borderRadius: '8px', border: '1px solid rgba(124,58,237,0.3)' }}>
                 <h4 style={{ color: '#7c3aed', marginBottom: '0.5rem' }}>🚀 깃허브 누적 백업 (DB → GitHub)</h4>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>현재 데이터를 <code>backup_날짜_시간.csv</code> 로 안전하게 저장합니다.</p>
-                <button className="btn" style={{ background: '#7c3aed', color: 'white', width: '100%', padding: '0.8rem' }} onClick={handleGithubBackup}>
-                   ⬆️ 지금 즉시 누적 백업 생성
-                </button>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                   매일 새벽 3시쯤 자동으로 <code>backup_날짜_시간.csv</code> 를 만듭니다(바뀐 카드가 있을 때만).<br/>
+                   지금 바로 하려면 아래 버튼 → 깃허브 화면의 <b>Run workflow</b> 를 누르세요.
+                </p>
+                <a className="btn" href={GH_BACKUP_WORKFLOW_URL} target="_blank" rel="noopener noreferrer" style={{ background: '#7c3aed', color: 'white', width: '100%', padding: '0.8rem', display: 'block', textAlign: 'center', textDecoration: 'none' }}>
+                   ⬆️ 깃허브에서 지금 백업 실행하기
+                </a>
+                <a href={GH_BACKUP_FOLDER_URL} target="_blank" rel="noopener noreferrer" style={{ display: 'block', marginTop: '0.6rem', fontSize: '0.8rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                   백업 파일 목록 보기
+                </a>
              </div>
              <div style={{ background: 'rgba(124,58,237,0.1)', padding: '1.5rem', borderRadius: '8px', border: '1px solid rgba(124,58,237,0.3)' }}>
                 <h4 style={{ color: '#a78bfa', marginBottom: '0.5rem' }}>📥 깃허브 기준 데이터 복원</h4>
