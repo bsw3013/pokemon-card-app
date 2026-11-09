@@ -1,13 +1,27 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { normalizeImageUrl, thumbUrlFor } from '../utils/thumbKey';
+
+// 목록 화면은 가벼운 썸네일(public/thumbs)을 먼저 쓰고, 아직 썸네일이 없으면 원본으로 대신 보여준다.
+// 카드 상세 창(type="modal")은 크게 보여야 하므로 항상 원본을 쓴다.
+function CardImage({ imageUrl, alt, className, useThumb }) {
+  const original = normalizeImageUrl(imageUrl);
+  const thumb = useThumb ? thumbUrlFor(original) : '';
+  const [thumbFailed, setThumbFailed] = useState(false);
+  const usingThumb = Boolean(thumb) && !thumbFailed;
+  return (
+    <img
+      src={usingThumb ? thumb : original}
+      alt={alt}
+      className={className}
+      loading="lazy"
+      onError={usingThumb ? () => setThumbFailed(true) : undefined}
+    />
+  );
+}
 
 export default function CardThumbnail({ imageUrl, alt = '카드', type = 'grid', className = '' }) {
   if (imageUrl) {
-    let validUrl = imageUrl;
-    // URL이 http/https, data:, / 로 시작하지 않으면 (예: www.example.com/img.jpg) https://를 붙여줍니다.
-    if (!/^(https?:\/\/|data:|blob:|\/)/.test(imageUrl)) {
-      validUrl = `https://${imageUrl}`;
-    }
-    return <img src={validUrl} alt={alt} className={className} loading="lazy" />;
+    return <CardImage key={imageUrl} imageUrl={imageUrl} alt={alt} className={className} useThumb={type !== 'modal'} />;
   }
 
   // Fallbacks based on type
