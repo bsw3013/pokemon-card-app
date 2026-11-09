@@ -7,6 +7,7 @@ import { DEFAULT_SETS, buildSetIndex, findSetForCard, parseCardNo } from '../../
 import { thumbUrlFor } from '../../utils/thumbKey';
 import { ownershipDocId } from '../../utils/ownershipUtils';
 import { isIdCardKey, resolveLegacyCardKey } from '../../utils/cardKey';
+import { setHashParams } from '../../utils/hashRoute';
 
 const BATCH_LIMIT = 400;
 const LIST_LIMIT = 300;
@@ -40,7 +41,7 @@ function legacyOwnership(data) {
 const planSize = (plan) => plan.updates.length + plan.ownershipCopies.length + plan.marketUpdates.length;
 
 function openCard(id) {
-  window.location.hash = `#/gallery?cardId=${id}`;
+  setHashParams({ cardId: id });
 }
 
 // 마스터 설정 → 데이터 점검
@@ -295,7 +296,7 @@ export default function DataCheck() {
 
       <div className="admin-section full-width">
         <h3>데이터 점검</h3>
-        <p className="help-text">항목을 누르면 해당 카드 목록이 펼쳐지고, 카드를 누르면 도감 화면에서 바로 고칠 수 있습니다.</p>
+        <p className="help-text">항목을 누르면 해당 카드 목록이 펼쳐지고, 카드를 누르면 바로 열어서 고칠 수 있습니다. 여러 장을 한꺼번에 고치려면 카드 관리 탭을 쓰세요.</p>
         <ul className="check-list">
           {checks.map((check) => {
             const count = check.cards ? check.cards.length : check.sets.length;

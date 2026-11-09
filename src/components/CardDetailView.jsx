@@ -113,7 +113,7 @@ export default function CardDetailView({ card, isAdmin, marketSummary, onEdit, o
             <h3>같은 포켓몬의 다른 카드 <em>{relatives.length}</em></h3>
             <div className="cdv-relatives">
               {relatives.map(({ c, set: s }) => (
-                <button key={c.id} type="button" className={`cdv-rel ${ownedCount(c) > 0 ? '' : 'missing'}`} onClick={() => onOpenCard?.(c)} title={`${c.cardName} · ${s?.name || c.series || ''}`}>
+                <button key={c.id} type="button" className={`cdv-rel ${ownedCount(c) > 0 || !user ? '' : 'missing'}`} onClick={() => onOpenCard?.(c)} title={`${c.cardName} · ${s?.name || c.series || ''}`}>
                   <span className="cdv-rel-img"><CardThumbnail imageUrl={c.imageUrl} alt={c.cardName} type="grid" /></span>
                   <span className="cdv-rel-meta"><span className={`rar-badge ${rarityTone(c.rarity)}`}>{c.rarity || '-'}</span><span className="num">{s ? s.code.toUpperCase() : ''}</span></span>
                 </button>
