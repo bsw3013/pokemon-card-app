@@ -3888,3 +3888,17 @@ input, select, textarea, button { font-family: inherit; }
   .home-stats strong { font-size: 1.25rem; }
   .home-cards { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
 }
+
+/* 언어판·등급 표시 */
+.ctile-badges { position: absolute; left: 6px; bottom: 6px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; z-index: 2; }
+.ctile-badges .ctile-grade { position: static; }
+.ctile-lang-badge { padding: 1px 7px; border-radius: 4px; font-size: 12px; font-weight: 700; color: #fff; background: rgba(17, 17, 18, 0.82); }
+.ctile-lang-badge.lang-일판 { background: #b91c1c; }
+.ctile-lang-badge.lang-영문판 { background: #1d4ed8; }
+.ctile-lang-badge.lang-중국판 { background: #a16207; }
+.ctile.missing .ctile-badges { opacity: 0.85; }
+.ctile .picker-checkbox { left: auto; right: 6px; bottom: 6px; }
+.cdv-own-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.cdv-tag { font-size: 0.8rem; font-weight: 600; padding: 2px 8px; border-radius: var(--radius-s); background: var(--surface-2); border: 1px solid var(--border-color); }
+.cdv-tag.strong { background: var(--text-main); color: var(--bg-color); border-color: var(--text-main); }
+.cdv-tag.muted { font-weight: 500; color: var(--text-muted); }

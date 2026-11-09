@@ -6,7 +6,7 @@ import { useOwnedCards } from '../hooks/useOwnedCards';
 import { useThumbnailSettings } from '../hooks/useThumbnailSettings';
 import { useCardDetail } from '../hooks/useCardDetail';
 import { DEFAULT_RARITIES, DEFAULT_SETS, buildSetIndex, findSetForCard } from '../utils/catalog';
-import { isGradedCopy, ownedCount, parsePossessions } from '../utils/cardStats';
+import { cardLanguage, gradedInfo, langShort, ownedCount, parsePossessions } from '../utils/cardStats';
 import { cardIdFromKey, resolveLegacyCardKey } from '../utils/cardKey';
 import { rarityTone } from '../utils/rarityTone';
 import { navigate, parseHash, setHashParams } from '../utils/hashRoute';
@@ -40,7 +40,7 @@ const SORTS = [
 function summarize(card) {
   const rows = parsePossessions(card.possessions);
   const count = ownedCount(card);
-  const graded = rows.filter(isGradedCopy).reduce((s, r) => s + (Number(r.count) || 0), 0);
+  const graded = gradedInfo(card).count;
   const trade = rows.some((r) => r.forTrade);
   const purchase = rows.reduce((s, r) => s + (Number(r.purchasePrice) || 0) * (Number(r.count) || 0), 0);
   const purchasedCount = rows.filter((r) => Number(r.purchasePrice) > 0).reduce((s, r) => s + (Number(r.count) || 0), 0);
@@ -51,7 +51,7 @@ function summarize(card) {
   const paired = price > 0 ? rows.filter((r) => Number(r.purchasePrice) > 0) : [];
   const pairedCount = paired.reduce((s, r) => s + (Number(r.count) || 0), 0);
   const pairedCost = paired.reduce((s, r) => s + (Number(r.purchasePrice) || 0) * (Number(r.count) || 0), 0);
-  return { count, graded, trade, purchase, purchasedCount, lastBought, value, pairedCount, pairedCost, pairedValue: price * pairedCount, hasRows: rows.length > 0 };
+  return { lang: langShort(cardLanguage(card)), count, graded, trade, purchase, purchasedCount, lastBought, value, pairedCount, pairedCost, pairedValue: price * pairedCount, hasRows: rows.length > 0 };
 }
 
 export default function CollectionPage({ appConfig, onViewMarket }) {
@@ -61,6 +61,7 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
   const detail = useCardDetail({ appConfig, onViewMarket });
   const [tab, setTab] = useState(() => (TABS.some(([k]) => k === parseHash().params.tab) ? parseHash().params.tab : 'cards'));
   const [filter, setFilter] = useState('all');
+  const [lang, setLang] = useState('all');
   const [sort, setSort] = useState('value');
   const [watchlist, setWatchlist] = useState(null);
 
@@ -72,18 +73,19 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
     .filter((x) => x.count > 0), [cards, setIndex]);
 
   const totals = useMemo(() => {
-    const t = { kinds: owned.length, count: 0, graded: 0, value: 0, purchase: 0, purchasedCount: 0, unpriced: 0, trade: 0, pairedCount: 0, pairedCost: 0, pairedValue: 0 };
+    const t = { kinds: owned.length, count: 0, graded: 0, value: 0, purchase: 0, purchasedCount: 0, unpriced: 0, trade: 0, gradedKinds: 0, pairedCount: 0, pairedCost: 0, pairedValue: 0 };
     owned.forEach((x) => {
       t.count += x.count; t.graded += x.graded; t.value += x.value; t.purchase += x.purchase; t.purchasedCount += x.purchasedCount;
       t.pairedCount += x.pairedCount; t.pairedCost += x.pairedCost; t.pairedValue += x.pairedValue;
       if (!Number(x.card.price)) t.unpriced += 1;
       if (x.trade) t.trade += 1;
+      if (x.graded > 0) t.gradedKinds += 1;
     });
     return t;
   }, [owned]);
 
   const list = useMemo(() => {
-    const f = owned.filter((x) => (
+    const f = owned.filter((x) => (lang === 'all' || x.lang === lang) && (
       filter === 'multi' ? x.count >= 2
         : filter === 'graded' ? x.graded > 0
           : filter === 'trade' ? x.trade
@@ -97,7 +99,15 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
       count: (a, b) => b.count - a.count,
     }[sort];
     return f.sort(cmp);
-  }, [owned, filter, sort]);
+  }, [owned, filter, sort, lang]);
+
+  // 언어판별 보유 종류 수 (한판·일판·영문판·중국판)
+  const langCounts = useMemo(() => {
+    const m = new Map();
+    owned.forEach((x) => m.set(x.lang, (m.get(x.lang) || 0) + 1));
+    return ['한판', '일판', '영문판', '중국판'].filter((l) => m.get(l)).map((l) => [l, m.get(l)])
+      .concat([...m.entries()].filter(([l]) => !['한판', '일판', '영문판', '중국판'].includes(l)));
+  }, [owned]);
 
   // 세트별 완성률 (보유한 세트만, 완성률 높은 순)
   const setRows = useMemo(() => {
@@ -171,11 +181,19 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
             <div className="seg">
               {FILTERS.map(([k, l]) => (
                 <button key={k} type="button" className={filter === k ? 'on' : ''} onClick={() => setFilter(k)}>
-                  {l}{k === 'trade' && totals.trade ? ` ${totals.trade}` : ''}
+                  {l}{k === 'trade' && totals.trade ? ` ${totals.trade}` : ''}{k === 'graded' && totals.gradedKinds ? ` ${totals.gradedKinds}` : ''}
                 </button>
               ))}
             </div>
             <div className="tools">
+              {langCounts.length > 1 && (
+                <div className="seg" aria-label="언어판">
+                  <button type="button" className={lang === 'all' ? 'on' : ''} onClick={() => setLang('all')}>모든 언어</button>
+                  {langCounts.map(([l, n]) => (
+                    <button key={l} type="button" className={lang === l ? 'on' : ''} onClick={() => setLang(l)}>{l} {n}</button>
+                  ))}
+                </div>
+              )}
               <span className="count">{list.length.toLocaleString()}종</span>
               <select className="select" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="정렬">
                 {SORTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
