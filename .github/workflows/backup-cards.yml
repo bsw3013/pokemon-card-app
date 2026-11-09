@@ -29,7 +29,8 @@ jobs:
       - run: node scripts/backup-cards.mjs database_backups/main_dataset.csv
       - name: 바뀐 내용이 있으면 커밋
         run: |
-          if git diff --quiet -- database_backups/main_dataset.csv; then
+          git add -N database_backups/catalog.json 2>/dev/null || true
+          if git diff --quiet -- database_backups/main_dataset.csv database_backups/catalog.json; then
             echo "바뀐 카드가 없어서 커밋하지 않습니다."
             exit 0
           fi

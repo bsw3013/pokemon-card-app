@@ -87,3 +87,23 @@ const csv = '﻿' + Papa.unparse(rows, { columns: Array.from(columns) });
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
 fs.writeFileSync(OUT, csv);
 console.log(`백업 완료: ${rows.length}장 → ${OUT}`);
+
+// 세트·레어도 표(settings/catalog)도 같은 폴더에 JSON으로 함께 저장한다. (아직 없으면 건너뜀)
+try {
+  const res = await fetch(`https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/settings/catalog`);
+  if (res.ok) {
+    const json = await res.json();
+    const catalog = {};
+    for (const [k, v] of Object.entries(json.fields || {})) catalog[k] = fromRest(v);
+    const catalogPath = path.join(path.dirname(OUT), 'catalog.json');
+    // 칸 순서를 항상 같게 정렬해서, 내용이 같으면 파일도 똑같이 나오게 한다.
+    const sortKeys = (v) => (Array.isArray(v) ? v.map(sortKeys)
+      : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sortKeys(v[k])])) : v);
+    fs.writeFileSync(catalogPath, JSON.stringify(sortKeys(catalog), null, 2) + '\n');
+    console.log(`세트·레어도 표 백업: 세트 ${catalog.sets?.length ?? 0}개, 레어도 ${catalog.rarities?.length ?? 0}개 → ${catalogPath}`);
+  } else if (res.status !== 404) {
+    console.warn(`세트·레어도 표를 읽지 못했습니다 (HTTP ${res.status}). 카드 백업은 정상입니다.`);
+  }
+} catch (err) {
+  console.warn('세트·레어도 표 백업 실패 (카드 백업은 정상):', err.message);
+}
