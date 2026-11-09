@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "market-server": "node scripts/market-server.cjs"
+    "market-server": "node scripts/market-server.cjs",
+    "thumbs": "node scripts/make-thumbnails.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -27,14 +28,15 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
-    "firebase-admin": "^13.0.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
+    "firebase-admin": "^13.0.0",
     "globals": "^17.4.0",
+    "sharp": "^0.35.5",
     "vite": "^8.0.4"
   }
 }
