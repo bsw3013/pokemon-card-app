@@ -7,6 +7,8 @@ import { buildCardKey } from '../utils/cardKey';
 import { useAuth } from '../AuthContext';
 import CardThumbnail from './CardThumbnail';
 import CardDetailView from './CardDetailView';
+import PossessionEditor from './PossessionEditor';
+import { isGradedCopy } from '../utils/cardStats';
 
 const { krToEn, krToJa } = pokemonMapAll;
 
@@ -111,7 +113,10 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
     }
     setIsSaving(true);
     try {
-      await onSave(editData);
+      // 보유 기록이 있으면 보유 상태는 기록을 보고 자동으로 정한다. (등급 카드가 한 장이라도 있으면 "등급카드")
+      const rows = Array.isArray(editData.possessions) ? editData.possessions.filter((p) => Number(p?.count) > 0) : [];
+      const status = rows.length > 0 ? (rows.some(isGradedCopy) ? '등급카드' : '보유중') : editData.status;
+      await onSave({ ...editData, possessions: rows, status });
       if (!card?.isNew) setMode('view');
     } finally {
       setIsSaving(false);
@@ -237,33 +242,6 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
     closePicker();
   };
 
-  const addPossession = () => {
-    setEditData((prev) => ({
-      ...prev,
-      possessions: [
-        ...(prev.possessions || []),
-        { id: `p_${Date.now()}`, count: 1, company: '', grade: '', serial: '', notes: '' },
-      ],
-    }));
-  };
-
-  const updatePossessionField = (index, field, value) => {
-    setEditData((prev) => {
-      const poss = (prev.possessions || []).slice();
-      if (!poss[index]) return prev;
-      poss[index] = { ...poss[index], [field]: value };
-      return { ...prev, possessions: poss };
-    });
-  };
-
-  const removePossession = (index) => {
-    setEditData((prev) => {
-      const poss = (prev.possessions || []).slice();
-      poss.splice(index, 1);
-      return { ...prev, possessions: poss };
-    });
-  };
-
   return (
     <>
       <div className="modal-backdrop fade-in" onClick={onClose} style={{ zIndex: 1000 }}>
@@ -326,7 +304,6 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
                     {f.id === 'cardName' && <input type="text" name="cardName" value={editData.cardName || ''} onChange={handleEditChange} disabled={!isAdmin} />}
                     {f.id === 'pokedexNumber' && <input type="text" name="pokedexNumber" value={editData.pokedexNumber || ''} onChange={handleEditChange} disabled={!isAdmin} />}
                     {f.id === 'cardNumber' && <input type="text" name="cardNumber" value={editData.cardNumber || ''} onChange={handleEditChange} disabled={!isAdmin} />}
-                    {f.id === 'price' && <input type="number" name="price" value={editData.price || 0} onChange={handleEditChange} />}
 
                     {f.id === 'series' && (
                       <select name="series" value={editData.series || ''} onChange={handleEditChange} disabled={!isAdmin}>
@@ -358,7 +335,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
                             <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginRight: '0.4rem' }}>보유여부</label>
                           </div>
                           <div style={{ flex: '0 0 120px' }}>
-                            <select name="status" value={editData.status || '미보유'} onChange={handleEditChange} style={{ width: '100%' }}>
+                            <select name="status" value={(editData.possessions || []).length > 0 ? ((editData.possessions || []).some(isGradedCopy) ? '등급카드' : '보유중') : (editData.status || '미보유')} onChange={handleEditChange} style={{ width: '100%' }} disabled={(editData.possessions || []).length > 0} title={(editData.possessions || []).length > 0 ? '아래 보유 기록을 보고 자동으로 정해집니다' : ''}>
                               <option value="미보유">미보유</option>
                               <option value="보유중">보유중</option>
                               <option value="등급카드">등급카드</option>
@@ -377,61 +354,16 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
                           </div>
                         </div>
 
-                        <div className="possession-section">
-                          <div className="possession-header" style={{ gridTemplateColumns: '140px 72px 72px minmax(160px, 1fr) auto' }}>
-                            <div className="pos-field company">등급 업체</div>
-                            <div className="pos-field grade">등급</div>
-                            <div className="pos-field count">수량</div>
-                            <div className="pos-field serial">시리얼 번호</div>
-                            <div className="pos-actions"></div>
-                          </div>
-
-                          {(editData.possessions || []).map((p, idx) => (
-                            <div key={p.id || idx} className="possession-row" style={{ gridTemplateColumns: '140px 72px 72px minmax(160px, 1fr) auto' }}>
-                              <div className="pos-field company">
-                                <label style={{ display: 'none' }}>등급 업체</label>
-                                <select name={`poss-${idx}-company`} data-pos-field="company" value={p.company || ''} onChange={(e) => updatePossessionField(idx, 'company', e.target.value)}>
-                                  <option value="">선택</option>
-                                  {(appConfig.gradingCompaniesOptions || []).map(c => <option key={c} value={c}>{c}</option>)}
-                                  <option value="raw">raw</option>
-                                </select>
-                              </div>
-
-                              <div className="pos-field grade">
-                                <label style={{ display: 'none' }}>등급</label>
-                                <select name={`poss-${idx}-grade`} data-pos-field="grade" value={p.grade || ''} onChange={(e) => updatePossessionField(idx, 'grade', e.target.value)} disabled={p.company === 'raw'}>
-                                  <option value="">선택</option>
-                                  {((appConfig.gradingScaleOptions && appConfig.gradingScaleOptions.length) ? appConfig.gradingScaleOptions : Array.from({ length: 10 }, (_, i) => String(i + 1))).map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-                                </select>
-                              </div>
-
-                              <div className="pos-field count">
-                                <label style={{ display: 'none' }}>수량</label>
-                                <input name={`poss-${idx}-count`} data-pos-field="count" type="number" min={0} value={p.count || 1} onChange={(e) => updatePossessionField(idx, 'count', parseInt(e.target.value || 0))} />
-                              </div>
-
-                              <div className="pos-field serial">
-                                <label style={{ display: 'none' }}>시리얼</label>
-                                <input name={`poss-${idx}-serial`} data-pos-field="serial" type="text" value={p.serial || ''} onChange={(e) => updatePossessionField(idx, 'serial', e.target.value)} disabled={p.company === 'raw'} />
-                              </div>
-
-                              <div className="pos-actions">
-                                <button
-                                  type="button"
-                                  className="btn btn-delete"
-                                  title="보유 정보 삭제"
-                                  onClick={() => removePossession(idx)}
-                                >
-                                  <span className="icon" aria-hidden>✕</span>
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-
-                          <div style={{ marginTop: '0.5rem' }}>
-                            <button type="button" className="btn btn-secondary" onClick={addPossession}>보유 정보 추가</button>
-                          </div>
-                        </div>
+                        <label className="pe-f pe-price">내 평가 가격 (1장, 원)
+                          <input type="number" name="price" min={0} value={editData.price || ''} onChange={handleEditChange} placeholder="지금 이 카드 1장의 가치를 적어 두면 컬렉션 평가액에 합산돼요" />
+                        </label>
+                        <PossessionEditor
+                          rows={editData.possessions || []}
+                          onChange={(rows) => setEditData((prev) => ({ ...prev, possessions: rows }))}
+                          gradingCompanies={appConfig.gradingCompaniesOptions || []}
+                          gradingScale={(appConfig.gradingScaleOptions && appConfig.gradingScaleOptions.length) ? appConfig.gradingScaleOptions : Array.from({ length: 10 }, (_, i) => String(i + 1))}
+                          defaultLanguage={editData.language || '한국'}
+                        />
                       </div>
                     )}
                     {!['cardName', 'pokedexNumber', 'series', 'cardNumber', 'rarity', 'type', 'status', 'price'].includes(f.id)
