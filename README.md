@@ -47,7 +47,6 @@ npm install
 **실제 키 값은 이 문서(공개 저장소)에 절대 적지 않습니다.** 값은 아래 "어디서 찾나요"를 보고 직접 복사해 오세요.
 
 ```
-VITE_GEMINI_API_KEY="(Gemini API 키)"
 VITE_FIREBASE_API_KEY="(Firebase 웹 API 키)"
 VITE_FIREBASE_AUTH_DOMAIN="pokemoncard-0319.firebaseapp.com"
 VITE_FIREBASE_PROJECT_ID="pokemoncard-0319"
@@ -58,7 +57,6 @@ VITE_FIREBASE_APP_ID="(Firebase 앱 ID)"
 
 어디서 찾나요?
 - **Firebase 값들**: [Firebase 콘솔](https://console.firebase.google.com/project/pokemoncard-0319/settings/general) → 프로젝트 설정 → 일반 → "내 앱"의 SDK 설정
-- **Gemini 키**: [Google AI Studio](https://aistudio.google.com/apikey) 의 API 키 목록
 
 > 깃허브 토큰은 더 이상 필요 없습니다. 깃허브 백업은 깃허브 Actions가 자동으로 합니다(아래 "카드 데이터(DB) 백업과 복원" 참고).
 

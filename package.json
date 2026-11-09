@@ -12,7 +12,6 @@
     "thumbs": "node scripts/make-thumbnails.mjs"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
     "@notionhq/client": "^5.19.0",
     "csv-parse": "^6.2.1",
     "dotenv": "^17.4.2",

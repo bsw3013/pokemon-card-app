@@ -14,17 +14,12 @@ import {
 import { db } from '../firebase';
 import { useAuth } from '../AuthContext';
 import { useOwnedCards } from '../hooks/useOwnedCards';
-import { analyzeListingImage } from '../gemini';
 import { buildCardKey } from '../utils/cardKey';
 import { looksLikeBundle } from '../utils/bundleHint';
 import PriceTrendChart from './PriceTrendChart';
 
 const SOURCE_LABELS = { bunjang: '번개장터', danggeun: '당근마켓', manual: '직접입력' };
 const TOP_GRADES = ['10', '9'];
-
-// Gemini API 키를 새로 발급받아 .env.local에 넣은 뒤 true로 바꾸면
-// "🔍 사진으로 확인" 버튼이 바로 다시 나타난다. (로직/핸들러는 그대로 남겨둠)
-const PHOTO_CHECK_ENABLED = false;
 
 const PICKER_RESULT_LIMIT = 60;
 const MARKET_SERVER_URL = 'http://localhost:5175';
@@ -84,7 +79,6 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
   const [marketSearchError, setMarketSearchError] = useState('');
   const [importingId, setImportingId] = useState(null);
 
-  const [photoChecks, setPhotoChecks] = useState({});
   const [nicknameByUid, setNicknameByUid] = useState({}); // uid -> 현재 닉네임(실시간). 없으면 null로 캐싱.
 
   const appliedPresetRef = useRef(null);
@@ -641,16 +635,6 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
     refreshCardAndDashboard(selectedCard.cardKey);
   }
 
-  async function handlePhotoCheck(listing) {
-    setPhotoChecks((prev) => ({ ...prev, [listing.id]: { loading: true } }));
-    try {
-      const result = await analyzeListingImage(listing.imageUrl, listing.cardName);
-      setPhotoChecks((prev) => ({ ...prev, [listing.id]: { loading: false, result } }));
-    } catch (err) {
-      setPhotoChecks((prev) => ({ ...prev, [listing.id]: { loading: false, error: err.message } }));
-    }
-  }
-
   return (
     <main className="market-page fade-in">
       <div className="market-header">
@@ -1110,8 +1094,6 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                 onEdit={openEditListing}
                 onToggleStatus={handleStatusToggle}
                 onDelete={handleDeleteListing}
-                onPhotoCheck={PHOTO_CHECK_ENABLED ? handlePhotoCheck : undefined}
-                photoChecks={photoChecks}
                 statusActionLabel="판매완료로 표시"
                 nicknameByUid={nicknameByUid}
               />
@@ -1123,7 +1105,6 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                 onEdit={openEditListing}
                 onToggleStatus={handleStatusToggle}
                 onDelete={handleDeleteListing}
-                photoChecks={photoChecks}
                 statusActionLabel="판매중으로 되돌리기"
                 nicknameByUid={nicknameByUid}
               />
@@ -1195,7 +1176,7 @@ function LangConditionTable({ counts, className = '', compact = false, onSelect 
   );
 }
 
-function ListingSection({ title, listings, emptyText, onEdit, onToggleStatus, onDelete, onPhotoCheck, photoChecks, statusActionLabel, dateField = 'firstSeen', nicknameByUid }) {
+function ListingSection({ title, listings, emptyText, onEdit, onToggleStatus, onDelete, statusActionLabel, dateField = 'firstSeen', nicknameByUid }) {
   return (
     <div className="market-section">
       {title && <h4>{title} ({listings.length})</h4>}
@@ -1203,7 +1184,6 @@ function ListingSection({ title, listings, emptyText, onEdit, onToggleStatus, on
       {listings.length > 0 && (
         <div className="market-listing-table">
           {listings.map((l) => {
-            const check = photoChecks?.[l.id];
             return (
               <div key={l.id} className="market-listing-row">
                 <span className={`badge-source badge-source-${l.source}`}>{l.marketplace || SOURCE_LABELS[l.source] || l.source}</span>
@@ -1223,11 +1203,6 @@ function ListingSection({ title, listings, emptyText, onEdit, onToggleStatus, on
                   </span>
                 )}
                 <span className="market-listing-actions">
-                  {onPhotoCheck && l.imageUrl && (
-                    <button type="button" className="btn" onClick={() => onPhotoCheck(l)} disabled={check?.loading}>
-                      {check?.loading ? '분석중...' : '🔍 사진으로 확인'}
-                    </button>
-                  )}
                   {onToggleStatus && (
                     <button type="button" className="btn" onClick={() => onToggleStatus(l)}>{statusActionLabel}</button>
                   )}
@@ -1238,12 +1213,6 @@ function ListingSection({ title, listings, emptyText, onEdit, onToggleStatus, on
                     <button type="button" className="btn btn-danger" onClick={() => onDelete(l)}>🗑 삭제</button>
                   )}
                 </span>
-                {check?.result && (
-                  <span className="market-photo-result">
-                    {check.result.matchesExpected ? '✅' : '⚠️'} {check.result.cardName || '?'} (확신도 {check.result.confidence}%){check.result.cardCount > 1 ? ' · 묶음의심' : ''} — {check.result.note}
-                  </span>
-                )}
-                {check?.error && <span className="market-photo-result market-photo-error">⚠️ {check.error}</span>}
               </div>
             );
           })}
