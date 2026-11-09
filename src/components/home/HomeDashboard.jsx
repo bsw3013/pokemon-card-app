@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useAuth } from '../../AuthContext';
 import { useOwnedCards } from '../../hooks/useOwnedCards';
+import { navigate } from '../../utils/hashRoute';
 import pokemonMapAll from '../../utils/pokemonMapAll.json';
 import {
   computeCollectionSummary,
@@ -29,7 +30,8 @@ const SHORTCUT_DEFS = [
   { id: 'admin', label: '설정', Icon: IconSettings },
 ];
 
-export default function HomeDashboard({ onNavigate }) {
+export default function HomeDashboard() {
+  const onNavigate = (id) => navigate([{ gallery: 'cards', filter: 'cards', stats: 'collection' }[id] || id]);
   const { user, isAdmin, signInWithGoogle } = useAuth();
   const { cards, loading } = useOwnedCards();
   const [selectedNumber, setSelectedNumber] = useState(null);

@@ -1,4 +1,4 @@
-function parsePossessions(raw) {
+export function parsePossessions(raw) {
   if (Array.isArray(raw)) return raw;
   if (typeof raw === 'string' && raw.trim().startsWith('[')) {
     try { const v = JSON.parse(raw); return Array.isArray(v) ? v : []; } catch { return []; }
@@ -27,4 +27,19 @@ export function topGrading(card) {
     });
   });
   return top;
+}
+
+// 보유 기록 한 줄의 상태 (등급 카드면 "PSA 10", 아니면 카드 상태)
+export const CONDITION_OPTIONS = ['미개봉', '민트', '거의 새것', '사용감 있음', '손상'];
+
+export function isGradedCopy(p) {
+  return !!(p && p.company && p.company !== 'raw' && p.grade);
+}
+
+export function possessionLabel(p) {
+  if (!p) return '';
+  const base = isGradedCopy(p) ? `${p.company} ${p.grade}` : (p.condition || '일반');
+  const lang = p.language && p.language !== '한국' ? ` · ${p.language}판` : '';
+  const qty = Number(p.count) > 1 ? ` ×${p.count}` : '';
+  return `${base}${lang}${qty}`;
 }
