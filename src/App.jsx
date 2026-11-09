@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import './index.css';
@@ -14,6 +14,8 @@ import ThemeToggle from './components/ThemeToggle';
 import { defaultConfig } from './defaultConfig';
 import { sanitizeStatusOptions } from './utils/statusUtils';
 import { useAuth } from './AuthContext';
+import { useOwnedCards } from './hooks/useOwnedCards';
+import { applyCatalogToConfig } from './utils/catalog';
 
 const NAV_ITEMS = [
   { id: 'home', label: '홈', description: '메인 대시보드' },
@@ -55,7 +57,10 @@ function App() {
   const { user, loading: authLoading, isAdmin, nickname, needsNickname, signInWithGoogle, signOut } = useAuth();
   const [showNicknameEditor, setShowNicknameEditor] = useState(false);
   const [currentView, setCurrentView] = useState(getViewFromHash);
-  const [appConfig, setAppConfig] = useState(null);
+  const [rawAppConfig, setAppConfig] = useState(null);
+  // 세트·레어도 표(settings/catalog)가 있으면 그 순서대로 시리즈·레어도 선택지를 만든다.
+  const { catalog } = useOwnedCards();
+  const appConfig = useMemo(() => applyCatalogToConfig(rawAppConfig, catalog), [rawAppConfig, catalog]);
   const [marketPresetCard, setMarketPresetCard] = useState(null);
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [isNavPinned, setIsNavPinned] = useState(false);
