@@ -43,21 +43,22 @@ npm install
 
 `.env.local` 파일은 보안상 깃허브에 올라가지 않기 때문에 **직접 생성**해야 합니다.
 
-프로젝트 폴더 최상단(`pokemon-card-app/`)에 `.env.local` 파일을 새로 만들고, 아래 내용을 그대로 복사해서 붙여넣습니다.
+프로젝트 폴더 최상단(`pokemon-card-app/`)에 `.env.local` 파일을 새로 만들고, 아래 형식대로 값을 채워 넣습니다.
+**실제 키 값은 이 문서(공개 저장소)에 절대 적지 않습니다.** 값은 아래 "어디서 찾나요"를 보고 직접 복사해 오세요.
 
 ```
-VITE_GEMINI_API_KEY="AIzaSyADoNdAGf77G9t2_HkJMihouRMEmK1iQ1E"
-VITE_FIREBASE_API_KEY="AIzaSyACosiZlpImEYUK3ADg2rXcHmSkpY_V6n0"
+VITE_FIREBASE_API_KEY="(Firebase 웹 API 키)"
 VITE_FIREBASE_AUTH_DOMAIN="pokemoncard-0319.firebaseapp.com"
 VITE_FIREBASE_PROJECT_ID="pokemoncard-0319"
 VITE_FIREBASE_STORAGE_BUCKET="pokemoncard-0319.firebasestorage.app"
-VITE_FIREBASE_MESSAGING_SENDER_ID="84068202860"
-VITE_FIREBASE_APP_ID="1:84068202860:web:57173ee43d2a279ac11b49"
-VITE_GITHUB_TOKEN="[깃허브에서 발급받은 Personal Access Token 입력]"
-VITE_GITHUB_OWNER="bsw3013"
-VITE_GITHUB_REPO="pokemon-card-app"
-VITE_GITHUB_BACKUP_PATH="database_backups/main_dataset.csv"
+VITE_FIREBASE_MESSAGING_SENDER_ID="(Firebase 메시징 발신자 ID)"
+VITE_FIREBASE_APP_ID="(Firebase 앱 ID)"
 ```
+
+어디서 찾나요?
+- **Firebase 값들**: [Firebase 콘솔](https://console.firebase.google.com/project/pokemoncard-0319/settings/general) → 프로젝트 설정 → 일반 → "내 앱"의 SDK 설정
+
+> 깃허브 토큰은 더 이상 필요 없습니다. 깃허브 백업은 깃허브 Actions가 자동으로 합니다(아래 "카드 데이터(DB) 백업과 복원" 참고).
 
 > ⚠️ 이 파일은 외부에 절대 공유하지 마세요.
 
@@ -95,10 +96,13 @@ git pull origin main
 
 ---
 
-## 📊 카드 데이터(DB) 복원 방법
+## 📊 카드 데이터(DB) 백업과 복원
 
 카드 데이터(파이어베이스 DB)는 깃허브 코드와 별개입니다.
-앱을 실행한 뒤 **마스터 설정 → 🐙 깃허브 백업 & 복원 → [⬇️ 깃허브에서 DB로 불러오기]** 버튼을 누르면 자동으로 복원됩니다.
+
+- **백업(자동)**: 깃허브 Actions가 매일 새벽 3시쯤 카드 목록을 `database_backups/main_dataset.csv` 와 `backup_날짜_시간.csv` 로 저장합니다. 바뀐 카드가 없으면 건너뜁니다.
+- **지금 바로 백업**: 깃허브 저장소 → **Actions** 탭 → 왼쪽 **Backup card database** → 오른쪽 **Run workflow** 버튼. (마스터 설정의 백업 버튼도 이 화면을 열어 줍니다.)
+- **복원**: 앱의 **마스터 설정 → 🐙 깃허브 백업 & 복원 → [⬇️ 최신 백업 DB로 복원]** 버튼.
 
 ---
 
@@ -130,7 +134,7 @@ npm run thumbs -- --prune   # 더 이상 쓰지 않는 썸네일 정리
 [다른 컴퓨터에서 이어서 수정]
 
 [이 컴퓨터에서 DB 데이터 수정]
-       ↓ 마스터설정 → 깃허브 백업 버튼
+       ↓ 매일 자동 백업 (깃허브 Actions)
   [GitHub (database_backups/main_dataset.csv)]
        ↓ 마스터설정 → 깃허브 복원 버튼
 [다른 컴퓨터에서 DB 복원]

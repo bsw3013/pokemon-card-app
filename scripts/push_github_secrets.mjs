@@ -1,6 +1,6 @@
 // One-time helper: reads .env.local and pushes each VITE_* value as a
 // GitHub Actions repository secret, so the GitHub Actions build has the
-// same Firebase/Gemini/GitHub config that .env.local provides locally.
+// same Firebase/GitHub config that .env.local provides locally.
 //
 // Usage (PowerShell, from the project root):
 //   npm install tweetnacl tweetnacl-sealedbox-js --no-save
@@ -22,8 +22,6 @@ const KEYS = [
   "VITE_FIREBASE_STORAGE_BUCKET",
   "VITE_FIREBASE_MESSAGING_SENDER_ID",
   "VITE_FIREBASE_APP_ID",
-  "VITE_GEMINI_API_KEY",
-  "VITE_GITHUB_TOKEN",
   "VITE_GITHUB_OWNER",
   "VITE_GITHUB_REPO",
   "VITE_GITHUB_BACKUP_PATH",
