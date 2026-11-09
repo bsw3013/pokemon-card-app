@@ -72,7 +72,7 @@ export default function PriceTrendChart({ history }) {
   if (points.length < 2) {
     return (
       <div className="market-chart-empty">
-        📈 아직 추이 데이터가 부족합니다. 수집이 쌓일수록 (또는 직접 기록을 추가할수록) 자동으로 그래프가 채워집니다.
+        아직 추이 데이터가 부족합니다. 수집이 쌓일수록 (또는 직접 기록을 추가할수록) 자동으로 그래프가 채워집니다.
       </div>
     );
   }

@@ -1108,18 +1108,18 @@ export default function AlbumPlanner({ appConfig }) {
       <main className="album-page slide-up">
         <div className="album-header">
           <div>
-            <h2>{showTrash ? '🗑️ 휴지통' : '🖼️ 앨범 꾸미기'}</h2>
+            <h2>{showTrash ? '휴지통' : '앨범 꾸미기'}</h2>
             <p>{showTrash ? '삭제된 앨범을 복구하거나 영구 삭제할 수 있습니다.' : '카드 배치를 미리 설계하고 페이지 구성을 저장하세요.'}</p>
           </div>
           <div className="album-header-actions">
             <button type="button" className={`btn-toggle ${showTrash ? 'active' : ''}`} onClick={() => setShowTrash(!showTrash)} style={{ marginRight: '1rem', color: showTrash ? 'var(--danger-color)' : 'inherit' }}>
-               {showTrash ? '돌아가기' : `🗑️ 휴지통 (${trashAlbums.length}개)`}
+               {showTrash ? '돌아가기' : `휴지통 (${trashAlbums.length}개)`}
             </button>
             <div className="view-toggle">
               <button type="button" className={`btn-toggle ${albumViewMode === 'grid' ? 'active' : ''}`} onClick={() => setAlbumViewMode('grid')}>앨범형</button>
               <button type="button" className={`btn-toggle ${albumViewMode === 'list' ? 'active' : ''}`} onClick={() => setAlbumViewMode('list')}>목록형</button>
             </div>
-            {!showTrash && <button type="button" className="btn btn-primary" onClick={openCreateModal}>➕ 새 앨범 만들기</button>}
+            {!showTrash && <button type="button" className="btn btn-primary" onClick={openCreateModal}>새 앨범 만들기</button>}
           </div>
         </div>
 
@@ -1221,7 +1221,7 @@ export default function AlbumPlanner({ appConfig }) {
     <main className="album-page slide-up">
       <div className="album-editor-header">
         <div>
-          <h2>🎨 앨범 편집</h2>
+          <h2>앨범 편집</h2>
           <div className="album-name-edit-row">
             <input
               type="text"
@@ -1246,7 +1246,7 @@ export default function AlbumPlanner({ appConfig }) {
           <div className="view-toggle">
             <button type="button" className={`btn-toggle ${editorViewMode === 'page' ? 'active' : ''}`} onClick={() => { setEditorViewMode('page'); setActiveSlotIndex(null); }}>페이지 보기</button>
             <button type="button" className={`btn-toggle ${editorViewMode === 'canvas' ? 'active' : ''}`} onClick={() => { setEditorViewMode('canvas'); setActiveSlotIndex(null); }}>전체 캔버스</button>
-            <button type="button" className={`btn-toggle ${editorViewMode === 'book' ? 'active' : ''}`} onClick={() => { setPreBookViewMode(editorViewMode); setEditorViewMode('book'); setBookStep(0); setActiveSlotIndex(null); }}>📖 앨범 넘겨보기</button>
+            <button type="button" className={`btn-toggle ${editorViewMode === 'book' ? 'active' : ''}`} onClick={() => { setPreBookViewMode(editorViewMode); setEditorViewMode('book'); setBookStep(0); setActiveSlotIndex(null); }}>앨범 넘겨보기</button>
           </div>
           {editorViewMode === 'canvas' && (
             <div className="canvas-columns-control" title="캔버스 페이지 열 수 선택">
@@ -1261,20 +1261,20 @@ export default function AlbumPlanner({ appConfig }) {
           <button type="button" className="btn btn-secondary" onClick={handleUndo} disabled={!canUndo}>↶ 실행 취소</button>
           <button type="button" className="btn btn-secondary" onClick={handleRedo} disabled={!canRedo}>↷ 다시 실행</button>
           <button type="button" className="btn btn-secondary" onClick={addNewPage}>＋ 페이지 추가</button>
-          <button type="button" className="btn btn-secondary" onClick={duplicateCurrentPage}>📄 페이지 복제</button>
-          <button type="button" className="btn btn-secondary" onClick={openImportModal}>📥 다른 앨범에서 페이지 가져오기</button>
+          <button type="button" className="btn btn-secondary" onClick={duplicateCurrentPage}>페이지 복제</button>
+          <button type="button" className="btn btn-secondary" onClick={openImportModal}>다른 앨범에서 페이지 가져오기</button>
           <button type="button" className="btn btn-danger" onClick={removeCurrentPage}>현재 페이지 삭제</button>
           <div style={{ position: 'relative' }}>
             <button type="button" className="btn btn-primary" onClick={() => showExportModal ? closeExportModalPopup() : openExportModalPopup()} disabled={isExporting}>
-              {isExporting ? '캡처 중...' : '📥 앨범 내보내기'}
+              {isExporting ? '캡처 중...' : '앨범 내보내기'}
             </button>
             {showExportModal && (
               <div className="multi-sort-panel" style={{ width: '220px', right: 0, top: '100%', padding: '1rem', zIndex: 1000 }}>
                 <h4 style={{ marginBottom: '0.8rem', fontSize: '1rem' }}>앨범 내보내기</h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <button type="button" className="btn btn-secondary" onClick={() => handleExportAlbum('pdf')}>📄 PDF로 저장</button>
-                  <button type="button" className="btn btn-secondary" onClick={() => handleExportAlbum('zip')}>🖼️ 이미지(ZIP) 저장</button>
-                  <button type="button" className="btn btn-secondary" style={{ borderColor: 'rgba(99, 102, 241, 0.5)', color: '#a5b4fc', background: 'rgba(79, 70, 229, 0.1)' }} onClick={() => handleExportAlbum('full')}>📸 캔버스 한장으로 저장 (JPG)</button>
+                  <button type="button" className="btn btn-secondary" onClick={() => handleExportAlbum('pdf')}>PDF로 저장</button>
+                  <button type="button" className="btn btn-secondary" onClick={() => handleExportAlbum('zip')}>이미지(ZIP) 저장</button>
+                  <button type="button" className="btn btn-secondary" style={{ borderColor: 'rgba(99, 102, 241, 0.5)', color: '#a5b4fc', background: 'rgba(79, 70, 229, 0.1)' }} onClick={() => handleExportAlbum('full')}>캔버스 한장으로 저장 (JPG)</button>
                 </div>
               </div>
             )}
@@ -1652,7 +1652,7 @@ export default function AlbumPlanner({ appConfig }) {
                     }}
                     title="전체화면 토글"
                   >
-                    🖥️ 전체화면
+                    전체화면
                   </button>
                   <button 
                     type="button" 
@@ -1695,7 +1695,7 @@ export default function AlbumPlanner({ appConfig }) {
                             <h1>{editingAlbum.name || '새 앨범'}</h1>
                             <p>{editingAlbum.layoutKey} CARD COLLECTOR</p>
                             <small>총 {pageCount} 페이지 · {totalSlots(editingAlbum)} 슬롯</small>
-                            <span className="cover-open-hint">앨범 열기 ➔</span>
+                            <span className="cover-open-hint">앨범 열기 →</span>
                           </div>
                         </div>
                       )}
@@ -1805,7 +1805,7 @@ export default function AlbumPlanner({ appConfig }) {
               style={{ width: '100%', marginBottom: '0.5rem', background: 'linear-gradient(135deg, #3b82f6, #6366f1)' }}
               onClick={openCardPicker}
             >
-              🔍 상세 검색으로 한꺼번에 담기
+              상세 검색으로 한꺼번에 담기
             </button>
             <input
               type="text"
@@ -1965,7 +1965,7 @@ export default function AlbumPlanner({ appConfig }) {
                 })()
               ) : (
                 <div className="album-empty" style={{ padding: '3rem' }}>
-                  💡 대상 앨범을 선택하시면 각 페이지의 카드 배치 그림이 여기에 나타납니다.
+                  대상 앨범을 선택하시면 각 페이지의 카드 배치 그림이 여기에 나타납니다.
                 </div>
               )}
             </div>
@@ -1978,7 +1978,7 @@ export default function AlbumPlanner({ appConfig }) {
                 onClick={handleImportPage}
                 disabled={!importSourceAlbumId || importSelectedPageIndex === null}
               >
-                📥 이 페이지 배치 복사해오기
+                이 페이지 배치 복사해오기
               </button>
             </div>
           </div>

@@ -26,7 +26,7 @@ export default function ThumbnailSettings({ settings, toggleSetting }) {
         onClick={() => setIsOpen(!isOpen)}
         title="보기 설정"
       >
-        <span>⚙️ 보기 설정</span>
+        <span>보기 설정</span>
       </button>
 
       {isOpen && (
@@ -53,7 +53,7 @@ export default function ThumbnailSettings({ settings, toggleSetting }) {
                 onChange={() => toggleSetting('hoverMode')} 
                 style={{ cursor: 'pointer', width: '16px', height: '16px' }}
               />
-              ✨ 스마트 갤러리 모드
+              스마트 갤러리 모드
             </label>
             <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.3rem', marginLeft: '1.6rem', lineHeight: 1.3 }}>
               사진만 크게 보고, 마우스를 올릴 때만 상세 정보를 띄웁니다.

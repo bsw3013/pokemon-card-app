@@ -10,22 +10,8 @@ import { sortCards } from '../utils/sortUtils';
 import ThumbnailSettings from './ThumbnailSettings';
 import CardDetailModal from './CardDetailModal';
 import CardThumbnail from './CardThumbnail';
+import CardTile from './CardTile';
 import MultiSortPanel from './MultiSortPanel';
-
-const getFlagEmoji = (lang) => {
-  if (!lang) return '🇰🇷';
-  if (lang.includes('한국')) return '🇰🇷';
-  if (lang.includes('일본')) return '🇯🇵';
-  if (lang.includes('미국') || lang.includes('영')) return '🇺🇸';
-  if (lang.includes('중국')) return '🇨🇳';
-  return '🇰🇷';
-};
-
-const getStatusClass = (status) => {
-  if (!status || status.includes('미보유')) return 'unowned';
-  if (status.includes('등급')) return 'graded';
-  return 'owned';
-};
 
 export default function CardList({ appConfig, onViewMarket }) {
   const { user, isAdmin, signInWithGoogle } = useAuth();
@@ -282,25 +268,6 @@ export default function CardList({ appConfig, onViewMarket }) {
       ));
    };
 
-   // 카드 문서의 possessions 배열에서 가장 높은 그레이딩(예: PSA 10)을 찾음
-   const getTopGrading = (card) => {
-      let poss = card.possessions || [];
-      if (typeof poss === 'string' && poss.trim().startsWith('[')) {
-         try { poss = JSON.parse(poss); } catch(e) { poss = []; }
-      }
-      if (!Array.isArray(poss)) poss = [];
-      let top = null;
-      poss.forEach(p => {
-         (p.graded || []).forEach(g => {
-            if (!g || !g.company || !g.grade) return;
-            // 숫자 레어도 우선 비교 (문자열이면 그대로 표시)
-            const gradeNum = parseFloat(String(g.grade).replace(/[^0-9.]/g, '')) || null;
-            if (!top) top = { company: g.company, grade: g.grade, gradeNum };
-            else if (gradeNum && top.gradeNum && gradeNum > top.gradeNum) top = { company: g.company, grade: g.grade, gradeNum };
-         });
-      });
-      return top; // {company, grade, gradeNum} 또는 null
-   };
 
 
 
@@ -311,7 +278,7 @@ export default function CardList({ appConfig, onViewMarket }) {
         <div className="loading-gallery fade-in">
            <div className="spinner"></div>
            <h2>소중한 도감을 여는 중입니다...</h2>
-           <p>1,600여 장의 카드 데이터를 고속 캐싱하고 있습니다. 잠시만 기다려주세요 🚀</p>
+           <p>1,600여 장의 카드 데이터를 고속 캐싱하고 있습니다. 잠시만 기다려주세요 </p>
         </div>
      )
   }
@@ -321,13 +288,13 @@ export default function CardList({ appConfig, onViewMarket }) {
        <div className="gallery-header">
           <h2>나만의 포켓몬 도감 <span>({filteredAndSortedCards.length}장)</span></h2>
           <div className="gallery-controls">
-             <div className="grid-columns-control" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'var(--overlay-faint)', padding: '0.3rem 0.8rem', borderRadius: '999px', border: '1px solid var(--border-color)', height: '100%', marginRight: '0.6rem' }}>
+             <div className="grid-columns-control" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'var(--overlay-faint)', padding: '0.3rem 0.8rem', borderRadius: 'var(--radius-s)', border: '1px solid var(--border-color)', height: '100%', marginRight: '0.6rem' }}>
                 <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>가로칸수:</span>
                 <input type="number" min="2" max="12" value={gridColumns} onChange={(e) => setGridColumns(Number(e.target.value) || 6)} style={{ width: '36px', background: 'transparent', border: 'none', color: 'var(--text-main)', outline: 'none', textAlign: 'center', fontWeight: 'bold', fontSize: '0.9rem' }} />
              </div>
              <ThumbnailSettings settings={thumbSettings} toggleSetting={toggleThumbSetting} />
-             {isAdmin && <button type="button" className="btn btn-primary" style={{marginRight: '0.6rem'}} onClick={openCreate}>➕ 카드 추가</button>}
-             <input type="text" className="search-input" placeholder="🔍 이름, 일련번호, 도감번호 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+             {isAdmin && <button type="button" className="btn btn-primary" style={{marginRight: '0.6rem'}} onClick={openCreate}>카드 추가</button>}
+             <input type="text" className="search-input" placeholder="이름, 일련번호, 도감번호 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
              <div style={{ position: 'relative' }}>
                <button type="button" className="btn btn-secondary" style={{marginLeft: '0.6rem'}} onClick={() => setSortPanelOpen(p => !p)}>정렬 설정</button>
                {sortPanelOpen && (
@@ -342,8 +309,8 @@ export default function CardList({ appConfig, onViewMarket }) {
                )}
              </div>
              <div className="view-toggle">
-                <button className={`btn-toggle ${viewMode === 'gallery' ? 'active' : ''}`} onClick={() => setViewMode('gallery')}>🖼️ 갤러리</button>
-                <button className={`btn-toggle ${viewMode === 'table' ? 'active' : ''}`} onClick={() => setViewMode('table')}>📋 표</button>
+                <button className={`btn-toggle ${viewMode === 'gallery' ? 'active' : ''}`} onClick={() => setViewMode('gallery')}>갤러리</button>
+                <button className={`btn-toggle ${viewMode === 'table' ? 'active' : ''}`} onClick={() => setViewMode('table')}>표</button>
              </div>
           </div>
        </div>
@@ -380,7 +347,7 @@ export default function CardList({ appConfig, onViewMarket }) {
                            <tr key={card.id} className={isSavingRef ? 'row-draft' : ''}>
                               <td className="center-cell td-photo" onClick={() => openModal(card)} style={{ position: 'relative' }}>
                                  <CardThumbnail imageUrl={data.imageUrl} alt="preview" type="table" className="table-thumb" />
-                                 {isSavingRef && <div style={{position:'absolute', top: 0, right: 0, padding:'2px 4px', fontSize: '0.7rem', color: '#10b981', fontWeight:'bold', background:'rgba(0,0,0,0.5)'}}>저장됨✅</div>}
+                                 {isSavingRef && <div style={{position:'absolute', top: 0, right: 0, padding:'2px 4px', fontSize: '0.7rem', color: '#10b981', fontWeight:'bold', background:'rgba(0,0,0,0.5)'}}>저장됨</div>}
                               </td>
                               {visibleDisplayFields.map(f => (
                                  <td key={f.id}>
@@ -404,45 +371,10 @@ export default function CardList({ appConfig, onViewMarket }) {
               )}
            </div>
        ) : (
-          <div className="card-grid fade-in" style={{ gridTemplateColumns: `repeat(${gridColumns}, 1fr)` }}>
+          <div className="card-grid ctile-grid" style={{ gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))` }}>
              {filteredAndSortedCards.map(card => (
-             <div className={`card-item fade-in ${thumbSettings.hoverMode ? 'hover-mode-active' : ''}`} key={card.id} onClick={() => openModal(card)}>
-                <div className={`card-image-wrapper ${(card.status === '미보유' || !card.status) ? 'filter-grayscale' : ''}`}>
-                   <CardThumbnail imageUrl={card.imageUrl} alt={card.cardName} type="grid" />
-                   {/* 레어도(AR/SAR) 배지 - rarity 필드 사용 */}
-                   {card.rarity && <span className="card-rarity">{card.rarity}</span>}
-                   {/* 그레이딩(예: PSA 10) 배지 */}
-                   {(() => {
-                     const top = getTopGrading(card);
-                     return top ? <span className="grading-badge">{top.company} {top.grade}</span> : null;
-                   })()}
-                </div>
-                 <div className="card-info">
-                   {thumbSettings.showName && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span className={`status-dot ${getStatusClass(card.status)}`} title={card.status}></span>
-                            <h3 className="card-name" style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }} title={card.cardName}>{card.cardName || '이름 없음'}</h3>
-                         </div>
-                         <span className="country-flag" title={card.language || '한국'}>{getFlagEmoji(card.language)}</span>
-                      </div>
-                   )}
-                    <div className="card-meta">
-                       {thumbSettings.showSeries && card.series && <span className="badge-series">{card.series}</span>}
-                       {thumbSettings.showNumber && card.cardNumber && <span className="badge-number">No.{card.cardNumber}</span>}
-                       {thumbSettings.showNumber && card.pokedexNumber && <span className="badge-number">도감 번호 {displayPokedexNumber(card.pokedexNumber)}</span>}
-                       {thumbSettings.showRarity && card.rarity && <span className="badge-series">{card.rarity}</span>}
-                    </div>
-                    {thumbSettings.showPrice && (
-                       <div className="card-footer" style={{ marginTop: 'auto' }}>
-                          <span className="card-price" style={{ fontWeight: 'bold', color: 'var(--accent-color)' }}>
-                             {card.price ? `${card.price.toLocaleString()}원` : '-'}
-                          </span>
-                       </div>
-                    )}
-                 </div>
-             </div>
-          ))}
+               <CardTile key={card.id} card={card} settings={thumbSettings} onClick={() => openModal(card)} />
+             ))}
           {filteredAndSortedCards.length === 0 && <div className="empty-results">검색어와 일치하는 카드가 없습니다.</div>}
        </div>
        )}

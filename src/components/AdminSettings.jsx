@@ -935,7 +935,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
   if (!isAdmin) {
     return (
       <div className="admin-settings fade-in">
-        <h2>⛔ 접근 권한이 없습니다.</h2>
+        <h2>접근 권한이 없습니다.</h2>
         <p>마스터 설정은 관리자 계정만 사용할 수 있습니다.</p>
       </div>
     );
@@ -950,10 +950,10 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
   return (
     <div className="admin-settings fade-in">
        <div className="settings-header">
-          <h2>⚙️ 마스터 환경설정</h2>
+          <h2>마스터 환경설정</h2>
           {adminTab === 'settings' && (
             <button className="btn btn-primary" onClick={handleSaveConfig} disabled={saving}>
-               {saving ? "저장 중..." : "💾 모든 설정 서버에 저장하기"}
+               {saving ? "저장 중..." : "모든 설정 서버에 저장하기"}
             </button>
           )}
        </div>
@@ -988,16 +988,16 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
          <p className="help-text">시리즈·레어도 목록은 이제 <b>세트·레어도</b> 탭에서 관리합니다.</p>
        )}
        <div className="settings-grid">
-          {!catalog && renderArrayManager("📦 확장팩/시리즈 관리", "seriesOptions", newSeries, setNewSeries)}
-          {!catalog && renderArrayManager("💎 카드 레어도(Rarity) 관리", "rarityOptions", newRarity, setNewRarity)}
-          {renderArrayManager("🏷️ 등급 업체 관리", "gradingCompaniesOptions", newGradingCompany, setNewGradingCompany)}
-          {renderArrayManager("🔢 등급(스케일) 관리 (1-10 기본)", "gradingScaleOptions", newGradingScale, setNewGradingScale)}
-          {renderArrayManager("🔥 포켓몬 카드 종류 관리", "typeOptions", newType, setNewType)}
-          {renderArrayManager("✨ 보관 상태 관리", "statusOptions", newStatus, setNewStatus)}
+          {!catalog && renderArrayManager("확장팩/시리즈 관리", "seriesOptions", newSeries, setNewSeries)}
+          {!catalog && renderArrayManager("카드 레어도(Rarity) 관리", "rarityOptions", newRarity, setNewRarity)}
+          {renderArrayManager("등급 업체 관리", "gradingCompaniesOptions", newGradingCompany, setNewGradingCompany)}
+          {renderArrayManager("등급(스케일) 관리 (1-10 기본)", "gradingScaleOptions", newGradingScale, setNewGradingScale)}
+          {renderArrayManager("포켓몬 카드 종류 관리", "typeOptions", newType, setNewType)}
+          {renderArrayManager("보관 상태 관리", "statusOptions", newStatus, setNewStatus)}
        </div>
 
        <div className="admin-section full-width">
-          <h3>👁️ 카드 정보 표시 & 화면 UI 자동 동기화</h3>
+          <h3>카드 정보 표시 & 화면 UI 자동 동기화</h3>
           <p className="help-text">엑셀이나 깃허브에서 데이터를 불러올 때, 엑셀의 헤더 구성에 따라 아래 항목들이 자동으로 생기거나 없어지도록 연동되었습니다.</p>
           
           <div className="display-fields-list">
@@ -1043,7 +1043,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
 
 
           <div className="add-field-container" style={{ marginTop: '2rem', padding: '1.5rem', background: 'var(--overlay-soft)', borderRadius: '12px' }}>
-             <h4 style={{ margin: '0 0 1rem 0', color: 'var(--primary-color)' }}>➕ 새로운 빈칸 정보 추가 (Custom Field 커스텀 필드)</h4>
+             <h4 style={{ margin: '0 0 1rem 0' }}>새로운 빈칸 정보 추가 (Custom Field 커스텀 필드)</h4>
              <div className="add-field">
                 <input 
                   type="text" 
@@ -1058,32 +1058,32 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
        </div>
 
        {/* 깃허브 연동 섹션 */}
-       <div className="admin-section full-width" style={{ marginTop: '2rem', border: '1px solid #7c3aed' }}>
-          <h3>🐙 깃허브 누적 클라우드 백업 (GitHub)</h3>
+       <div className="admin-section full-width" style={{ marginTop: '2rem' }}>
+          <h3>깃허브 누적 클라우드 백업 (GitHub)</h3>
           <p className="help-text">
              기존 파일을 덮어씌우지 않고 백업 파일을 계속 생성하여 안전하게 보관합니다.<br/>
              복원 시에는 항상 backup_ 파일 중 가장 최신 파일을 기준으로 Firestore를 동기화합니다.
           </p>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginTop: '1.5rem' }}>
-             <div style={{ background: 'rgba(124,58,237,0.1)', padding: '1.5rem', borderRadius: '8px', border: '1px solid rgba(124,58,237,0.3)' }}>
-                <h4 style={{ color: '#7c3aed', marginBottom: '0.5rem' }}>🚀 깃허브 누적 백업 (DB → GitHub)</h4>
+             <div className="admin-subpanel">
+                <h4 style={{ marginBottom: '0.5rem' }}>깃허브 누적 백업 (DB → GitHub)</h4>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
                    매일 새벽 3시쯤 자동으로 <code>backup_날짜_시간.csv</code> 를 만듭니다(바뀐 카드가 있을 때만).<br/>
                    지금 바로 하려면 아래 버튼 → 깃허브 화면의 <b>Run workflow</b> 를 누르세요.
                 </p>
-                <a className="btn" href={GH_BACKUP_WORKFLOW_URL} target="_blank" rel="noopener noreferrer" style={{ background: '#7c3aed', color: 'white', width: '100%', padding: '0.8rem', display: 'block', textAlign: 'center', textDecoration: 'none' }}>
-                   ⬆️ 깃허브에서 지금 백업 실행하기
+                <a className="btn btn-primary" href={GH_BACKUP_WORKFLOW_URL} target="_blank" rel="noopener noreferrer" style={{ width: '100%', padding: '0.8rem', display: 'block', textAlign: 'center', textDecoration: 'none' }}>
+                   깃허브에서 지금 백업 실행하기
                 </a>
                 <a href={GH_BACKUP_FOLDER_URL} target="_blank" rel="noopener noreferrer" style={{ display: 'block', marginTop: '0.6rem', fontSize: '0.8rem', textAlign: 'center', color: 'var(--text-muted)' }}>
                    백업 파일 목록 보기
                 </a>
              </div>
-             <div style={{ background: 'rgba(124,58,237,0.1)', padding: '1.5rem', borderRadius: '8px', border: '1px solid rgba(124,58,237,0.3)' }}>
-                <h4 style={{ color: '#a78bfa', marginBottom: '0.5rem' }}>📥 깃허브 기준 데이터 복원</h4>
+             <div className="admin-subpanel">
+                <h4 style={{ marginBottom: '0.5rem' }}>깃허브 기준 데이터 복원</h4>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>GitHub의 최신 백업 데이터베이스를 기준으로 모든 행순서, 개수, 설정을 일치시킵니다.</p>
-                <button className="btn" style={{ border: '1px solid #7c3aed', color: '#a78bfa', width: '100%', padding: '0.8rem', background: 'transparent' }} onClick={handleGithubRestore}>
-                   ⬇️ 최신 백업 DB로 복원
+                <button className="btn btn-secondary" style={{ width: '100%', padding: '0.8rem' }} onClick={handleGithubRestore}>
+                   최신 백업 DB로 복원
                 </button>
              </div>
           </div>
@@ -1096,16 +1096,16 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
        </div>
 
        {/* 데이터베이스 연동 섹션 추가 */}
-       <div className="admin-section full-width" style={{ marginTop: '2rem', border: '1px solid #10b981' }}>
+       <div className="admin-section full-width" style={{ marginTop: '2rem' }}>
 
-          <h3>💾 글로벌 데이터 클라우드 관리 (엑셀 연동)</h3>
+          <h3>글로벌 데이터 클라우드 관리 (엑셀 연동)</h3>
           <p className="help-text">
              방대한 양의 카드 데이터를 엑셀로 한 번에 넣거나 백업할 수 있습니다.
           </p>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginTop: '1.5rem' }}>
-             <div style={{ background: 'var(--overlay-strong)', padding: '1.5rem', borderRadius: '8px' }}>
-                <h4 style={{ color: '#3b82f6', marginBottom: '1rem' }}>📥 대량 데이터 업로드 (Import)</h4>
+             <div className="admin-subpanel">
+                <h4 style={{ marginBottom: '1rem' }}>대량 데이터 업로드 (Import)</h4>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>엑셀(.csv) 파일을 올려 수천 장의 카드를 등록하고 항목 설정까지 자동 동기화합니다.</p>
                 <input 
                    type="file" 
@@ -1115,26 +1115,26 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
                    id="csv-upload"
                 />
                 <label htmlFor="csv-upload" className="btn btn-primary" style={{ display: 'inline-block', cursor: 'pointer', textAlign: 'center', width: '100%' }}>
-                   📂 CSV 엑셀 파일 업로드
+                   CSV 엑셀 파일 업로드
                 </label>
                 <div style={{ marginTop: '1rem', textAlign: 'center' }}>
                    <button className="btn" style={{ fontSize: '0.8rem', padding: '0.3rem 0.6rem', border: '1px solid var(--overlay-strong)' }} onClick={handleExportTemplate}>
-                      📄 빈 엑셀 템플릿 다운로드
+                      빈 엑셀 템플릿 다운로드
                    </button>
                 </div>
              </div>
 
-              <div style={{ background: 'var(--overlay-strong)', padding: '1.5rem', borderRadius: '8px' }}>
-                <h4 style={{ color: '#10b981', marginBottom: '1rem' }}>📤 전체 데이터 풀 백업 & 열람</h4>
+              <div className="admin-subpanel">
+                <h4 style={{ marginBottom: '1rem' }}>전체 데이터 풀 백업 & 열람</h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                   <button className="btn" style={{ background: '#10b981', color: 'white', width: '100%', padding: '0.8rem' }} onClick={handleExportDatabase}>
-                      ⬇️ 클라우드 데이터 엑셀(CSV) 다운로드
+                   <button className="btn btn-primary" style={{ width: '100%', padding: '0.8rem' }} onClick={handleExportDatabase}>
+                      클라우드 데이터 엑셀(CSV) 다운로드
                    </button>
-                   <button className="btn" style={{ border: '1px solid #10b981', color: '#10b981', width: '100%', padding: '0.8rem', background: 'transparent' }} onClick={fetchRawDb}>
-                      {loadingRaw ? '불러오는 중...' : showRawDb ? '📋 원격 데이터 뷰어 닫기' : '📋 웹에서 원시 표 즉시 펼치기'}
+                   <button className="btn btn-secondary" style={{ width: '100%', padding: '0.8rem' }} onClick={fetchRawDb}>
+                      {loadingRaw ? '불러오는 중...' : showRawDb ? '원격 데이터 뷰어 닫기' : '웹에서 원시 표 즉시 펼치기'}
                    </button>
                    <button className="btn btn-secondary" style={{ width: '100%', padding: '0.8rem' }} disabled={isGlobalProcessing} onClick={handleFillCardNames}>
-                      {isGlobalProcessing ? '처리 중...' : '🪄 빈 카드 이름·도감번호 자동 채우기'}
+                      {isGlobalProcessing ? '처리 중...' : '빈 카드 이름·도감번호 자동 채우기'}
                    </button>
                 </div>
              </div>
@@ -1143,12 +1143,12 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
           {showRawDb && rawDbData && (
              <div style={{ marginTop: '2rem', padding: '1rem', background: 'var(--overlay-strong)', borderRadius: '8px', border: '1px solid var(--border-color)', overflowX: 'auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                   <h4 style={{ color: 'var(--primary-color)', margin: 0 }}>
-                       🔎 실시간 원본 데이터베이스 뷰어 (총 {rawDbData.length}건, 🐙 GitHub 기준 정렬됨)
+                   <h4 style={{ margin: 0 }}>
+                       실시간 원본 데이터베이스 뷰어 (총 {rawDbData.length}건, GitHub 기준 정렬됨)
                    </h4>
                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button className="btn btn-secondary" disabled={true} title="행 추가는 GitHub 기준 DB CSV를 먼저 수정한 뒤 복원으로 반영됩니다">➕ 새 행 추가 (비활성)</button>
-                       <button className="btn btn-primary" disabled={isGlobalProcessing} onClick={handleRawAddColumn}>➕ 새로운 열(항목) 추가</button>
+                        <button className="btn btn-secondary" disabled={true} title="행 추가는 GitHub 기준 DB CSV를 먼저 수정한 뒤 복원으로 반영됩니다">새 행 추가 (비활성)</button>
+                       <button className="btn btn-primary" disabled={isGlobalProcessing} onClick={handleRawAddColumn}>새로운 열(항목) 추가</button>
                    </div>
                 </div>
                 <table className="admin-table" style={{ fontSize: '0.8rem' }}>
@@ -1159,13 +1159,13 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
                              <th 
                                 key={k} 
                                 onClick={() => handleRawSort(k)}
-                                style={{ padding: '0.5rem', color: '#3b82f6', minWidth: '80px', cursor: 'pointer', userSelect: 'none' }}
+                                style={{ padding: '0.5rem', minWidth: '80px', cursor: 'pointer', userSelect: 'none' }}
                              >
                                  <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'4px' }}>
                                     {k}
-                                    {rawSortConfig.key === k ? (rawSortConfig.direction === 'asc' ? ' 🔼' : ' 🔽') : ''}
+                                    {rawSortConfig.key === k ? (rawSortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                                     {k !== 'raw_database_id' && !coreFields.includes(k) && (
-                                        <button className="btn btn-danger" style={{ padding: '2px 4px', fontSize: '0.6rem', marginLeft: '5px' }} onClick={(e) => { e.stopPropagation(); handleRawDeleteColumn(k); }}>🗑️</button>
+                                        <button className="btn btn-danger" style={{ padding: '2px 4px', fontSize: '0.6rem', marginLeft: '5px' }} onClick={(e) => { e.stopPropagation(); handleRawDeleteColumn(k); }}>✕</button>
                                     )}
                                  </div>
                              </th>

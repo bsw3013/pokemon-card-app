@@ -9,26 +9,12 @@ import { compareText } from '../utils/stringUtils';
 import ThumbnailSettings from './ThumbnailSettings';
 import CardDetailModal from './CardDetailModal';
 import CardThumbnail from './CardThumbnail';
+import CardTile from './CardTile';
 import MultiSortPanel from './MultiSortPanel';
 
 function normalize(value) {
   return String(value || '').trim();
 }
-
-const getFlagEmoji = (lang) => {
-  if (!lang) return '🇰🇷';
-  if (lang.includes('한국')) return '🇰🇷';
-  if (lang.includes('일본')) return '🇯🇵';
-  if (lang.includes('미국') || lang.includes('영')) return '🇺🇸';
-  if (lang.includes('중국')) return '🇨🇳';
-  return '🇰🇷';
-};
-
-const getStatusClass = (status) => {
-  if (!status || status.includes('미보유')) return 'unowned';
-  if (status.includes('등급')) return 'graded';
-  return 'owned';
-};
 
 
 function mergeByMasterOrder(masterOptions, cardSet) {
@@ -395,7 +381,7 @@ export default function FilterExplorer({ appConfig, isPicker = false, onSelectCa
           )}
         </div>
         <button type="button" className="btn btn-secondary btn-compact" onClick={clearAllFilters}>필터 초기화</button>
-        <div className="grid-columns-control" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'var(--overlay-faint)', padding: '0.3rem 0.8rem', borderRadius: '999px', border: '1px solid var(--border-color)' }}>
+        <div className="grid-columns-control" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'var(--overlay-faint)', padding: '0.3rem 0.8rem', borderRadius: 'var(--radius-s)', border: '1px solid var(--border-color)' }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>가로칸수:</span>
           <input type="number" min="2" max="12" value={gridColumns} onChange={(e) => setGridColumns(Number(e.target.value) || 6)} style={{ width: '36px', background: 'transparent', border: 'none', color: 'var(--text-main)', outline: 'none', textAlign: 'center', fontWeight: 'bold', fontSize: '0.9rem' }} />
         </div>
@@ -483,67 +469,17 @@ export default function FilterExplorer({ appConfig, isPicker = false, onSelectCa
               <p>카드 데이터 로딩 중...</p>
             </div>
           ) : (
-            <div className="card-grid filter-card-grid fade-in" style={{ gridTemplateColumns: `repeat(${gridColumns}, 1fr)` }}>
+            <div className="card-grid filter-card-grid ctile-grid" style={{ gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))` }}>
               {filteredCards.map((card) => (
-                <article
+                <CardTile
                   key={card.id}
-                  className={`card-item filter-editable-card ${thumbSettings.hoverMode ? 'hover-mode-active' : ''} ${selectedIds.includes(card.id) ? 'picker-selected' : ''}`}
-                  onClick={() => {
-                    if (isPicker) {
-                      toggleSelection(card.id);
-                    } else {
-                      openModal(card);
-                    }
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      if (isPicker) {
-                        toggleSelection(card.id);
-                      } else {
-                        openModal(card);
-                      }
-                    }
-                  }}
+                  card={card}
+                  settings={thumbSettings}
+                  selected={selectedIds.includes(card.id)}
                   title={isPicker ? '클릭해서 선택/해제' : '클릭해서 카드 상세 수정'}
-                >
-                  <div className={`card-image-wrapper ${(card.status === '미보유' || !card.status) ? 'filter-grayscale' : ''}`}>
-                    <CardThumbnail imageUrl={card.imageUrl} alt={card.cardName || 'card'} type="grid" />
-                    {card.rarity ? <span className="card-rarity">{card.rarity}</span> : null}
-                    {isPicker && (
-                      <div className="picker-checkbox">
-                        {selectedIds.includes(card.id) ? '✓' : ''}
-                      </div>
-                    )}
-                    {!isPicker && <span className="filter-card-edit-hint">클릭 수정</span>}
-                  </div>
-                  <div className="card-info">
-                    {thumbSettings.showName && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span className={`status-dot ${getStatusClass(card.status)}`} title={card.status}></span>
-                            <h3 className="card-name" style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }} title={card.cardName}>{card.cardName || '이름 없음'}</h3>
-                         </div>
-                         <span className="country-flag" title={card.language || '한국'}>{getFlagEmoji(card.language)}</span>
-                      </div>
-                    )}
-                    <div className="card-meta">
-                      {thumbSettings.showSeries && <span className="badge-series">{card.series || '-'}</span>}
-                      {thumbSettings.showNumber && <span className="badge-number">No.{card.cardNumber || '-'}</span>}
-                      {thumbSettings.showNumber && <span className="badge-number">도감 {card.pokedexNumber || '-'}</span>}
-                      {thumbSettings.showRarity && <span className="badge-series">{card.rarity || '-'}</span>}
-                    </div>
-                    {thumbSettings.showPrice && (
-                       <div className="card-footer" style={{ marginTop: 'auto' }}>
-                          <span className="card-price" style={{ fontWeight: 'bold', color: 'var(--accent-color)' }}>
-                             {card.price ? `${card.price.toLocaleString()}원` : '-'}
-                          </span>
-                       </div>
-                    )}
-                  </div>
-                </article>
+                  onClick={() => (isPicker ? toggleSelection(card.id) : openModal(card))}
+                  overlay={isPicker ? <div className="picker-checkbox">{selectedIds.includes(card.id) ? '✓' : ''}</div> : null}
+                />
               ))}
               {!filteredCards.length && <div className="empty-results">선택한 필터에 맞는 카드가 없습니다.</div>}
             </div>

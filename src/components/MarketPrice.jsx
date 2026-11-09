@@ -664,16 +664,16 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
   return (
     <main className="market-page fade-in">
       <div className="market-header">
-        <h2>📊 시세 조회</h2>
+        <h2>시세 조회</h2>
         <p className="subtitle">번개장터 · 당근마켓 실시간 시세 + 직접 기록한 시세를 한 번에 확인하세요.</p>
       </div>
 
       <div className="market-tabs">
         <button type="button" className={`market-tab ${activeTab === 'watchlist' ? 'active' : ''}`} onClick={() => setActiveTab('watchlist')}>
-          ⭐ 관심카드 <span className="market-tab-count">{watchlist.length}</span>
+          관심카드 <span className="market-tab-count">{watchlist.length}</span>
         </button>
         <button type="button" className={`market-tab ${activeTab === 'recorded' ? 'active' : ''}`} onClick={() => setActiveTab('recorded')}>
-          📈 기록된 카드 <span className="market-tab-count">{recordedCards.length}</span>
+          기록된 카드 <span className="market-tab-count">{recordedCards.length}</span>
         </button>
       </div>
 
@@ -706,7 +706,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
           </div>
           {watchlist.length > 0 && (
             <p className="market-hint">
-              카드를 클릭한 뒤 "🔍 마켓에서 검색"을 누르면 번개장터/당근마켓 검색 결과를 볼 수 있어요.
+              카드를 클릭한 뒤 "마켓에서 검색"을 누르면 번개장터/당근마켓 검색 결과를 볼 수 있어요.
               (처음 한 번, 터미널에서 <code>npm run market-server</code>를 실행해둬야 합니다)
             </p>
           )}
@@ -791,7 +791,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
               />
               <p className="market-hint">보통은 카드 이름만으로 충분합니다. 결과가 다른 카드와 너무 섞이면 시리즈 축약형(예: sv2a) 정도만 추가해보세요.</p>
               <div className="market-confirm-actions">
-                <button type="button" className="btn btn-primary" onClick={handleConfirmAddWatchlist}>⭐ 관심카드로 추가</button>
+                <button type="button" className="btn btn-primary" onClick={handleConfirmAddWatchlist}>관심카드로 추가</button>
                 <button type="button" className="btn" onClick={() => setPendingAdd(null)}>취소</button>
               </div>
             </div>
@@ -875,7 +875,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
             )}
             </div>
 
-              <p className="market-hint" style={{ marginBottom: '0.3rem' }}>👁️ 아래 매물 중 뭘 보여줄지 고르는 필터예요. 통계와 그래프에 모두 적용돼요. (기록할 때는 따로 선택해요)</p>
+              <p className="market-hint" style={{ marginBottom: '0.3rem' }}>아래 매물 중 뭘 보여줄지 고르는 필터예요. 통계와 그래프에 모두 적용돼요. (기록할 때는 따로 선택해요)</p>
               <div className="market-filter-bar">
                 <div className="market-filter-group">
                   <span className="market-filter-label">언어</span>
@@ -992,7 +992,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                     setMarketSearchOpen((o) => !o);
                   }}
                 >
-                  🔍 마켓에서 검색
+                  마켓에서 검색
                 </button>
                 {!manualFormOpen ? (
                   <button
@@ -1092,7 +1092,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                             <img src={r.imageUrl || '/placeholder.png'} alt={r.title} className="market-search-result-image" />
                             <div className="market-search-result-body">
                               <span className={`badge-source badge-source-${r.source}`}>{SOURCE_LABELS[r.source] || r.source}</span>
-                              {looksLikeBundle(r.title) && <span className="badge-classification">⚠️ 묶음의심</span>}
+                              {looksLikeBundle(r.title) && <span className="badge-classification">묶음의심</span>}
                               <a href={r.url} target="_blank" rel="noopener noreferrer" className="market-search-result-title">{r.title}</a>
                               <span className="market-listing-price">{fmtPrice(r.price)}</span>
                               <span className="market-listing-region">{r.region || '-'}</span>
@@ -1225,7 +1225,7 @@ function ListingSection({ title, listings, emptyText, onEdit, onToggleStatus, on
                 <span className="market-listing-date">{fmtDate(l[dateField])}</span>
                 {l.recordedBy?.name && (
                   <span className="market-listing-recorder" title="기록한 사용자">
-                    👤 {(l.recordedBy.uid && nicknameByUid?.[l.recordedBy.uid]) || l.recordedBy.name}
+                    {(l.recordedBy.uid && nicknameByUid?.[l.recordedBy.uid]) || l.recordedBy.name}
                   </span>
                 )}
                 <span className="market-listing-actions">
@@ -1233,10 +1233,10 @@ function ListingSection({ title, listings, emptyText, onEdit, onToggleStatus, on
                     <button type="button" className="btn" onClick={() => onToggleStatus(l)}>{statusActionLabel}</button>
                   )}
                   {onEdit && (
-                    <button type="button" className="btn" onClick={() => onEdit(l)}>✏️ 수정</button>
+                    <button type="button" className="btn" onClick={() => onEdit(l)}>수정</button>
                   )}
                   {onDelete && (
-                    <button type="button" className="btn btn-danger" onClick={() => onDelete(l)}>🗑 삭제</button>
+                    <button type="button" className="btn btn-danger" onClick={() => onDelete(l)}>삭제</button>
                   )}
                 </span>
               </div>

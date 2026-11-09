@@ -287,7 +287,7 @@ export default function DataCheck() {
             <li>예전 보유 정보 지우기 <b>{plan.legacyCount}</b>장</li>
             <li>그중 내 보유 정보로 옮길 것 <b>{plan.ownershipCopies.length}</b>건 (이미 내 보유 정보가 있어서 그대로 두는 것 {plan.keepMine}건)</li>
             <li>시세 기록을 카드 ID로 연결 <b>{plan.marketUpdates.length}</b>건{plan.marketUnresolved > 0 ? ` (어느 카드인지 몰라 그대로 두는 것 ${plan.marketUnresolved}건 — 도감에 없는 카드를 직접 입력한 기록)` : ''}</li>
-            {planSize(plan) === 0 && <li>✅ 이미 모두 정리되어 있습니다.</li>}
+            {planSize(plan) === 0 && <li>이미 모두 정리되어 있습니다.</li>}
           </ul>
         )}
         {status && <p className="catalog-message">{status}</p>}

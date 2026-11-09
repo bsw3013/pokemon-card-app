@@ -11,7 +11,7 @@ export default function LoginScreen() {
 
       <div className="btn-group">
         <button type="button" className="btn btn-primary" onClick={signInWithGoogle}>
-          🔐 Google로 로그인
+          Google로 로그인
         </button>
       </div>
 
