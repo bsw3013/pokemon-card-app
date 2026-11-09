@@ -4,7 +4,7 @@ import { useOwnedCards } from '../hooks/useOwnedCards';
 import { useThumbnailSettings } from '../hooks/useThumbnailSettings';
 import { useCardDetail } from '../hooks/useCardDetail';
 import { DEFAULT_RARITIES, DEFAULT_SETS, ERA_OPTIONS, buildSetIndex, findSetForCard, parseCardNo } from '../utils/catalog';
-import { ownedCount } from '../utils/cardStats';
+import { langShort, ownedCount } from '../utils/cardStats';
 import { rarityTone } from '../utils/rarityTone';
 import { navigate, parseHash } from '../utils/hashRoute';
 import CardTile from '../components/CardTile';
@@ -193,7 +193,7 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
     ...setFilter.map((c) => ({ key: `s-${c}`, label: setName(c), remove: () => toggle(c, setFilter, setSetFilter) })),
     ...rarityFilter.map((r) => ({ key: `r-${r}`, label: r === NONE ? '레어도 없음' : r, remove: () => toggle(r, rarityFilter, setRarityFilter) })),
     ...typeFilter.map((t) => ({ key: `t-${t}`, label: t === NONE ? '종류 없음' : t, remove: () => toggle(t, typeFilter, setTypeFilter) })),
-    ...langFilter.map((l) => ({ key: `l-${l}`, label: `${l}판`, remove: () => toggle(l, langFilter, setLangFilter) })),
+    ...langFilter.map((l) => ({ key: `l-${l}`, label: langShort(l), remove: () => toggle(l, langFilter, setLangFilter) })),
   ];
   const ownedTotal = useMemo(() => enriched.filter((e) => e.count > 0).length, [enriched]);
   const shown = filtered.slice(0, visible);
@@ -286,10 +286,10 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
 
       {user && (
         <section>
-          <h3>언어</h3>
+          <h3>언어판</h3>
           <div className="chips">
             {LANGS.map((l) => (
-              <button key={l} type="button" className={`chip ${langFilter.includes(l) ? 'on' : ''}`} onClick={() => toggle(l, langFilter, setLangFilter)}>{l}</button>
+              <button key={l} type="button" className={`chip ${langFilter.includes(l) ? 'on' : ''}`} onClick={() => toggle(l, langFilter, setLangFilter)}>{langShort(l)}</button>
             ))}
           </div>
         </section>

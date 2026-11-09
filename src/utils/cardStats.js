@@ -36,10 +36,36 @@ export function isGradedCopy(p) {
   return !!(p && p.company && p.company !== 'raw' && p.grade);
 }
 
-export function possessionLabel(p) {
+export function possessionLabel(p, cardLang) {
   if (!p) return '';
   const base = isGradedCopy(p) ? `${p.company} ${p.grade}` : (p.condition || '일반');
-  const lang = p.language && p.language !== '한국' ? ` · ${p.language}판` : '';
+  const rowLang = p.language || cardLang;
+  const lang = rowLang && !String(rowLang).includes('한국') ? ` · ${langShort(rowLang)}` : '';
   const qty = Number(p.count) > 1 ? ` ×${p.count}` : '';
   return `${base}${lang}${qty}`;
+}
+
+// 언어판 짧은 이름: 한국 → 한판, 일본 → 일판, 미국/영어 → 영문판, 중국 → 중국판
+export function langShort(lang) {
+  const t = String(lang || '').trim();
+  if (!t || t.includes('한국')) return '한판';
+  if (t.includes('일본')) return '일판';
+  if (t.includes('미국') || t.includes('영')) return '영문판';
+  if (t.includes('중국')) return '중국판';
+  return `${t}판`;
+}
+
+export function cardLanguage(card) {
+  return String(card?.language || '').trim() || '한국';
+}
+
+// 등급 카드 정보. 보유 기록에 등급(PSA 10 등)이 있으면 그 장수,
+// 기록 없이 보유 상태만 "등급카드"로 해 둔 카드도 등급 카드로 센다.
+export function gradedInfo(card) {
+  const rows = parsePossessions(card?.possessions);
+  const gradedRows = rows.filter((r) => isGradedCopy(r) || (Array.isArray(r?.graded) && r.graded.some((g) => g?.company && g?.grade)));
+  const count = gradedRows.reduce((s, r) => s + (Number(r.count) || 1), 0);
+  if (count > 0) return { count, statusOnly: false };
+  if (String(card?.status || '').includes('등급')) return { count: ownedCount(card), statusOnly: true };
+  return { count: 0, statusOnly: false };
 }

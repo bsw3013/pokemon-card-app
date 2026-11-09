@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useAuth } from '../AuthContext';
 import { useOwnedCards } from '../hooks/useOwnedCards';
 import { DEFAULT_SETS, buildSetIndex, findSetForCard, parseCardNo } from '../utils/catalog';
-import { ownedCount, parsePossessions, possessionLabel } from '../utils/cardStats';
+import { cardLanguage, gradedInfo, langShort, ownedCount, parsePossessions, possessionLabel } from '../utils/cardStats';
 import { rarityTone } from '../utils/rarityTone';
 import { navigate } from '../utils/hashRoute';
 import { displayPokedexNumber } from '../utils/numberUtils';
@@ -25,6 +25,8 @@ export default function CardDetailView({ card, isAdmin, marketSummary, onEdit, o
   const no = card.cardNo ?? parseCardNo(card.cardNumber);
   const count = ownedCount(card);
   const copies = parsePossessions(card.possessions);
+  const language = cardLanguage(card);
+  const graded = gradedInfo(card);
 
   // 같은 포켓몬(도감번호가 같거나 이름이 같은) 다른 카드
   const relatives = useMemo(() => {
@@ -75,15 +77,22 @@ export default function CardDetailView({ card, isAdmin, marketSummary, onEdit, o
         {user && (
           <section className="cdv-section">
             <h3>내 보유 {count > 0 && <em>{count}장</em>}</h3>
+            {count > 0 && (
+              <div className="cdv-own-tags">
+                <span className="cdv-tag">{langShort(language)}</span>
+                {graded.count > 0 && <span className="cdv-tag strong">등급 카드{graded.count > 1 ? ` ${graded.count}장` : ''}</span>}
+                {card.status && <span className="cdv-tag muted">보유 상태: {card.status}</span>}
+              </div>
+            )}
             {count === 0 ? (
               <p className="sub">아직 갖고 있지 않은 카드예요.</p>
             ) : copies.length === 0 ? (
-              <p className="sub">{card.status} · 자세한 기록 없음</p>
+              <p className="sub">자세한 보유 기록(등급 업체·점수, 구매가 등)이 아직 없어요. [{isAdmin ? '수정' : '보유 정보 기록'}]에서 적을 수 있어요.</p>
             ) : (
               <ul className="cdv-copies">
                 {copies.map((p, i) => (
                   <li key={p.id || i}>
-                    <span className="cdv-copy-main">{possessionLabel(p)}</span>
+                    <span className="cdv-copy-main">{possessionLabel(p, language)}</span>
                     <span className="cdv-copy-meta">
                       {[p.purchasePrice ? `구매 ${won(p.purchasePrice)}` : '', p.purchaseDate, p.location, p.forTrade ? '판매·교환 가능' : '', p.serial ? `#${p.serial}` : '', p.notes]
                         .filter(Boolean).join(' · ')}

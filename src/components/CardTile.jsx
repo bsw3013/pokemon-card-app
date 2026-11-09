@@ -4,14 +4,7 @@ import { useOwnedCards } from '../hooks/useOwnedCards';
 import { useAuth } from '../AuthContext';
 import { DEFAULT_SETS, buildSetIndex, findSetForCard, parseCardNo } from '../utils/catalog';
 import { rarityTone } from '../utils/rarityTone';
-import { ownedCount, topGrading } from '../utils/cardStats';
-
-const LANG_TAG = { 일본: 'JP', 중국: 'CN', 미국: 'EN', 영어: 'EN' };
-function languageTag(lang) {
-  const text = String(lang || '');
-  const hit = Object.keys(LANG_TAG).find((k) => text.includes(k));
-  return hit ? LANG_TAG[hit] : '';
-}
+import { cardLanguage, gradedInfo, langShort, ownedCount, topGrading } from '../utils/cardStats';
 
 // 도감·필터 화면이 함께 쓰는 카드 한 장 타일.
 // 이미지 아래에는 이름 한 줄, "세트코드 번호/총장수" + 레어도 배지만 둔다.
@@ -26,7 +19,11 @@ export default function CardTile({ card, settings = {}, onClick, selected = fals
   const total = set?.printedTotal;
   const code = set ? String(set.code).toUpperCase() : '';
   const numberText = no != null ? `${code ? `${code} ` : ''}${no}${total ? `/${total}` : ''}` : (card.cardNumber || '');
-  const lang = languageTag(card.language);
+  // 언어판(일판·영문판 등)과 등급 표시는 이미지 위에 크게 보여준다. (한판은 표시 안 함)
+  const language = cardLanguage(card);
+  const langBadge = user && !language.includes('한국') ? langShort(language) : '';
+  const graded = gradedInfo(card);
+  const gradeBadge = grading ? `${grading.company} ${grading.grade}` : (graded.count > 0 ? '등급' : '');
   const {
     showName = true, showSeries = true, showNumber = true, showRarity = true, showPrice = true, hoverMode = false,
   } = settings;
@@ -47,14 +44,18 @@ export default function CardTile({ card, settings = {}, onClick, selected = fals
       <div className="ctile-img">
         <CardThumbnail imageUrl={card.imageUrl} alt={card.cardName || '카드'} type="grid" />
         {owned > 1 && <span className="ctile-qty">×{owned}</span>}
-        {grading && <span className="ctile-grade">{grading.company} {grading.grade}</span>}
+        {(langBadge || gradeBadge) && (
+          <span className="ctile-badges">
+            {gradeBadge && <span className="ctile-grade">{gradeBadge}</span>}
+            {langBadge && <span className={`ctile-lang-badge lang-${langBadge}`}>{langBadge}</span>}
+          </span>
+        )}
         {overlay}
       </div>
       <div className="ctile-body">
         {showName && (
           <div className="ctile-name">
             <span>{card.cardName || '이름 없음'}</span>
-            {lang && <em className="ctile-lang">{lang}</em>}
           </div>
         )}
         {(showNumber || showRarity) && (

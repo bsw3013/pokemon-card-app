@@ -114,8 +114,8 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
     setIsSaving(true);
     try {
       // 보유 기록이 있으면 보유 상태는 기록을 보고 자동으로 정한다. (등급 카드가 한 장이라도 있으면 "등급카드")
-      const rows = Array.isArray(editData.possessions) ? editData.possessions.filter((p) => Number(p?.count) > 0) : [];
-      const status = rows.length > 0 ? (rows.some(isGradedCopy) ? '등급카드' : '보유중') : editData.status;
+      const rows = Array.isArray(editData.possessions) ? editData.possessions.filter((p) => p && Number(p.count ?? 1) > 0) : [];
+      const status = rows.length > 0 ? (rows.some(isGradedCopy) ? '등급카드' : (String(editData.status || '').includes('등급') && !rows.some((r) => r.company === 'raw') ? '등급카드' : '보유중')) : editData.status;
       await onSave({ ...editData, possessions: rows, status });
       if (!card?.isNew) setMode('view');
     } finally {
