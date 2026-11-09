@@ -4,19 +4,27 @@ import { db, functions } from '../firebase';
 import { OWNERSHIP_FIELDS } from '../utils/ownershipUtils';
 import { normalizePokedexNumber } from '../utils/numberUtils';
 import { useAuth } from '../AuthContext';
+import { useOwnedCards } from '../hooks/useOwnedCards';
+import CatalogSettings from './admin/CatalogSettings';
+import DataCheck from './admin/DataCheck';
+import { DEFAULT_SETS, buildSetIndex, withCardMeta } from '../utils/catalog';
 import Papa from 'papaparse';
 
 export default function AdminSettings({ appConfig, setAppConfig }) {
    const { isAdmin } = useAuth();
-   const hiddenSystemFields = ['raw_database_id', 'imageUrl', 'displayOrder', 'createdAt', 'islegacy', 'isLegacy'];
+   const { catalog, fetchCards, setCards } = useOwnedCards();
+   // 화면 표시 항목으로 만들지 않는 시스템용 칸 (setCode/cardNo/updatedAt 는 저장할 때 자동으로 채워진다)
+   const hiddenSystemFields = ['raw_database_id', 'imageUrl', 'displayOrder', 'createdAt', 'updatedAt', 'setCode', 'cardNo', 'islegacy', 'isLegacy'];
    const sanitizeDisplayFields = (fields = []) => {
       const cleaned = fields.filter((field) => field?.id && !hiddenSystemFields.includes(field.id));
       return cleaned.map((field, index) => ({ ...field, order: index + 1 }));
    };
-   const sanitizeConfig = (baseConfig) => ({
-      ...baseConfig,
-      displayFields: sanitizeDisplayFields(baseConfig?.displayFields || [])
-   });
+   const sanitizeConfig = (baseConfig) => {
+      // catalog(세트·레어도 표)는 settings/catalog 에 따로 저장하므로 appConfig 에는 넣지 않는다.
+      // eslint-disable-next-line no-unused-vars
+      const { catalog: _catalog, ...rest } = baseConfig || {};
+      return { ...rest, displayFields: sanitizeDisplayFields(rest.displayFields || []) };
+   };
 
    const [config, setConfig] = useState(() => sanitizeConfig(appConfig));
   const [saving, setSaving] = useState(false);
@@ -280,6 +288,10 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
          const ref = doc(db, "pokemon_cards", id);
          await updateDoc(ref, { [key]: nextValue });
          setRawDbData(prev => prev.map(item => item.raw_database_id === id ? { ...item, [key]: nextValue } : item));
+         // 앱 전체가 함께 쓰는 카드 목록에도 바로 반영 (보유 정보 칸은 개인 데이터라 제외)
+         if (!OWNERSHIP_FIELDS.includes(key)) {
+            setCards(prev => prev.map(card => card.id === id ? { ...card, [key]: nextValue } : card));
+         }
          setRawCellDrafts(prev => {
             const nextDrafts = { ...prev };
             if (nextDrafts[id]) {
@@ -301,6 +313,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
       try {
           await deleteDoc(doc(db, "pokemon_cards", id));
           setRawDbData(prev => prev.filter(r => r.raw_database_id !== id));
+          setCards(prev => prev.filter(card => card.id !== id));
       } catch(err) {
           alert('삭제 실패');
       }
@@ -350,7 +363,8 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
               updates.slice(i, i + BATCH_LIMIT).forEach(([id, patch]) => batch.update(doc(db, "pokemon_cards", id), patch));
               await batch.commit();
           }
-          alert(`✅ 완료! 카드 ${updates.length}장을 업데이트했습니다.\n새로고침하면 도감에 반영된 이름을 볼 수 있어요.`);
+          await fetchCards();
+          alert(`✅ 완료! 카드 ${updates.length}장을 업데이트했습니다.`);
       } catch (err) {
           console.error(err);
           alert('자동 채우기 중 오류가 발생했습니다: ' + err.message);
@@ -382,6 +396,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
            }
            if (ops > 0) await batch.commit();
           setRawDbData([...rawDbData]);
+          await fetchCards();
           alert("✅ 모든 문서에 항목이 성공적으로 생성되었습니다.");
       } catch (err) {
           console.error(err);
@@ -415,6 +430,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
            }
            if (ops > 0) await batch.commit();
           setRawDbData([...rawDbData]);
+          await fetchCards();
           alert(`✅ [${colName}] 항목이 모든 문서에서 성공적으로 삭제되었습니다.`);
       } catch (err) {
           console.error(err);
@@ -468,6 +484,18 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
 
   const [ghStatus, setGhStatus] = useState('');
 
+  // 마스터 설정 탭 (주소 뒤 ?tab= 으로 기억해서 새로고침해도 유지)
+  const [adminTab, setAdminTab] = useState(() => {
+    const qs = new URLSearchParams((window.location.hash.split('?')[1]) || '');
+    const t = qs.get('tab');
+    return ['settings', 'catalog', 'check'].includes(t) ? t : 'settings';
+  });
+  const [catalogMessage, setCatalogMessage] = useState('');
+  const selectAdminTab = (tab) => {
+    setAdminTab(tab);
+    updateHashQueryParams({ tab: tab === 'settings' ? null : tab }, { replace: true });
+  };
+
   const handleGithubRestore = async () => {
     if (!window.confirm(`⚠️ GitHub의 'main_dataset.csv' 파일로 현재 DB를 덮어씁니다.\n\n이 작업은 Firestore의 모든 데이터를 CSV 내용과 100% 일치시킵니다.\n(수동으로 수정한 CSV를 DB에 즉시 반영하기에 아주 좋습니다)`)) return;
     
@@ -512,6 +540,8 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
                    let val = payload[key];
                    if (key === 'price' || key === 'displayOrder') {
                       payload[key] = parseInt(val) || 0;
+                   } else if (key === 'cardNo') {
+                      payload[key] = val === '' ? null : (Number(val) || null);
                    } else if (typeof val === 'string' && val.trim().startsWith('[') && val.trim().endsWith(']')) {
                       try { payload[key] = JSON.parse(val); } catch(e) { payload[key] = val; }
                    }
@@ -643,6 +673,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
           const cardsCol = collection(db, "pokemon_cards");
           const snapshot = await getDocs(cardsCol);
           const currentIds = snapshot.docs.map(d => d.id);
+          const importSetIndex = buildSetIndex(catalog?.sets || DEFAULT_SETS);
 
           const BATCH_LIMIT = 400;
           let batch = writeBatch(db);
@@ -655,23 +686,28 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
               if (k === 'raw_database_id') continue;
               // status/price/possessions/language는 이제 개인 보유현황(cardOwnership)에 저장되므로
               // 카드 도감 마스터 정보(pokemon_cards) CSV 등록에서는 제외한다.
-              if (OWNERSHIP_FIELDS.includes(k)) continue;
+              if (OWNERSHIP_FIELDS.includes(k) || k === 'isLegacy') continue;
 
               let val = v || '';
               // 타입 변환
               if (k === 'price' || k === 'displayOrder') {
                  val = parseInt(val) || 0;
+              } else if (k === 'cardNo') {
+                 val = val === '' ? null : (Number(val) || null);
               } else if (typeof val === 'string' && val.trim().startsWith('[') && val.trim().endsWith(']')) {
                  try { val = JSON.parse(val); } catch(e) {}
               }
               payload[k] = val;
             }
 
-            if (id && currentIds.includes(id)) {
-              batch.update(doc(db, "pokemon_cards", id), payload);
+            // 세트 코드·정렬용 번호·추가/수정 시각을 자동으로 채운다.
+            const isNew = !(id && currentIds.includes(id));
+            const finalPayload = withCardMeta(payload, { setIndex: importSetIndex, isNew });
+            if (!isNew) {
+              batch.update(doc(db, "pokemon_cards", id), finalPayload);
             } else {
-              if (id) batch.set(doc(db, "pokemon_cards", id), payload);
-              else batch.set(doc(cardsCol), payload);
+              if (id) batch.set(doc(db, "pokemon_cards", id), finalPayload);
+              else batch.set(doc(cardsCol), finalPayload);
             }
 
             ops++;
@@ -905,18 +941,55 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
     );
   }
 
+  const ADMIN_TABS = [
+    { id: 'settings', label: '기본 설정·백업' },
+    { id: 'catalog', label: '세트·레어도' },
+    { id: 'check', label: '데이터 점검' },
+  ];
+
   return (
     <div className="admin-settings fade-in">
        <div className="settings-header">
           <h2>⚙️ 마스터 환경설정</h2>
-          <button className="btn btn-primary" onClick={handleSaveConfig} disabled={saving}>
-             {saving ? "저장 중..." : "💾 모든 설정 서버에 저장하기"}
-          </button>
+          {adminTab === 'settings' && (
+            <button className="btn btn-primary" onClick={handleSaveConfig} disabled={saving}>
+               {saving ? "저장 중..." : "💾 모든 설정 서버에 저장하기"}
+            </button>
+          )}
        </div>
 
+       <div className="admin-tabs" role="tablist">
+          {ADMIN_TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={adminTab === t.id}
+              className={`admin-tab ${adminTab === t.id ? 'active' : ''}`}
+              onClick={() => selectAdminTab(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+       </div>
+
+       {adminTab === 'catalog' && (
+         <CatalogSettings
+           key={catalog?.updatedAt || 'none'}
+           appConfig={appConfig}
+           initialMessage={catalogMessage}
+           onSaved={setCatalogMessage}
+         />
+       )}
+       {adminTab === 'check' && <DataCheck appConfig={appConfig} />}
+
+       {adminTab === 'settings' && (<>
+       {catalog && (
+         <p className="help-text">시리즈·레어도 목록은 이제 <b>세트·레어도</b> 탭에서 관리합니다.</p>
+       )}
        <div className="settings-grid">
-          {renderArrayManager("📦 확장팩/시리즈 관리", "seriesOptions", newSeries, setNewSeries)}
-          {renderArrayManager("💎 카드 레어도(Rarity) 관리", "rarityOptions", newRarity, setNewRarity)}
+          {!catalog && renderArrayManager("📦 확장팩/시리즈 관리", "seriesOptions", newSeries, setNewSeries)}
+          {!catalog && renderArrayManager("💎 카드 레어도(Rarity) 관리", "rarityOptions", newRarity, setNewRarity)}
           {renderArrayManager("🏷️ 등급 업체 관리", "gradingCompaniesOptions", newGradingCompany, setNewGradingCompany)}
           {renderArrayManager("🔢 등급(스케일) 관리 (1-10 기본)", "gradingScaleOptions", newGradingScale, setNewGradingScale)}
           {renderArrayManager("🔥 포켓몬 카드 종류 관리", "typeOptions", newType, setNewType)}
@@ -1136,6 +1209,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
              </div>
           )}
        </div>
+       </>)}
     </div>
   );
 }

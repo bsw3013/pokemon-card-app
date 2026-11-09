@@ -3274,3 +3274,59 @@ select.table-input { appearance: none; cursor: pointer; }
 
 
 
+
+/* -------------------------------------
+    마스터 설정 탭 · 세트·레어도 관리 · 데이터 점검
+-------------------------------------- */
+.admin-tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--border-color); margin: 0 0 1.5rem; overflow-x: auto; }
+.admin-tab { background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 0.7rem 1rem; font: inherit; font-size: 0.95rem; font-weight: 600; color: var(--text-muted); cursor: pointer; white-space: nowrap; }
+.admin-tab:hover { color: var(--text-main); }
+.admin-tab.active { color: var(--text-main); border-bottom-color: var(--primary-color); }
+
+.catalog-settings h4 { margin: 1.5rem 0 0.3rem; color: var(--text-main); font-size: 1rem; }
+.catalog-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.catalog-head h3 { margin: 0; }
+.catalog-message { margin: 0.75rem 0 0; font-size: 0.9rem; color: var(--text-main); }
+.catalog-table-wrap { overflow-x: auto; border: 1px solid var(--border-color); border-radius: 10px; margin-top: 0.75rem; }
+.catalog-table { font-size: 0.88rem; }
+.catalog-table thead { background: var(--overlay-faint); border-bottom: 1px solid var(--border-color); }
+.catalog-table th { padding: 0.6rem 0.75rem; font-size: 0.8rem; text-transform: none; letter-spacing: 0; }
+.catalog-table td { padding: 0.2rem 0.5rem; }
+.catalog-table .table-input { min-width: 0; padding: 0.35rem 0.45rem; border-color: var(--overlay-soft); background: var(--surface-color); }
+.catalog-table .table-input:hover { background: var(--surface-color); border-color: var(--overlay-strong); }
+.catalog-table .table-input:focus { background: var(--surface-color); }
+.catalog-table input.num { width: 5.5rem; text-align: right; }
+.catalog-table td.num { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.catalog-table td.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85rem; }
+.catalog-table td.nowrap { white-space: nowrap; }
+.catalog-table .btn-compact { padding: 0.25rem 0.5rem; font-size: 0.75rem; background: transparent; color: var(--text-muted); border: 1px solid var(--overlay-strong); }
+.catalog-table .btn-compact:hover:not(:disabled) { color: var(--text-main); }
+.catalog-table .btn-compact:disabled { opacity: 0.35; cursor: default; }
+.catalog-new-row td { background: var(--overlay-faint); }
+
+.check-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; }
+.check-plan { margin: 0.9rem 0 0; padding: 0.8rem 1rem 0.8rem 1.8rem; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.9rem; line-height: 1.7; color: var(--text-main); }
+.check-list { list-style: none; margin: 0.75rem 0 0; padding: 0; border: 1px solid var(--border-color); border-radius: 10px; overflow: hidden; }
+.check-row + .check-row { border-top: 1px solid var(--border-color); }
+.check-row-head { display: flex; align-items: center; gap: 0.9rem; width: 100%; padding: 0.7rem 1rem; background: none; border: none; font: inherit; color: var(--text-main); text-align: left; cursor: pointer; }
+.check-row-head:hover:not(:disabled) { background: var(--overlay-faint); }
+.check-row-head:disabled { cursor: default; color: var(--text-muted); }
+.check-row-head.static { cursor: default; }
+.check-row-head.static .btn { margin-left: auto; }
+.check-count { min-width: 3.2rem; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.check-row.warn .check-count { color: var(--primary-color); }
+.check-row.ok .check-count { color: #16a34a; }
+.check-label { font-size: 0.93rem; }
+.check-detail { padding: 0 1rem 0.9rem 5.1rem; }
+.check-detail .help-text { margin: 0 0 0.5rem; }
+.check-card-list { list-style: none; margin: 0; padding: 0; max-height: 360px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; }
+.check-card-list li { padding: 0.15rem 0; }
+.check-card-list li + li { border-top: 1px solid var(--overlay-faint); }
+.check-card-link { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; width: 100%; padding: 0.45rem 0.75rem; background: none; border: none; font: inherit; text-align: left; color: var(--text-main); cursor: pointer; }
+.check-card-link:hover { background: var(--overlay-faint); }
+.check-card-name { font-weight: 600; font-size: 0.9rem; }
+.check-card-meta { font-size: 0.82rem; color: var(--text-muted); }
+@media (max-width: 640px) {
+  .check-detail { padding-left: 1rem; }
+  .check-count { min-width: 2.4rem; }
+}
