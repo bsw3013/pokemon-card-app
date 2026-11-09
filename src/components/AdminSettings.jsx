@@ -7,12 +7,16 @@ import { useAuth } from '../AuthContext';
 import { useOwnedCards } from '../hooks/useOwnedCards';
 import CatalogSettings from './admin/CatalogSettings';
 import DataCheck from './admin/DataCheck';
+import CardManager from './admin/CardManager';
+import { useCardDetail } from '../hooks/useCardDetail';
 import { DEFAULT_SETS, buildSetIndex, withCardMeta } from '../utils/catalog';
 import Papa from 'papaparse';
 
 export default function AdminSettings({ appConfig, setAppConfig }) {
    const { isAdmin } = useAuth();
    const { catalog, fetchCards, setCards } = useOwnedCards();
+   // 카드 관리·데이터 점검에서 카드를 누르면 이 화면 안에서 상세 창을 연다.
+   const cardDetail = useCardDetail({ appConfig });
    // 화면 표시 항목으로 만들지 않는 시스템용 칸 (setCode/cardNo/updatedAt 는 저장할 때 자동으로 채워진다)
    const hiddenSystemFields = ['raw_database_id', 'imageUrl', 'displayOrder', 'createdAt', 'updatedAt', 'setCode', 'cardNo', 'islegacy', 'isLegacy'];
    const sanitizeDisplayFields = (fields = []) => {
@@ -488,12 +492,13 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
   const [adminTab, setAdminTab] = useState(() => {
     const qs = new URLSearchParams((window.location.hash.split('?')[1]) || '');
     const t = qs.get('tab');
-    return ['settings', 'catalog', 'check'].includes(t) ? t : 'settings';
+    if (t === 'settings') return 'options';
+    return ['cards', 'catalog', 'options', 'check', 'backup'].includes(t) ? t : 'cards';
   });
   const [catalogMessage, setCatalogMessage] = useState('');
   const selectAdminTab = (tab) => {
     setAdminTab(tab);
-    updateHashQueryParams({ tab: tab === 'settings' ? null : tab }, { replace: true });
+    updateHashQueryParams({ tab: tab === 'cards' ? null : tab }, { replace: true });
   };
 
   const handleGithubRestore = async () => {
@@ -942,18 +947,20 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
   }
 
   const ADMIN_TABS = [
-    { id: 'settings', label: '기본 설정·백업' },
+    { id: 'cards', label: '카드 관리' },
     { id: 'catalog', label: '세트·레어도' },
+    { id: 'options', label: '목록값·표시 항목' },
     { id: 'check', label: '데이터 점검' },
+    { id: 'backup', label: '백업·가져오기' },
   ];
 
   return (
     <div className="admin-settings fade-in">
        <div className="settings-header">
-          <h2>마스터 환경설정</h2>
-          {adminTab === 'settings' && (
+          <h2>마스터 설정</h2>
+          {adminTab === 'options' && (
             <button className="btn btn-primary" onClick={handleSaveConfig} disabled={saving}>
-               {saving ? "저장 중..." : "모든 설정 서버에 저장하기"}
+               {saving ? "저장 중..." : "목록값·표시 항목 저장"}
             </button>
           )}
        </div>
@@ -982,8 +989,9 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
          />
        )}
        {adminTab === 'check' && <DataCheck appConfig={appConfig} />}
+       {adminTab === 'cards' && <CardManager appConfig={appConfig} />}
 
-       {adminTab === 'settings' && (<>
+       {adminTab === 'options' && (<>
        {catalog && (
          <p className="help-text">시리즈·레어도 목록은 이제 <b>세트·레어도</b> 탭에서 관리합니다.</p>
        )}
@@ -1057,6 +1065,9 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
           </div>
        </div>
 
+       </>)}
+
+       {adminTab === 'backup' && (<>
        {/* 깃허브 연동 섹션 */}
        <div className="admin-section full-width" style={{ marginTop: '2rem' }}>
           <h3>깃허브 누적 클라우드 백업 (GitHub)</h3>
@@ -1210,6 +1221,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
           )}
        </div>
        </>)}
+       {cardDetail.modal}
     </div>
   );
 }

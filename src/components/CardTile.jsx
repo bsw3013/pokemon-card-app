@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import CardThumbnail from './CardThumbnail';
 import { useOwnedCards } from '../hooks/useOwnedCards';
+import { useAuth } from '../AuthContext';
 import { DEFAULT_SETS, buildSetIndex, findSetForCard, parseCardNo } from '../utils/catalog';
 import { rarityTone } from '../utils/rarityTone';
 import { ownedCount, topGrading } from '../utils/cardStats';
@@ -16,6 +17,7 @@ function languageTag(lang) {
 // 이미지 아래에는 이름 한 줄, "세트코드 번호/총장수" + 레어도 배지만 둔다.
 export default function CardTile({ card, settings = {}, onClick, selected = false, overlay = null, title }) {
   const { catalog } = useOwnedCards();
+  const { user } = useAuth();
   const setIndex = useMemo(() => buildSetIndex(catalog?.sets || DEFAULT_SETS), [catalog]);
   const set = findSetForCard(card, setIndex);
   const owned = ownedCount(card);
@@ -35,7 +37,7 @@ export default function CardTile({ card, settings = {}, onClick, selected = fals
 
   return (
     <article
-      className={`ctile ${owned ? 'owned' : 'missing'} ${hoverMode ? 'hover-mode' : ''} ${selected ? 'selected' : ''}`}
+      className={`ctile ${owned || !user ? 'owned' : 'missing'} ${hoverMode ? 'hover-mode' : ''} ${selected ? 'selected' : ''}`}
       onClick={onClick}
       onKeyDown={handleKey}
       role="button"

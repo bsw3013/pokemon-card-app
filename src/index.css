@@ -3832,3 +3832,59 @@ input, select, textarea, button { font-family: inherit; }
   .col .ctile-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
 }
 .pe-price { margin: 4px 0 12px; max-width: 360px; }
+
+/* 마스터 설정 → 카드 관리 (5단계) */
+.cm-count { font-size: 0.85rem; font-weight: 500; color: var(--text-subtle); margin-left: 6px; }
+.cm-tools { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.cm-search { flex: 1; min-width: 220px; height: 34px; padding: 0 10px; border: 1px solid var(--border-color); border-radius: var(--radius-s); background: var(--surface-color); color: var(--text-main); font: inherit; font-size: 0.88rem; }
+.cm-search:focus { outline: none; border-color: var(--text-main); }
+.cm-tools .select { height: 34px; }
+.cm-bulk { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px; margin-bottom: 12px; border-radius: var(--radius-s); background: var(--surface-2); }
+.cm-table td { padding: 3px 6px; }
+.cm-table tr.sel td { background: var(--surface-2); }
+.cm-table .table-input { height: 30px; font-size: 0.85rem; }
+.cm-table .table-input.mono { font-family: var(--font-mono); font-size: 0.8rem; }
+.cm-table select.table-input { min-width: 92px; }
+.cm-table .cm-dex { width: 70px; }
+.cm-table .cm-url { min-width: 220px; }
+.cm-thumb { width: 36px; }
+.cm-thumb img { width: 28px; height: 39px; object-fit: cover; border-radius: 3px; display: block; }
+.cm-thumb .table-no-thumb-wrapper { width: 28px; height: 39px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
+.cm-thumb .table-placeholder-text, .cm-thumb .table-placeholder-img { display: none; }
+.cm-saved { font-size: 0.78rem; color: #15803d; font-weight: 600; }
+.cm-pages { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 14px; font-size: 0.88rem; color: var(--text-muted); }
+.admin-page { max-width: 1440px; margin: 0 auto; width: 100%; padding: 28px 28px 72px; }
+.admin-settings .settings-header { margin-bottom: 8px; padding-bottom: 0; border-bottom: none; }
+@media (max-width: 900px) { .admin-page { padding: 18px 16px 32px; } }
+
+/* 홈 (5단계) */
+.home-sec { margin-top: 32px; }
+.home-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.home-sec-head h2 { font-size: 1.05rem; font-weight: 700; }
+.link-more { display: inline-flex; align-items: center; gap: 2px; border: none; background: none; color: var(--text-muted); font: inherit; font-size: 0.85rem; cursor: pointer; }
+.link-more:hover { color: var(--text-main); }
+.home-cards { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important; }
+.home-hero { padding: 40px 0 8px; max-width: 720px; }
+.home-hero h1 { font-size: 2.1rem !important; letter-spacing: -0.035em; }
+.home-hero .sub { font-size: 1rem; margin-top: 8px; }
+.home-search { display: flex; align-items: center; gap: 10px; margin-top: 22px; height: 50px; padding: 0 6px 0 14px; border: 1px solid var(--line-strong); border-radius: var(--radius-m); background: var(--surface-color); color: var(--text-subtle); }
+.home-search:focus-within { border-color: var(--text-main); }
+.home-search input { flex: 1; min-width: 0; border: none; background: none; outline: none; font: inherit; font-size: 1rem; color: var(--text-main); }
+.home-hero-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.home-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 20px 22px; border: 1px solid var(--border-color); border-radius: var(--radius-m); background: var(--surface-color); flex-wrap: wrap; }
+.home-top .sub { margin: 0 0 8px; }
+.home-stats { display: flex; gap: 36px; flex-wrap: wrap; }
+.home-stats div { display: flex; flex-direction: column; gap: 2px; }
+.home-stats strong { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.home-stats span { font-size: 0.8rem; color: var(--text-subtle); }
+.home-watch { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.home-watch-item { display: flex; gap: 12px; align-items: center; padding: 10px; border: 1px solid var(--border-color); border-radius: var(--radius-m); background: var(--surface-color); text-align: left; cursor: pointer; font: inherit; color: var(--text-main); }
+.home-watch-item:hover { border-color: var(--line-strong); }
+.home .home-widget { margin: 0; }
+@media (max-width: 900px) {
+  .home-hero { padding-top: 12px; }
+  .home-hero h1 { font-size: 1.6rem !important; }
+  .home-stats { gap: 20px; }
+  .home-stats strong { font-size: 1.25rem; }
+  .home-cards { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+}
