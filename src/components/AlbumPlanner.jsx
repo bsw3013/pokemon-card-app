@@ -7,7 +7,7 @@ import { useOwnedCards } from '../hooks/useOwnedCards';
 import { useAuth } from '../AuthContext';
 import CardDetailModal from './CardDetailModal';
 import CardThumbnail from './CardThumbnail';
-import FilterExplorer from './FilterExplorer';
+import CardsPage from '../pages/CardsPage';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import JSZip from 'jszip';
@@ -1857,7 +1857,7 @@ export default function AlbumPlanner({ appConfig }) {
       {showCardPicker && (
         <div className="modal-backdrop" style={{ zIndex: 1500 }}>
           <div className="modal-content" style={{ maxWidth: '95vw', height: '90vh', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <FilterExplorer 
+            <CardsPage 
               appConfig={appConfig} 
               isPicker={true} 
               onSelectCards={handleBatchAssign} 

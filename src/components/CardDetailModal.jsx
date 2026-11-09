@@ -6,11 +6,17 @@ import pokemonMapAll from '../utils/pokemonMapAll.json';
 import { buildCardKey } from '../utils/cardKey';
 import { useAuth } from '../AuthContext';
 import CardThumbnail from './CardThumbnail';
+import CardDetailView from './CardDetailView';
 
 const { krToEn, krToJa } = pokemonMapAll;
 
-export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = false, onClose, onSave, onDelete, onDuplicate, onViewMarket }) {
+export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = false, onClose, onSave, onDelete, onDuplicate, onViewMarket, onOpenCard }) {
   const { user, signInWithGoogle } = useAuth();
+  // 'view': 카드 보기 화면(기본) / 'edit': 정보·보유 기록 수정. 다른 카드를 열면 다시 기본값부터.
+  const cardIdentity = card?.isNew ? 'new' : card?.id;
+  const [modeState, setModeState] = useState({ id: null, mode: 'view' });
+  const mode = modeState.id === cardIdentity ? modeState.mode : (cardIdentity === 'new' ? 'edit' : 'view');
+  const setMode = (next) => setModeState({ id: cardIdentity, mode: next });
   const [editData, setEditData] = useState({});
   // 'loading' 상태는 null, 기록 없음은 'none', 있으면 {count,min,max,avg}
   const [marketSummary, setMarketSummary] = useState(null);
@@ -54,6 +60,17 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
     }
   }, [isOpen, card]);
 
+  // Esc 로 닫기 (수정 중이면 보기 화면으로)
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || isPickerOpen) return;
+      if (mode === 'edit' && cardIdentity !== 'new') setModeState({ id: cardIdentity, mode: 'view' }); else onClose?.();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, mode, cardIdentity, isPickerOpen, onClose]);
+
   useEffect(() => {
     if (!isOpen || !card) { setMarketSummary(null); return; }
     const cardKey = buildCardKey(card);
@@ -95,6 +112,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
     setIsSaving(true);
     try {
       await onSave(editData);
+      if (!card?.isNew) setMode('view');
     } finally {
       setIsSaving(false);
     }
@@ -250,8 +268,21 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
     <>
       <div className="modal-backdrop fade-in" onClick={onClose} style={{ zIndex: 1000 }}>
         <div className="modal-content slide-up" onClick={(e) => e.stopPropagation()}>
-          <button className="modal-close" onClick={onClose}>✕</button>
-          <h2 className="modal-title">카드 상세 / 편집기</h2>
+          <button className="modal-close" onClick={onClose} aria-label="닫기">✕</button>
+          {mode === 'view' && !card.isNew ? (
+            <CardDetailView
+              card={card}
+              isAdmin={isAdmin}
+              marketSummary={marketSummary}
+              onEdit={() => (user ? setMode('edit') : signInWithGoogle())}
+              onViewMarket={onViewMarket ? () => { onViewMarket({ ...card }); onClose(); } : undefined}
+              onOpenCard={onOpenCard}
+            />
+          ) : (<>
+          <div className="modal-edit-head">
+            {!card.isNew && <button type="button" className="btn btn-secondary btn-compact" onClick={() => setMode('view')}>← 보기로</button>}
+            <h2 className="modal-title">{card.isNew ? '새 카드 추가' : isAdmin ? '카드 정보 수정' : '내 보유 정보 기록'}</h2>
+          </div>
           <div className="modal-body">
             <div className="modal-image-col">
               <div className="modal-card-image">
@@ -420,6 +451,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
                       className="btn btn-secondary btn-compact"
                       onClick={() => {
                         onViewMarket({
+                          id: card?.isNew ? undefined : card?.id,
                           cardName: editData.cardName,
                           series: editData.series,
                           cardNumber: editData.cardNumber,
@@ -467,6 +499,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
               </div>
             </form>
           </div>
+          </>)}
         </div>
       </div>
 

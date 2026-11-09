@@ -1,171 +1,80 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import './index.css';
-import CardList from './components/CardList';
-import FilterExplorer from './components/FilterExplorer';
+import CardsPage from './pages/CardsPage';
+import SetsPage from './pages/SetsPage';
+import CollectionPage from './pages/CollectionPage';
 import AdminSettings from './components/AdminSettings';
-import StatsDashboard from './components/StatsDashboard';
 import AlbumPlanner from './components/AlbumPlanner';
 import MarketPrice from './components/MarketPrice';
 import NicknameModal from './components/NicknameModal';
 import HomeDashboard from './components/home/HomeDashboard';
-import ThemeToggle from './components/ThemeToggle';
+import TopNav from './components/TopNav';
 import { defaultConfig } from './defaultConfig';
 import { sanitizeStatusOptions } from './utils/statusUtils';
 import { useAuth } from './AuthContext';
 import { useOwnedCards } from './hooks/useOwnedCards';
 import { applyCatalogToConfig } from './utils/catalog';
+import { navigate, parseHash } from './utils/hashRoute';
 
-const NAV_ITEMS = [
-  { id: 'home', label: '홈', description: '메인 대시보드' },
-  { id: 'gallery', label: '도감 갤러리', description: '보유 카드 조회/편집' },
-  { id: 'filter', label: '필터 탐색기', description: '시리즈/레어도/종류 탐색' },
-  { id: 'album', label: '앨범 꾸미기', description: '페이지 배치 시뮬레이션' },
-  { id: 'stats', label: '통계', description: '레어도/상태 집계' },
-  { id: 'market', label: '시세 조회', description: '실시간 중고 시세 확인' },
-  { id: 'admin', label: '마스터 설정', description: '환경설정/백업/복원' },
-];
-
+const VIEWS = ['home', 'cards', 'sets', 'collection', 'market', 'album', 'admin'];
+// 예전 주소로 들어와도 새 화면으로 연결한다.
+const LEGACY = { gallery: 'cards', filter: 'cards', stats: 'collection' };
 const DEFAULT_VIEW = 'home';
 const LAST_VIEW_KEY = 'pc_last_view';
 
-function isValidView(viewId) {
-  return NAV_ITEMS.some((item) => item.id === viewId);
-}
-
-function getStoredView() {
-  if (typeof window === 'undefined') return null;
-  try {
-    const stored = String(window.localStorage.getItem(LAST_VIEW_KEY) || '').trim();
-    return isValidView(stored) ? stored : null;
-  } catch (err) {
-    return null;
+function readRoute() {
+  const { path, params } = parseHash();
+  let view = path[0] || '';
+  if (LEGACY[view]) view = LEGACY[view];
+  if (!VIEWS.includes(view)) {
+    let stored = '';
+    try { stored = String(window.localStorage.getItem(LAST_VIEW_KEY) || ''); } catch { /* 무시 */ }
+    view = VIEWS.includes(LEGACY[stored] || stored) ? (LEGACY[stored] || stored) : DEFAULT_VIEW;
   }
-}
-
-function getViewFromHash() {
-  if (typeof window === 'undefined') return DEFAULT_VIEW;
-  const raw = window.location.hash.replace(/^#\/?/, '').trim();
-  if (!raw) return getStoredView() || DEFAULT_VIEW;
-  const normalized = raw.split('?')[0].split('&')[0].replace(/^\/+|\/+$/g, '').trim();
-  if (!normalized) return getStoredView() || DEFAULT_VIEW;
-  return isValidView(normalized) ? normalized : (getStoredView() || DEFAULT_VIEW);
+  return { view, param: path[1] || '', params };
 }
 
 function App() {
-  const { user, loading: authLoading, isAdmin, nickname, needsNickname, signInWithGoogle, signOut } = useAuth();
+  const { user, loading: authLoading, isAdmin, needsNickname, signInWithGoogle } = useAuth();
   const [showNicknameEditor, setShowNicknameEditor] = useState(false);
-  const [currentView, setCurrentView] = useState(getViewFromHash);
+  const [route, setRoute] = useState(readRoute);
   const [rawAppConfig, setAppConfig] = useState(null);
   // 세트·레어도 표(settings/catalog)가 있으면 그 순서대로 시리즈·레어도 선택지를 만든다.
   const { catalog } = useOwnedCards();
   const appConfig = useMemo(() => applyCatalogToConfig(rawAppConfig, catalog), [rawAppConfig, catalog]);
   const [marketPresetCard, setMarketPresetCard] = useState(null);
-  const [isNavOpen, setIsNavOpen] = useState(false);
-  const [isNavPinned, setIsNavPinned] = useState(false);
-  const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 960 : false));
-  const closeTimerRef = useRef(null);
-  
-  // 맨 위로 가기 버튼(Back to top) 제어 상태
   const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const currentView = route.view;
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const handleScroll = () => {
-      if (window.scrollY > 400) {
-        setShowScrollBtn(true);
-      } else {
-        setShowScrollBtn(false);
-      }
-    };
-    window.addEventListener('scroll', handleScroll);
+    const onHash = () => setRoute(readRoute());
+    window.addEventListener('hashchange', onHash);
+    // 예전 주소(#/gallery 등)나 빈 주소는 새 주소로 바꿔 둔다.
+    const { path, params } = parseHash();
+    if (!path[0] || LEGACY[path[0]] || !VIEWS.includes(path[0])) {
+      const r = readRoute();
+      navigate([r.view, ...(r.param ? [r.param] : [])], params, { replace: true });
+    }
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
+  useEffect(() => {
+    try { window.localStorage.setItem(LAST_VIEW_KEY, currentView); } catch { /* 무시 */ }
+    window.scrollTo({ top: 0 });
+  }, [currentView, route.param]);
+
+  useEffect(() => {
+    const handleScroll = () => setShowScrollBtn(window.scrollY > 600);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const clearCloseTimer = () => {
-    if (closeTimerRef.current) {
-      clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
-    }
-  };
-
-  const openSideNav = () => {
-    clearCloseTimer();
-    setIsNavOpen(true);
-  };
-
-  const closeSideNav = () => {
-    clearCloseTimer();
-    setIsNavOpen(false);
-  };
-
-  const scheduleCloseSideNav = () => {
-    if (isNavPinned || isMobile) return;
-    clearCloseTimer();
-    closeTimerRef.current = setTimeout(() => {
-      setIsNavOpen(false);
-    }, 240);
-  };
-
-  const navigateTo = (viewId) => {
-    const target = NAV_ITEMS.some((item) => item.id === viewId) ? viewId : DEFAULT_VIEW;
-    setCurrentView(target);
-    if (typeof window !== 'undefined') {
-      const nextHash = `#/${target}`;
-      if (window.location.hash !== nextHash) {
-        window.location.hash = nextHash;
-      }
-    }
-  };
-
   const viewMarketForCard = (card) => {
     setMarketPresetCard(card);
-    navigateTo('market');
+    navigate(['market']);
   };
-
-  useEffect(() => {
-    const handleHashChange = () => {
-      setCurrentView(getViewFromHash());
-    };
-    window.addEventListener('hashchange', handleHashChange);
-    handleHashChange();
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
-
-  useEffect(() => {
-    const handleResize = () => {
-      const mobile = window.innerWidth <= 960;
-      setIsMobile(mobile);
-      if (mobile) {
-        setIsNavPinned(false);
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  useEffect(() => () => clearCloseTimer(), []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      window.localStorage.setItem(LAST_VIEW_KEY, currentView);
-    } catch (err) {
-      // ignore storage failures
-    }
-  }, [currentView]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!window.location.hash) {
-      window.location.hash = `#/${currentView}`;
-    }
-  }, [currentView]);
 
   useEffect(() => {
     async function fetchConfig() {
@@ -231,12 +140,6 @@ function App() {
     fetchConfig();
   }, [user, isAdmin]);
 
-  const visibleNavItems = NAV_ITEMS.filter((item) => {
-    if (item.id === 'admin') return isAdmin;
-    if (item.id === 'album') return !!user;
-    return true;
-  });
-
   if (authLoading) {
     return (
       <div className="loading-config fade-in">
@@ -246,176 +149,55 @@ function App() {
     );
   }
 
+  const needLogin = (title, desc) => (
+    <main className="page">
+      <div className="empty-page">
+        <h1>{title}</h1>
+        <p className="sub">{desc}</p>
+        <button type="button" className="btn btn-primary" onClick={signInWithGoogle}>Google로 로그인</button>
+      </div>
+    </main>
+  );
+
   return (
     <>
-      <button
-        type="button"
-        className={`side-nav-trigger ${isNavOpen ? 'open' : ''}`}
-        aria-label="페이지 목차 열기"
-        aria-expanded={isNavOpen}
-        onMouseEnter={() => {
-          if (!isMobile) openSideNav();
-        }}
-        onMouseLeave={scheduleCloseSideNav}
-        onClick={() => {
-          if (isNavOpen) closeSideNav();
-          else openSideNav();
-        }}
-      >
-        ☰
-      </button>
-
-      <aside
-        className={`side-nav-panel ${isNavOpen ? 'open' : ''} ${isNavPinned ? 'pinned' : ''}`}
-        onMouseEnter={() => {
-          if (!isMobile) openSideNav();
-        }}
-        onMouseLeave={scheduleCloseSideNav}
-      >
-        <div className="side-nav-header">
-          <h3>페이지 목차</h3>
-          <button
-            type="button"
-            className={`side-nav-pin ${isNavPinned ? 'active' : ''}`}
-            onClick={() => {
-              setIsNavPinned((prev) => !prev);
-              openSideNav();
-            }}
-            disabled={isMobile}
-            title={isMobile ? '모바일에서는 고정 모드가 비활성화됩니다.' : '목차 패널 고정'}
-            aria-label="목차 패널 고정"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 3h6l-1 6 4 4H6l4-4z" /><path d="M12 13v8" /></svg>
-          </button>
-        </div>
-
-        <nav className="side-nav-menu" aria-label="사이드 페이지 메뉴">
-          {visibleNavItems.map((item) => (
-            <button
-              type="button"
-              key={item.id}
-              className={`side-nav-item ${currentView === item.id ? 'active' : ''}`}
-              onClick={() => {
-                navigateTo(item.id);
-                if (isMobile || !isNavPinned) closeSideNav();
-              }}
-            >
-              <span className="side-nav-item-label">{item.label}</span>
-              <small className="side-nav-item-desc">{item.description}</small>
-            </button>
-          ))}
-        </nav>
-      </aside>
-
-      {isMobile && isNavOpen && <div className="side-nav-backdrop" onClick={closeSideNav} />}
-
-      <nav className="navbar">
-        <div className="logo" onClick={() => navigateTo('home')} style={{cursor: 'pointer'}}>PokéDex</div>
-        <div className="btn-group top-nav-actions">
-          <button type="button" className="btn btn-secondary btn-compact" onClick={() => navigateTo('gallery')}>나의 도감</button>
-          <button type="button" className="btn btn-secondary btn-compact" onClick={() => navigateTo('filter')}>필터</button>
-          {isAdmin && (
-            <button type="button" className="btn btn-primary btn-compact" onClick={() => navigateTo('admin')}>마스터 설정</button>
-          )}
-          <ThemeToggle />
-          {user ? (
-            <>
-              <span
-                className="navbar-user-info"
-                onClick={() => setShowNicknameEditor(true)}
-                title="클릭해서 닉네임 변경"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '0.6rem', fontSize: '0.85rem', color: 'var(--text-muted)', cursor: 'pointer' }}
-              >
-                {nickname || user.displayName || user.email}{isAdmin && ' (관리자)'}
-              </span>
-              <button type="button" className="btn btn-secondary btn-compact" onClick={signOut}>로그아웃</button>
-            </>
-          ) : (
-            <button type="button" className="btn btn-primary btn-compact" style={{ marginLeft: '0.6rem' }} onClick={signInWithGoogle}>로그인</button>
-          )}
-        </div>
-      </nav>
+      <TopNav current={currentView} onEditNickname={() => setShowNicknameEditor(true)} />
 
       {!appConfig ? (
         <div className="loading-config fade-in">
-           <div className="spinner"></div>
-           <h2>마스터 시스템 동기화 중...</h2>
+          <div className="spinner"></div>
+          <h2>불러오는 중...</h2>
         </div>
       ) : (
-        <>
-        {currentView === 'gallery' && (
-         <main className="gallery-page">
-            <CardList appConfig={appConfig} onViewMarket={viewMarketForCard} />
-         </main>
-      )}
-
-      {currentView === 'filter' && (
-        <main className="gallery-page">
-          <FilterExplorer appConfig={appConfig} />
-        </main>
-      )}
-
-      {currentView === 'admin' && (
-         <main className="admin-page">
-            {isAdmin ? (
+        <div className="app-main" key={currentView}>
+          {currentView === 'home' && <HomeDashboard appConfig={appConfig} onViewMarket={viewMarketForCard} />}
+          {currentView === 'cards' && <CardsPage appConfig={appConfig} onViewMarket={viewMarketForCard} />}
+          {currentView === 'sets' && <SetsPage code={route.param} appConfig={appConfig} onViewMarket={viewMarketForCard} />}
+          {currentView === 'collection' && (user
+            ? <CollectionPage appConfig={appConfig} onViewMarket={viewMarketForCard} />
+            : needLogin('내 컬렉션', '로그인하면 내가 가진 카드와 평가액, 세트 완성률을 볼 수 있어요.'))}
+          {currentView === 'market' && (
+            <MarketPrice appConfig={appConfig} presetCard={marketPresetCard} clearPreset={() => setMarketPresetCard(null)} />
+          )}
+          {currentView === 'album' && (user
+            ? <AlbumPlanner appConfig={appConfig} />
+            : needLogin('앨범 꾸미기', '앨범은 로그인한 계정별로 저장돼요.'))}
+          {currentView === 'admin' && (isAdmin ? (
+            <main className="admin-page">
               <AdminSettings appConfig={appConfig} setAppConfig={setAppConfig} />
-            ) : (
-              <div className="loading-config fade-in">
-                <h2>접근 권한이 없습니다.</h2>
-                <p>마스터 설정은 관리자 계정만 사용할 수 있습니다.</p>
-              </div>
-            )}
-         </main>
-      )}
-
-      {currentView === 'stats' && (
-        <StatsDashboard />
-      )}
-
-      {currentView === 'album' && (
-        user ? (
-          <AlbumPlanner appConfig={appConfig} />
-        ) : (
-          <main className="hero fade-in">
-            <h2>로그인이 필요합니다.</h2>
-            <p>앨범 꾸미기는 로그인한 계정별로 저장돼요.</p>
-            <div className="btn-group">
-              <button type="button" className="btn btn-primary" onClick={signInWithGoogle}>Google로 로그인</button>
-            </div>
-          </main>
-        )
-      )}
-
-      {currentView === 'market' && (
-        <MarketPrice
-          appConfig={appConfig}
-          presetCard={marketPresetCard}
-          clearPreset={() => setMarketPresetCard(null)}
-        />
-      )}
-
-      {currentView === 'home' && (
-        <HomeDashboard onNavigate={navigateTo} />
-      )}
-      </>
+            </main>
+          ) : (
+            <main className="page"><div className="empty-page"><h1>접근 권한이 없습니다.</h1><p className="sub">마스터 설정은 관리자 계정만 사용할 수 있습니다.</p></div></main>
+          ))}
+        </div>
       )}
 
       {showScrollBtn && (
-        <button
-          type="button"
-          className="scroll-to-top-btn"
-          onClick={scrollToTop}
-          title="맨 위로 이동"
-          aria-label="맨 위로 이동"
-        >
-          ▲
-        </button>
+        <button type="button" className="scroll-to-top-btn" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} title="맨 위로 이동" aria-label="맨 위로 이동">▲</button>
       )}
 
       {needsNickname && <NicknameModal forced />}
-      {!needsNickname && showNicknameEditor && (
-        <NicknameModal onClose={() => setShowNicknameEditor(false)} />
-      )}
+      {!needsNickname && showNicknameEditor && <NicknameModal onClose={() => setShowNicknameEditor(false)} />}
     </>
   );
 }
