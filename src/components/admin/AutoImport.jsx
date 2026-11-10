@@ -36,6 +36,7 @@ export default function AutoImport() {
         if (pending.length === 0) return;
 
         let sets = [...(catalog?.sets || DEFAULT_SETS)];
+        let rarities = [...(catalog?.rarities || DEFAULT_RARITIES)];
         const known = new Set(cards.map((c) => numKey(c.cardNumber)).filter(Boolean));
         const notes = [];
         for (const id of pending) {
@@ -43,12 +44,15 @@ export default function AutoImport() {
           if (!pkgRes.ok) continue;
           const pkg = await pkgRes.json();
 
-          // 1) 세트 표에 없는 세트 추가
+          // 1) 세트 표·레어도 표에 없는 세트와 레어도 추가
           const have = new Set(sets.map((s) => norm(s.code).toLowerCase()));
           const newSets = (pkg.sets || []).filter((s) => !have.has(norm(s.code).toLowerCase()));
-          if (newSets.length) {
+          const haveR = new Set(rarities.map((r) => norm(r.code).toUpperCase()));
+          const newRarities = (pkg.rarities || []).filter((r) => r.code && !haveR.has(norm(r.code).toUpperCase()));
+          if (newSets.length || newRarities.length) {
             sets = [...sets, ...newSets];
-            await saveCatalog({ sets, rarities: catalog?.rarities || DEFAULT_RARITIES });
+            rarities = [...rarities, ...newRarities];
+            await saveCatalog({ sets, rarities });
           }
 
           // 2) 없는 카드만 추가

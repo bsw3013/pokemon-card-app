@@ -16,11 +16,59 @@ const SETS = [
   { code: 'm4', name: '닌자스피너', kind: '확장팩', releaseDate: '2026-05-01', detail: 'BS2026003', count: 120 },
   { code: 'm5', name: '어비스아이', kind: '확장팩', releaseDate: '2026-06-26', detail: 'BS2026004', count: 118 },
   { code: 'm6', name: '스톰에메랄다', kind: '확장팩', releaseDate: '2026-08-21', detail: 'BS2026005', count: 113 },
-  { code: 'm6a', name: '30th CELEBRATION', kind: '확장팩', releaseDate: '2026-09-16', detail: 'BS2026006', count: 176 },
+  // M6a는 힛카드만이 아니라 공식 사이트에 올라온 모든 카드를 넣는다 (all: true)
+  { code: 'm6a', name: '30th CELEBRATION', kind: '확장팩', releaseDate: '2026-09-16', detail: 'BS2026006', count: 176, all: true },
 ];
 
+// 공식 사이트 상세 페이지가 오류(HTTP 500)라 읽지 못하는 M6a 카드들.
+// 포켓몬코리아 공식 카드 사진(MEGA/M6a/M6a_번호.png)에 인쇄된 이름·레어도를 그대로 옮겨 적었다.
+// 136~165번(옛 디자인 복각 카드)은 카드에 레어도 표시가 없어서 '없음'으로 둔다.
+const MANUAL = {
+  m6a: [
+    [119, '짜랑고우거', 'AR', '포켓몬', '0784'],
+    [128, '뮤츠 ex', 'SAR', '포켓몬', '0150'],
+    [129, '뮤 ex', 'SAR', '포켓몬', '0151'],
+    [131, '팬텀 ex', 'SAR', '포켓몬', '0094'],
+    [134, '뮤츠 ex', 'FUR', '포켓몬', '0150'],
+    [135, '뮤 ex', 'FUR', '포켓몬', '0151'],
+    [136, '피카츄', '없음', '포켓몬', '0025'],
+    [137, '리자몽', '없음', '포켓몬', '0006'],
+    [138, '이슬', '없음', '서포트', ''],
+    [139, '민화의 푸린', '없음', '포켓몬', '0039'],
+    [140, '포푸니', '없음', '포켓몬', '0215'],
+    [141, '빛나는 세레비', '없음', '포켓몬', '0251'],
+    [142, '루기아', '없음', '포켓몬', '0249'],
+    [143, '델케티', '없음', '포켓몬', '0301'],
+    [144, '나쁜 마기라스', '없음', '포켓몬', '0248'],
+    [145, '핫삼 ex', '없음', '포켓몬', '0212'],
+    [146, '메타그로스 δ', '없음', '포켓몬', '0376'],
+    [147, '펄기아 LV.X', '없음', '포켓몬', '0484'],
+    [148, '유크시', '없음', '포켓몬', '0480'],
+    [149, '크로뱃 G', '없음', '포켓몬', '0169'],
+    [150, '팬텀', '없음', '포켓몬', '0094'],
+    [151, '다크라이&크레세리아 LEGEND', '없음', '포켓몬', '0491'],
+    [152, '다크라이&크레세리아 LEGEND', '없음', '포켓몬', '0488'],
+    [153, 'N', '없음', '서포트', ''],
+    [154, '레쿠쟈 EX', '없음', '포켓몬', '0384'],
+    [155, '게노세크트 EX', '없음', '포켓몬', '0649'],
+    [156, 'M가디안 EX', '없음', '포켓몬', '0282'],
+    [157, '개굴닌자 BREAK', '없음', '포켓몬', '0658'],
+    [158, '솔가레오 GX', '없음', '포켓몬', '0791'],
+    [159, '매시붕 GX', '없음', '포켓몬', '0794'],
+    [160, '피카츄&제크로무 GX', '없음', '포켓몬', '0025'],
+    [161, '자시안 V', '없음', '포켓몬', '0888'],
+    [162, '라이코', '없음', '포켓몬', '0243'],
+    [163, '뮤 VMAX', '없음', '포켓몬', '0151'],
+    [164, '아르세우스 VSTAR', '없음', '포켓몬', '0493'],
+    [165, '잉어킹', '없음', '포켓몬', '0129'],
+  ],
+};
+
+// 기본 레어도 표에 없는 새 레어도 (자동 등록 때 레어도 표에도 추가된다)
+const NEW_RARITIES = [{ code: 'FUR', order: 23, group: '힛카드' }];
+
 // 지금 DB처럼 힛카드만 넣는다 (마스터 설정의 레어도 표에서 "힛카드" 묶음)
-const HIT = new Set(['S', 'A', 'MA', 'AR', 'CHR', 'CSR', 'SR', 'SSR', 'SAR', 'HR', 'UR', 'BWR', 'MUR']);
+const HIT = new Set(['S', 'A', 'MA', 'AR', 'CHR', 'CSR', 'SR', 'SSR', 'SAR', 'HR', 'UR', 'BWR', 'MUR', 'FUR']);
 const PAUSE_MS = 300;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -56,15 +104,15 @@ function parse(htmlText) {
   const body = htmlText.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, '');
   const lines = decode(body.replace(/<[^>]+>/g, '\n')).split('\n').map((l) => l.trim()).filter(Boolean);
   const i = lines.findIndex((l) => /^\d{3}\/\d{3}$/.test(l));
-  if (i < 0) return null;
-  const [no, printed] = lines[i].split('/');
-  const rarity = /^[A-Z]{1,4}$/.test(lines[i + 1] || '') ? lines[i + 1] : '';
+  // 기본 에너지는 카드 번호·레어도 표시가 없다
+  const [no, printed] = i >= 0 ? lines[i].split('/') : [0, 0];
+  const rarity = i >= 0 && /^[A-Z]{1,4}$/.test(lines[i + 1] || '') ? lines[i + 1] : '';
   const title = htmlText.match(/class="card-hp title">([^<]*)/);
   const kind = lines.find((l) => l.startsWith('카드 종류')) || '';
   const dex = body.match(/No\.\s*(\d{1,4})/);
   const img = htmlText.match(/wmimages\/([A-Za-z0-9/_-]+)\.(?:png|webp|jpg)/);
   return {
-    no: Number(no), printed: Number(printed), rarity,
+    no: Number(no), printed: Number(printed) || null, rarity,
     name: title ? decode(title[1]).trim() : '',
     type: cardType(kind),
     dex: dex ? dex[1].padStart(4, '0') : '',
@@ -93,19 +141,22 @@ function fillDexNumbers(cards) {
   });
 }
 
-const out = { id: IMPORT_ID, createdAt: new Date().toISOString(), source: 'pokemoncard.co.kr', sets: [], cards: [] };
+const out = { id: IMPORT_ID, createdAt: new Date().toISOString(), source: 'pokemoncard.co.kr', sets: [], rarities: NEW_RARITIES, cards: [] };
 for (const set of SETS) {
   let printed = null;
   let kept = 0;
+  const code = set.code.toUpperCase().replace(/A$/, 'a');
+  const manual = new Map((MANUAL[set.code] || []).map(([n, name, rarity, type, dex]) => [n, { name, rarity, type, dex, imagePath: '' }]));
   for (let n = 1; n <= set.count; n += 1) {
     const nnn = String(n).padStart(3, '0');
     const html = await fetchCard(`https://pokemoncard.co.kr/cards/detail/${set.detail}${nnn}`);
-    const c = parse(html);
+    let c = parse(html);
     await sleep(PAUSE_MS);
+    if ((!c || !c.name) && manual.has(n)) c = manual.get(n);
     if (!c || !c.name) { console.warn(`  ${set.code} ${nnn}: 읽지 못함`); continue; }
     printed = printed || c.printed;
-    if (!HIT.has(c.rarity)) continue;
-    const code = set.code.toUpperCase().replace(/A$/, 'a');
+    if (!c.rarity) c.rarity = '없음';
+    if (!set.all && !HIT.has(c.rarity)) continue;
     out.cards.push({
       cardName: c.name,
       series: `${set.code} -「${set.name}」`,
