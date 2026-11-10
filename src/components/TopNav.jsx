@@ -9,10 +9,11 @@ const MAIN_NAV = [
   { id: 'cards', label: '카드', icon: 'cards' },
   { id: 'sets', label: '세트', icon: 'sets' },
   { id: 'collection', label: '내 컬렉션', icon: 'me' },
+  { id: 'album', label: '앨범', icon: 'album' },
   { id: 'market', label: '시세', icon: 'chart' },
 ];
 
-// 상단 메뉴(데스크톱) + 하단 탭바(모바일). 앨범·설정·로그아웃은 오른쪽 프로필 메뉴 안에 둔다.
+// 상단 메뉴(데스크톱) + 하단 탭바(모바일). 설정·로그아웃은 오른쪽 프로필 메뉴 안에 둔다.
 export default function TopNav({ current, onEditNickname }) {
   const { user, isAdmin, nickname, signInWithGoogle, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -80,7 +81,6 @@ export default function TopNav({ current, onEditNickname }) {
                       <strong>{displayName}</strong>
                       {isAdmin && <span>관리자</span>}
                     </div>
-                    <button type="button" role="menuitem" onClick={() => go('album')}><Icon name="album" size={16} />앨범 꾸미기</button>
                     {isAdmin && <button type="button" role="menuitem" onClick={() => go('admin')}><Icon name="settings" size={16} />마스터 설정</button>}
                     <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onEditNickname?.(); }}><Icon name="edit" size={16} />닉네임 변경</button>
                     <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); signOut(); }}><Icon name="logout" size={16} />로그아웃</button>

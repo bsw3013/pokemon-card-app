@@ -1112,7 +1112,7 @@ export default function AlbumPlanner({ appConfig }) {
             <p>{showTrash ? '삭제된 앨범을 복구하거나 영구 삭제할 수 있습니다.' : '카드 배치를 미리 설계하고 페이지 구성을 저장하세요.'}</p>
           </div>
           <div className="album-header-actions">
-            <button type="button" className={`btn-toggle ${showTrash ? 'active' : ''}`} onClick={() => setShowTrash(!showTrash)} style={{ marginRight: '1rem', color: showTrash ? 'var(--danger-color)' : 'inherit' }}>
+            <button type="button" className={`btn-toggle ${showTrash ? 'active' : ''}`} onClick={() => setShowTrash(!showTrash)} style={{ color: showTrash ? 'var(--danger-color)' : 'inherit' }}>
                {showTrash ? '돌아가기' : `휴지통 (${trashAlbums.length}개)`}
             </button>
             <div className="view-toggle">
