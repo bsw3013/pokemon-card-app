@@ -15,14 +15,11 @@ import Icon from '../components/Icon';
 const PAGE = 120;
 const NONE = '__none__';
 const LANGS = ['한국', '일본', '미국', '중국'];
-const SORTS = [
-  ['release_desc', '발매일 최신순'],
-  ['release_asc', '발매일 오래된순'],
-  ['rarity_desc', '레어도 높은순'],
-  ['dex', '도감번호순'],
-  ['name', '이름순'],
-  ['added_desc', '최근 추가순'],
-  ['price_desc', '내 평가 가격 높은순'],
+// 정렬 목록 (종류별로 묶어서 보여줌)
+const SORT_GROUPS = [
+  ['날짜', [['release_desc', '발매일 최신순'], ['release_asc', '발매일 오래된순'], ['added_desc', '최근 추가순']]],
+  ['카드 정보', [['rarity_desc', '레어도 높은순'], ['dex', '도감번호순'], ['name', '이름순 (가나다)']]],
+  ['가격', [['price_desc', '내 평가 가격 높은순']]],
 ];
 const SIZES = { s: 118, m: 150, l: 190 };
 
@@ -39,7 +36,7 @@ function splitList(value) {
 export default function CardsPage({ appConfig, onViewMarket, isPicker = false, onSelectCards, onClose }) {
   const { user, isAdmin } = useAuth();
   const { cards, loading, catalog } = useOwnedCards();
-  const { settings: thumbSettings, toggleSetting } = useThumbnailSettings();
+  const { settings: thumbSettings, toggleSetting, updateSettings } = useThumbnailSettings();
   const detail = useCardDetail({ appConfig, onViewMarket });
 
   const initial = useMemo(() => (isPicker ? { params: {} } : parseHash()), [isPicker]);
@@ -327,8 +324,13 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
             </div>
             <div className="tools">
               <span className="count">{loading ? '불러오는 중' : `${filtered.length.toLocaleString()}장`}</span>
+              <span className="sort-label">정렬</span>
               <select className="select" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="정렬">
-                {SORTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+                {SORT_GROUPS.map(([g, items]) => (
+                  <optgroup key={g} label={g}>
+                    {items.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+                  </optgroup>
+                ))}
               </select>
               {!isPicker && (
                 <div className="view" role="group" aria-label="보기 방식">
@@ -343,7 +345,7 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
                   ))}
                 </div>
               )}
-              {view === 'grid' && <ThumbnailSettings settings={thumbSettings} toggleSetting={toggleSetting} />}
+              {view === 'grid' && <ThumbnailSettings settings={thumbSettings} toggleSetting={toggleSetting} updateSettings={updateSettings} />}
             </div>
           </div>
 
