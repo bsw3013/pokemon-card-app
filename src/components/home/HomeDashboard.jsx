@@ -246,6 +246,11 @@ export default function HomeDashboard({ appConfig, onViewMarket }) {
         </section>
       )}
 
+      {/* 내 포켓몬 도감 (레어도별 모음 바로 아래) */}
+      <section className="home-sec">
+        <PokedexGridWidget loading={loading} entries={entries} generationStats={generationStats} headerStats={headerStats} onSelectEntry={setSelectedNumber} />
+      </section>
+
       {nearComplete.length > 0 && (
         <section className="home-sec">
           <SectionHead title="완성에 가까운 세트" action="세트 완성률 전체" onAction={() => navigate(['collection'], { tab: 'sets' })} />
@@ -279,10 +284,6 @@ export default function HomeDashboard({ appConfig, onViewMarket }) {
         <div className="sp-grid">
           {latestSets.slice(0, 3).map((v) => <SetCard key={v.set.code} set={v.set} owned={v.owned} total={v.total} showProgress />)}
         </div>
-      </section>
-
-      <section className="home-sec">
-        <PokedexGridWidget loading={loading} entries={entries} generationStats={generationStats} headerStats={headerStats} onSelectEntry={setSelectedNumber} />
       </section>
 
       {selectedEntry && (
