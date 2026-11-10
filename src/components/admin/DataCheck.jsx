@@ -194,7 +194,7 @@ export default function DataCheck() {
         }));
       });
       plan.updates.forEach(({ id, patch }) => {
-        ops.push((batch) => batch.update(doc(db, 'pokemon_cards', id), patch));
+        ops.push((batch) => batch.update(doc(db, 'pokemon_cards', id), { ...patch, updatedAt: new Date().toISOString() }));
       });
       plan.marketUpdates.forEach(({ col, id, cardKey, legacyCardKey }) => {
         ops.push((batch) => batch.update(doc(db, col, id), { cardKey, legacyCardKey }));

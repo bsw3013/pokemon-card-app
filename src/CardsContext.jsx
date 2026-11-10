@@ -6,6 +6,7 @@ import { normalizeStatus } from './utils/statusUtils';
 import { absorbGradedStatus } from './utils/cardStats';
 import { ownershipDocId, splitCardPayload } from './utils/ownershipUtils';
 import { DEFAULT_SETS, buildSetIndex, withCardMeta } from './utils/catalog';
+import { loadMasterCards, recordCardDeletes } from './utils/cardSync';
 import { CardsContext } from './cardsContextObject';
 
 function parsePossessions(raw) {
@@ -71,8 +72,9 @@ export function CardsProvider({ children }) {
     setLoading(true);
     try {
       // 로그인 안 한 게스트는 공용 카드 도감(pokemon_cards)만 읽고, 개인 보유현황(cardOwnership)은 건너뛴다.
-      const [masterSnap, ownershipSnap] = await Promise.all([
-        getDocs(collection(db, 'pokemon_cards')),
+      // 카드 도감은 사이트에 함께 올라간 카드 목록 파일 + 그 뒤에 바뀐 카드만 읽는다 (utils/cardSync.js)
+      const [masterCards, ownershipSnap] = await Promise.all([
+        loadMasterCards(),
         uid
           ? getDocs(query(collection(db, 'cardOwnership'), where('ownerId', '==', uid)))
           : Promise.resolve(null),
@@ -86,12 +88,11 @@ export function CardsProvider({ children }) {
         });
       }
 
-      const merged = masterSnap.docs.map((d) => {
-        const master = d.data() || {};
-        const ownership = ownershipByCardId.get(d.id) || {};
+      const merged = masterCards.map(({ id, ...master }) => {
+        const ownership = ownershipByCardId.get(id) || {};
         const own = absorbGradedStatus(ownership.status, ownership.possessions, ownership.language);
         return {
-          id: d.id,
+          id,
           ...master,
           status: normalizeStatus(own.status),
           language: ownership.language || '한국',
@@ -193,7 +194,7 @@ export function CardsProvider({ children }) {
   // 카드 마스터 정보 삭제. 관리자만 가능. 내 보유현황 문서도 함께 정리한다.
   const deleteCard = useCallback(async (cardId) => {
     if (!isAdmin) throw new Error('관리자만 카드를 삭제할 수 있습니다.');
-    const tasks = [deleteDoc(doc(db, 'pokemon_cards', cardId))];
+    const tasks = [deleteDoc(doc(db, 'pokemon_cards', cardId)), recordCardDeletes([cardId])];
     if (user) {
       tasks.push(deleteDoc(doc(db, 'cardOwnership', ownershipDocId(cardId, user.uid))).catch(() => {}));
     }
