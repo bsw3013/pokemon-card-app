@@ -3,7 +3,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { storage, db } from '../firebase';
 import pokemonMapAll from '../utils/pokemonMapAll.json';
-import { buildCardKey } from '../utils/cardKey';
+import { buildCardKey, buildLegacyCardKey } from '../utils/cardKey';
 import { useAuth } from '../AuthContext';
 import CardThumbnail from './CardThumbnail';
 import CardDetailView from './CardDetailView';
@@ -12,7 +12,7 @@ import { normalizeStatus } from '../utils/statusUtils';
 
 const { krToEn, krToJa } = pokemonMapAll;
 
-export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = false, onClose, onSave, onDelete, onDuplicate, onViewMarket, onOpenCard }) {
+export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = false, onClose, onSave, onDelete, onDuplicate, onViewMarket, onOpenCard, marketVersion = 0, suspendKeys = false }) {
   const { user, signInWithGoogle } = useAuth();
   // 'view': 카드 보기 화면(기본) / 'edit': 정보·보유 기록 수정. 다른 카드를 열면 다시 기본값부터.
   const cardIdentity = card?.isNew ? 'new' : card?.id;
@@ -66,12 +66,12 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
   useEffect(() => {
     if (!isOpen) return undefined;
     const onKey = (e) => {
-      if (e.key !== 'Escape' || isPickerOpen) return;
+      if (e.key !== 'Escape' || isPickerOpen || suspendKeys) return;
       if (mode === 'edit' && cardIdentity !== 'new') setModeState({ id: cardIdentity, mode: 'view' }); else onClose?.();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [isOpen, mode, cardIdentity, isPickerOpen, onClose]);
+  }, [isOpen, mode, cardIdentity, isPickerOpen, suspendKeys, onClose]);
 
   useEffect(() => {
     if (!isOpen || !card) { setMarketSummary(null); return; }
@@ -81,10 +81,14 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
     setMarketSummary(null);
     (async () => {
       try {
-        const snap = await getDocs(query(collection(db, 'marketListings'), where('cardKey', '==', cardKey)));
+        // 예전 방식 키로 저장된 매물도 같이 읽는다. (시세 창과 같은 기준)
+        const legacyKey = buildLegacyCardKey(card);
+        const keys = legacyKey && legacyKey !== cardKey ? [cardKey, legacyKey] : [cardKey];
+        const snaps = await Promise.all(keys.map((k) => getDocs(query(collection(db, 'marketListings'), where('cardKey', '==', k)))));
         if (cancelled) return;
-        const priced = snap.docs
-          .map((d) => d.data())
+        const byId = new Map();
+        snaps.forEach((snap) => snap.docs.forEach((d) => byId.set(d.id, d.data())));
+        const priced = [...byId.values()]
           .filter((l) => l.classification === 'normal' && ['active', 'unconfirmed', 'manual'].includes(l.status) && typeof l.price === 'number');
         if (priced.length === 0) { setMarketSummary('none'); return; }
         const prices = priced.map((l) => l.price).sort((a, b) => a - b);
@@ -96,7 +100,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
       }
     })();
     return () => { cancelled = true; };
-  }, [isOpen, card]);
+  }, [isOpen, card, marketVersion]);
 
   if (!isOpen || !card) return null;
 
@@ -253,7 +257,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
               isAdmin={isAdmin}
               marketSummary={marketSummary}
               onEdit={() => (user ? setMode('edit') : signInWithGoogle())}
-              onViewMarket={onViewMarket ? () => { onViewMarket({ ...card }); onClose(); } : undefined}
+              onViewMarket={onViewMarket ? () => onViewMarket({ ...card }) : undefined}
               onOpenCard={onOpenCard}
             />
           ) : (<>
@@ -376,23 +380,9 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
               <div className="market-summary-inline">
                 <div className="market-summary-inline-header">
                   <h4>실시간 시세</h4>
-                  {onViewMarket && (
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-compact"
-                      onClick={() => {
-                        onViewMarket({
-                          id: card?.isNew ? undefined : card?.id,
-                          cardName: editData.cardName,
-                          series: editData.series,
-                          cardNumber: editData.cardNumber,
-                          imageUrl: editData.imageUrl,
-                          price: editData.price,
-                        });
-                        onClose();
-                      }}
-                    >
-                      시세 조회에서 보기 →
+                  {onViewMarket && !card?.isNew && (
+                    <button type="button" className="btn btn-secondary btn-compact" onClick={() => onViewMarket({ ...card })}>
+                      시세 보기
                     </button>
                   )}
                 </div>
