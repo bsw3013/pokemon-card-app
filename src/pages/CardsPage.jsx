@@ -4,7 +4,7 @@ import { useOwnedCards } from '../hooks/useOwnedCards';
 import { useThumbnailSettings } from '../hooks/useThumbnailSettings';
 import { useCardDetail } from '../hooks/useCardDetail';
 import { DEFAULT_RARITIES, DEFAULT_SETS, ERA_OPTIONS, buildSetIndex, findSetForCard, parseCardNo } from '../utils/catalog';
-import { copyBreakdown, langShort, parsePossessions } from '../utils/cardStats';
+import { activeRows, copyBreakdown, isForSale, langShort } from '../utils/cardStats';
 import { rarityTone } from '../utils/rarityTone';
 import { navigate, parseHash } from '../utils/hashRoute';
 import CardTile from '../components/CardTile';
@@ -92,11 +92,11 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
   // 카드마다 세트를 한 번만 찾아 둔다.
   const enriched = useMemo(() => cards.map((card) => {
     const set = findSetForCard(card, setIndex);
-    const rows = parsePossessions(card.possessions);
+    const rows = activeRows(card); // 판매완료한 장은 빼고
     const split = copyBreakdown(card);
     return {
       graded: split.gradedCount,
-      trade: rows.some((r) => r && r.forTrade && Number(r.count ?? 1) > 0),
+      trade: rows.some(isForSale),
       maxPurchase: rows.reduce((m, r) => Math.max(m, Number(r.purchasePrice) || 0), 0),
       lastBought: rows.map((r) => text(r.purchaseDate)).filter(Boolean).sort().pop() || '',
       card,
@@ -205,7 +205,7 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
   const setName = (code) => (code === NONE ? '세트 없음' : (sets.find((s) => s.code === code)?.name || code));
   const activeChips = [
     ...(query.trim() ? [{ key: 'q', label: `"${query.trim()}"`, remove: () => setQuery('') }] : []),
-    ...(owned !== 'all' ? [{ key: 'owned', label: { owned: '보유', missing: '미보유', graded: '등급 카드', trade: '판매·교환 가능', multi: '2장 이상' }[owned], remove: () => setOwned('all') }] : []),
+    ...(owned !== 'all' ? [{ key: 'owned', label: { owned: '보유', missing: '미보유', graded: '등급 카드', trade: '판매중', multi: '2장 이상' }[owned], remove: () => setOwned('all') }] : []),
     ...setFilter.map((c) => ({ key: `s-${c}`, label: setName(c), remove: () => toggle(c, setFilter, setSetFilter) })),
     ...rarityFilter.map((r) => ({ key: `r-${r}`, label: r === NONE ? '레어도 없음' : r, remove: () => toggle(r, rarityFilter, setRarityFilter) })),
     ...typeFilter.map((t) => ({ key: `t-${t}`, label: t === NONE ? '종류 없음' : t, remove: () => toggle(t, typeFilter, setTypeFilter) })),
@@ -230,7 +230,7 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
         <section>
           <h3>보유 상태</h3>
           <div className="chips" role="radiogroup" aria-label="보유 상태">
-            {[['all', '전체'], ['owned', '보유'], ['missing', '미보유'], ['graded', '등급 카드'], ['trade', '판매 가능']].map(([k, l]) => (
+            {[['all', '전체'], ['owned', '보유'], ['missing', '미보유'], ['graded', '등급 카드'], ['trade', '판매중']].map(([k, l]) => (
               <button key={k} type="button" role="radio" aria-checked={owned === k} className={`chip ${owned === k ? 'on' : ''}`} onClick={() => setOwned(k)}>{l}</button>
             ))}
           </div>

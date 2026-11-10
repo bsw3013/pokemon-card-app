@@ -16,6 +16,7 @@ function newRow(defaultLanguage, company = '') {
     purchaseDate: '',
     location: '',
     forTrade: false,
+    askPrice: '',
     notes: '',
   };
 }
@@ -38,15 +39,19 @@ export default function PossessionEditor({ rows, onChange, gradingCompanies = []
       : { ...next[index], company: '', grade: '', serial: '', condition: next[index].condition || '민트' };
     onChange(next);
   };
-  const total = rows.reduce((sum, r) => sum + (Number(r.count) || 0), 0);
+  // 판매완료 줄은 여기서 숨긴다 (카드 상세의 "판매 기록"에서 보고 되돌릴 수 있음). 저장할 때는 그대로 남는다.
+  const total = rows.filter((r) => !r.sold).reduce((sum, r) => sum + (Number(r.count) || 0), 0);
+  const soldCount = rows.filter((r) => r.sold).reduce((sum, r) => sum + (Number(r.count) || 1), 0);
+  const shown = rows.filter((r) => !r.sold).length;
 
   return (
     <div className="pe">
       <div className="pe-head">
-        <span>보유 기록 {rows.length > 0 && <em>{rows.length}줄 · 총 {total}장</em>}</span>
+        <span>보유 기록 {shown > 0 && <em>{shown}줄 · 총 {total}장</em>}{soldCount > 0 && <em> · 판매완료 {soldCount}장은 카드 상세의 판매 기록에 있어요</em>}</span>
         <small>같은 조건의 카드는 한 줄에 수량으로, 조건이 다르면 줄을 나눠 적어요.</small>
       </div>
       {rows.map((r, i) => {
+        if (r.sold) return null;
         const graded = r.company && r.company !== 'raw';
         return (
           <div key={r.id || i} className={`pe-row ${graded ? 'graded' : 'raw'}`}>
@@ -102,10 +107,17 @@ export default function PossessionEditor({ rows, onChange, gradingCompanies = []
               </label>
             </div>
             <div className="pe-row-foot">
-              <label className="pe-check">
-                <input type="checkbox" checked={!!r.forTrade} onChange={(e) => update(i, 'forTrade', e.target.checked)} />
-                판매·교환 가능
-              </label>
+              <div className="pe-sale">
+                <div className="pe-type small" role="group" aria-label="판매 여부">
+                  <button type="button" className={!r.forTrade ? 'on' : ''} onClick={() => update(i, 'forTrade', false)}>보유</button>
+                  <button type="button" className={r.forTrade ? 'on sale' : ''} onClick={() => update(i, 'forTrade', true)}>판매중</button>
+                </div>
+                {r.forTrade && (
+                  <label className="pe-ask">희망 가격 (1장)
+                    <input type="number" min={0} value={r.askPrice ?? ''} onChange={(e) => update(i, 'askPrice', e.target.value === '' ? '' : Number(e.target.value))} placeholder="원" />
+                  </label>
+                )}
+              </div>
               <button type="button" className="btn btn-compact btn-danger" onClick={() => remove(i)}>이 줄 지우기</button>
             </div>
           </div>
