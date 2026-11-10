@@ -92,8 +92,8 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
     const set = findSetForCard(card, setIndex);
     const rows = activeRows(card); // 판매완료한 장은 빼고
     const split = copyBreakdown(card);
-    // 1장 시세: 내 카드가 있으면 내 카드 종류의 시세, 없으면 그 언어판 Raw 시세
-    const unit = (split.total > 0 ? cardMarketValue(marketIndex, card).unit : null) ?? representativePrice(marketIndex, card);
+    // 1장 시세: 내 카드가 있으면 내 카드 종류의 시세만, 없는 카드는 그 언어판 Raw 시세
+    const unit = split.total > 0 ? cardMarketValue(marketIndex, card).unit : representativePrice(marketIndex, card);
     return {
       unit,
       graded: split.gradedCount,

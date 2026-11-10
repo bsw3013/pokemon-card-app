@@ -5,6 +5,8 @@ import { useAuth } from '../AuthContext';
 import { DEFAULT_SETS, buildSetIndex, findSetForCard, parseCardNo } from '../utils/catalog';
 import { rarityTone } from '../utils/rarityTone';
 import { cardLanguage, copyBreakdown, gradeLabel, langShort } from '../utils/cardStats';
+import { useMarketIndex } from '../hooks/useMarketIndex';
+import { cardMarketValue, representativePrice } from '../utils/marketPrice';
 
 // 도감·필터 화면이 함께 쓰는 카드 한 장 타일.
 // 이미지 아래에는 이름 한 줄, "세트코드 번호/총장수" + 레어도 배지만 둔다.
@@ -28,8 +30,14 @@ export default function CardTile({ card, settings = {}, onClick, selected = fals
     : '';
   const rawBadge = split.gradedCount > 0 && split.rawCount > 0 ? `Raw ×${split.rawCount}` : '';
   const {
-    showName = true, showSeries = true, showNumber = true, showRarity = true, hoverMode = false,
+    showName = true, showSeries = true, showNumber = true, showRarity = true, showPrice = true, hoverMode = false,
   } = settings;
+  // 시세 (1장): 내 카드가 있으면 내 카드 종류의 시세만 (다른 종류 시세는 빌려 쓰지 않음), 없는 카드는 그 언어판 Raw 시세
+  const marketIndex = useMarketIndex();
+  const unitPrice = useMemo(() => {
+    if (!showPrice || !marketIndex) return null;
+    return owned > 0 ? cardMarketValue(marketIndex, card).unit : representativePrice(marketIndex, card);
+  }, [showPrice, marketIndex, card, owned]);
 
   const handleKey = (e) => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); }
@@ -70,6 +78,7 @@ export default function CardTile({ card, settings = {}, onClick, selected = fals
         )}
         {showSeries && set && <div className="ctile-set">{set.name}</div>}
         {showSeries && !set && card.series && <div className="ctile-set">{card.series}</div>}
+        {showPrice && unitPrice ? <div className="ctile-price">시세 {unitPrice.toLocaleString()}원</div> : null}
       </div>
     </article>
   );

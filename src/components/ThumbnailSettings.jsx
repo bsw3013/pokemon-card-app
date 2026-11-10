@@ -5,6 +5,7 @@ const FIELDS = [
   ['showNumber', '세트 코드·카드 번호'],
   ['showRarity', '레어도'],
   ['showSeries', '세트 이름'],
+  ['showPrice', '시세'],
 ];
 
 // 카드 목록 "보기 설정": 카드 정보를 항상 보여줄지, 마우스를 올렸을 때 카드 위에 보여줄지 + 표시 항목

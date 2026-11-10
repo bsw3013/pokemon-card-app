@@ -159,7 +159,7 @@ export default function HomeDashboard({ appConfig, onViewMarket }) {
       <SectionHead title={recentCards.title} action={recentCards.set ? '세트 보기' : '카드 전체'} onAction={() => (recentCards.set ? navigate(['sets', recentCards.set.code]) : navigate(['cards'], { owned: 'all' }))} />
       <div className="card-grid ctile-grid home-cards">
         {recentCards.list.map((card) => (
-          <CardTile key={card.id} card={card} settings={{ ...settings, showPrice: false }} onClick={() => detail.openCard(card)} />
+          <CardTile key={card.id} card={card} settings={settings} onClick={() => detail.openCard(card)} />
         ))}
       </div>
     </section>
