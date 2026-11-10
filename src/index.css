@@ -3902,3 +3902,38 @@ input, select, textarea, button { font-family: inherit; }
 .cdv-tag { font-size: 0.8rem; font-weight: 600; padding: 2px 8px; border-radius: var(--radius-s); background: var(--surface-2); border: 1px solid var(--border-color); }
 .cdv-tag.strong { background: var(--text-main); color: var(--bg-color); border-color: var(--text-main); }
 .cdv-tag.muted { font-weight: 500; color: var(--text-muted); }
+
+/* 등급 카드(금색 슬랩) vs 일반 카드(흰색) 구분 */
+.ctile-slab, .ctile-raw { padding: 1px 7px; border-radius: 4px; font-size: 12px; font-weight: 700; line-height: 1.5; white-space: nowrap; }
+.ctile-slab { background: linear-gradient(135deg, #f3d77a, #c99a2e); color: #2a1f00; border: 1px solid rgba(80, 55, 0, 0.45); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); }
+.ctile-raw { background: #fff; color: #1f2937; border: 1px solid rgba(0, 0, 0, 0.25); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
+
+.own-summary { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.own-chip { font-size: 0.82rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border-color); background: var(--surface-2); }
+.own-chip.graded { background: linear-gradient(135deg, #f3d77a, #c99a2e); color: #2a1f00; border-color: rgba(80, 55, 0, 0.35); }
+.own-chip.raw { background: var(--bg-color); color: var(--text-main); }
+.own-chip.lang { color: #fff; border-color: transparent; background: #4b5563; }
+.own-chip.lang-일판 { background: #b91c1c; }
+.own-chip.lang-영문판 { background: #1d4ed8; }
+.own-chip.lang-중국판 { background: #a16207; }
+
+.own-copies { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.own-copies li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-m, 10px); background: var(--bg-color); }
+.own-copies li.graded { border-color: #d9b44a; background: linear-gradient(90deg, rgba(243, 215, 122, 0.16), transparent 60%); }
+.own-copy-mark { flex: none; width: 48px; height: 48px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.05; }
+.own-copies li.graded .own-copy-mark { background: linear-gradient(135deg, #f3d77a, #c99a2e); color: #2a1f00; border: 1px solid rgba(80, 55, 0, 0.4); }
+.own-copies li.graded .own-copy-mark small { font-size: 10px; font-weight: 700; letter-spacing: 0.02em; }
+.own-copies li.graded .own-copy-mark b { font-size: 18px; font-weight: 800; }
+.own-copies li.raw .own-copy-mark { background: var(--surface-2); color: var(--text-muted); border: 1px dashed var(--border-color); }
+.own-copies li.raw .own-copy-mark b { font-size: 13px; font-weight: 700; }
+.own-copy-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.own-copy-title { font-weight: 700; font-size: 0.92rem; }
+.own-copy-meta { font-size: 0.8rem; color: var(--text-subtle); overflow-wrap: anywhere; }
+.pe-row.graded { border-left: 4px solid #c99a2e; }
+.pe-row.raw { border-left: 4px solid var(--border-color); }
+.pe-type { display: inline-flex; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; margin-bottom: 10px; }
+.pe-type button { border: 0; background: var(--bg-color); color: var(--text-muted); padding: 6px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+.pe-type button + button { border-left: 1px solid var(--border-color); }
+.pe-type button.on { background: var(--text-main); color: var(--bg-color); }
+.pe-row.graded .pe-type button.on { background: linear-gradient(135deg, #f3d77a, #c99a2e); color: #2a1f00; }
+.pe-add { display: flex; flex-wrap: wrap; gap: 8px; }
