@@ -64,6 +64,8 @@ async function fetchAllCards() {
   return rows;
 }
 
+// 읽기 시작한 시각. 사이트는 이 시각 뒤에 바뀐 카드만 데이터베이스에서 다시 읽는다.
+const startedAt = new Date().toISOString();
 const rows = await fetchAllCards();
 if (rows.length === 0) {
   // 빈 결과로 기존 백업을 덮어쓰지 않도록 멈춘다.
@@ -87,6 +89,23 @@ const csv = '﻿' + Papa.unparse(rows, { columns: Array.from(columns) });
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
 fs.writeFileSync(OUT, csv);
 console.log(`백업 완료: ${rows.length}장 → ${OUT}`);
+
+// 사이트용 카드 목록 파일 (public/data/cards.json)
+// 사이트가 이 파일로 카드 목록을 먼저 띄우고, 이후 바뀐 카드만 데이터베이스에서 읽는다 (src/utils/cardSync.js).
+// 카드 한 장이 한 줄이라 깃허브 기록에서 바뀐 카드만 보인다. 카드 내용이 그대로면 파일을 다시 쓰지 않는다.
+const SNAPSHOT = 'public/data/cards.json';
+const snapshotLines = rows
+  .map(({ raw_database_id: id, ...rest }) => JSON.stringify({ id, ...rest }))
+  .join(',\n');
+const oldSnapshot = fs.existsSync(SNAPSHOT) ? fs.readFileSync(SNAPSHOT, 'utf8') : '';
+const cardsPart = `"cards": [\n${snapshotLines}\n]`;
+if (oldSnapshot.includes(cardsPart)) {
+  console.log(`카드 목록 파일: 바뀐 카드가 없어 그대로 둡니다 → ${SNAPSHOT}`);
+} else {
+  fs.mkdirSync(path.dirname(SNAPSHOT), { recursive: true });
+  fs.writeFileSync(SNAPSHOT, `{"generatedAt": ${JSON.stringify(startedAt)}, "count": ${rows.length},\n${cardsPart}}\n`);
+  console.log(`카드 목록 파일: ${rows.length}장 → ${SNAPSHOT}`);
+}
 
 // 세트·레어도 표(settings/catalog)도 같은 폴더에 JSON으로 함께 저장한다. (아직 없으면 건너뜀)
 try {

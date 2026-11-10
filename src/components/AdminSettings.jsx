@@ -10,6 +10,7 @@ import DataCheck from './admin/DataCheck';
 import CardManager from './admin/CardManager';
 import { useCardDetail } from '../hooks/useCardDetail';
 import { DEFAULT_SETS, buildSetIndex, withCardMeta } from '../utils/catalog';
+import { nowStamp, recordCardDeletes } from '../utils/cardSync';
 import Papa from 'papaparse';
 
 export default function AdminSettings({ appConfig, setAppConfig }) {
@@ -290,7 +291,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
       setRawDbSaving(prev => ({ ...prev, [id]: true }));
       try {
          const ref = doc(db, "pokemon_cards", id);
-         await updateDoc(ref, { [key]: nextValue });
+         await updateDoc(ref, { [key]: nextValue, updatedAt: nowStamp() });
          setRawDbData(prev => prev.map(item => item.raw_database_id === id ? { ...item, [key]: nextValue } : item));
          // 앱 전체가 함께 쓰는 카드 목록에도 바로 반영 (보유 정보 칸은 개인 데이터라 제외)
          if (!OWNERSHIP_FIELDS.includes(key)) {
@@ -316,6 +317,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
       if(!window.confirm("이 카드를 데이터베이스에서 완전히 삭제할까요?")) return;
       try {
           await deleteDoc(doc(db, "pokemon_cards", id));
+          await recordCardDeletes([id]);
           setRawDbData(prev => prev.filter(r => r.raw_database_id !== id));
           setCards(prev => prev.filter(card => card.id !== id));
       } catch(err) {
@@ -364,7 +366,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
           const BATCH_LIMIT = 400;
           for (let i = 0; i < updates.length; i += BATCH_LIMIT) {
               const batch = writeBatch(db);
-              updates.slice(i, i + BATCH_LIMIT).forEach(([id, patch]) => batch.update(doc(db, "pokemon_cards", id), patch));
+              updates.slice(i, i + BATCH_LIMIT).forEach(([id, patch]) => batch.update(doc(db, "pokemon_cards", id), { ...patch, updatedAt: nowStamp() }));
               await batch.commit();
           }
           await fetchCards();
@@ -389,7 +391,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
            let batch = writeBatch(db);
            let ops = 0;
            for (const row of rawDbData) {
-              batch.update(doc(db, "pokemon_cards", row.raw_database_id), { [colName]: "" });
+              batch.update(doc(db, "pokemon_cards", row.raw_database_id), { [colName]: "", updatedAt: nowStamp() });
               row[colName] = "";
               ops++;
               if (ops >= BATCH_LIMIT) {
@@ -423,7 +425,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
            let batch = writeBatch(db);
            let ops = 0;
            for (const row of rawDbData) {
-              batch.update(doc(db, "pokemon_cards", row.raw_database_id), { [colName]: deleteField() });
+              batch.update(doc(db, "pokemon_cards", row.raw_database_id), { [colName]: deleteField(), updatedAt: nowStamp() });
               delete row[colName];
               ops++;
               if (ops >= BATCH_LIMIT) {
@@ -552,6 +554,9 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
                    }
                 });
 
+                // 백업 파일 속 예전 시각 대신 지금 시각을 넣어야 사이트가 바뀐 카드로 알아챈다
+                payload.updatedAt = nowStamp();
+
                 if (id && currentIds.includes(id)) {
                    // 업데이트
                    batch.update(doc(db, "pokemon_cards", id), payload);
@@ -571,10 +576,12 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
              }
 
              // 3. CSV에 없는 데이터 삭제 (필요한 경우)
+             const removedIds = [];
              if (window.confirm("🤔 깃허브 엑셀에 없는 데이터를 DB에서 모두 삭제하여 100% 일치시킬까요?\n(새로 등록된 카드만 삭제할 경우 '취소'를 누르면 업데이트만 진행됩니다)")) {
                 for (const id of currentIds) {
                    if (!csvIds.includes(id)) {
                       batch.delete(doc(db, "pokemon_cards", id));
+                      removedIds.push(id);
                       ops++;
                       if (ops >= BATCH_LIMIT) {
                          await batch.commit();
@@ -586,6 +593,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
              }
 
              if (ops > 0) await batch.commit();
+             await recordCardDeletes(removedIds);
              setGhStatus(`✅ 복원 및 동기화 완료! (총 ${csvData.length}건)`);
              alert("🚀 모든 데이터가 성공적으로 동기화되었습니다.");
              window.location.reload();
