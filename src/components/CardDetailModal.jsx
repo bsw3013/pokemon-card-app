@@ -421,7 +421,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
                   {onDuplicate && !card?.isNew && <button type="button" className="btn btn-secondary" onClick={handleDuplicateInternal}>카드 복제</button>}
                 </div>
                 <button type="submit" className="btn btn-primary" disabled={isSaving}>
-                  {isSaving ? "저장 중..." : user ? "수정사항 덮어쓰기" : "로그인하고 저장하기"}
+                  {isSaving ? "저장 중..." : user ? "수정사항 저장" : "로그인하고 저장하기"}
                 </button>
               </div>
             </form>
