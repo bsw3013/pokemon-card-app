@@ -157,6 +157,8 @@ const PTCG_SET = {
 };
 function ptcgImage(setId, localId) {
   let set = PTCG_SET[setId];
+  // 맥도날드 프로모: 2019sm → mcd19
+  if (!set && /^20\d\d[a-z]+$/.test(setId)) set = `mcd${setId.slice(2, 4)}`;
   if (!set) {
     // sv03.5 → sv3pt5, me02 → me2, sm11.5 → sm115
     set = /^(sv|me)\d/.test(setId) ? setId.replace(/^([a-z]+)0+(\d)/, '$1$2').replace('.5', 'pt5') : setId.replace('.', '');
