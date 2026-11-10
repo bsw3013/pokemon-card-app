@@ -4,7 +4,7 @@ import { useOwnedCards } from '../hooks/useOwnedCards';
 import { useThumbnailSettings } from '../hooks/useThumbnailSettings';
 import { useCardDetail } from '../hooks/useCardDetail';
 import { DEFAULT_RARITIES, DEFAULT_SETS, ERA_OPTIONS, buildSetIndex, findSetForCard, parseCardNo } from '../utils/catalog';
-import { langShort, ownedCount } from '../utils/cardStats';
+import { copyBreakdown, langShort, parsePossessions } from '../utils/cardStats';
 import { rarityTone } from '../utils/rarityTone';
 import { navigate, parseHash } from '../utils/hashRoute';
 import CardTile from '../components/CardTile';
@@ -16,11 +16,14 @@ const PAGE = 120;
 const NONE = '__none__';
 const LANGS = ['한국', '일본', '미국', '중국'];
 // 정렬 목록 (종류별로 묶어서 보여줌)
+// 내 컬렉션 정렬과 같은 종류로 맞춤 (+ 카드 화면에만 있는 "최근 추가순")
 const SORT_GROUPS = [
-  ['날짜', [['release_desc', '발매일 최신순'], ['release_asc', '발매일 오래된순'], ['added_desc', '최근 추가순']]],
-  ['카드 정보', [['rarity_desc', '레어도 높은순'], ['dex', '도감번호순'], ['name', '이름순 (가나다)']]],
-  ['가격', [['price_desc', '내 평가 가격 높은순']]],
+  ['가격', [['price_desc', '평가 가격 높은순'], ['price_asc', '평가 가격 낮은순'], ['purchase_desc', '구매가 높은순']]],
+  ['날짜', [['bought_desc', '최근 구매순'], ['release_desc', '발매일 최신순'], ['release_asc', '발매일 오래된순'], ['added_desc', '최근 추가순']]],
+  ['카드 정보', [['set_no', '세트·카드번호순'], ['rarity_desc', '레어도 높은순'], ['dex', '도감번호순'], ['name', '이름순 (가나다)']]],
+  ['수량·종류', [['count_desc', '많이 가진 순'], ['graded_first', '등급 카드 먼저']]],
 ];
+const SORT_KEYS = SORT_GROUPS.flatMap(([, items]) => items.map(([k]) => k));
 const SIZES = { s: 118, m: 150, l: 190 };
 
 const text = (v) => String(v ?? '').trim();
@@ -47,7 +50,7 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
   const [typeFilter, setTypeFilter] = useState([]);
   const [langFilter, setLangFilter] = useState([]);
   const [openEras, setOpenEras] = useState(() => new Set(['메가']));
-  const [sort, setSort] = useState(() => readLS('cards_sort_v1', 'release_desc'));
+  const [sort, setSort] = useState(() => { const v = readLS('cards_sort_v1', 'release_desc'); return SORT_KEYS.includes(v) ? v : 'release_desc'; });
   const [view, setView] = useState(() => (isPicker ? 'grid' : readLS('cards_view_v1', 'grid')));
   const [size, setSize] = useState(() => readLS('cards_size_v1', 'm'));
   const [visibleState, setVisibleState] = useState({ key: '', n: PAGE });
@@ -89,13 +92,18 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
   // 카드마다 세트를 한 번만 찾아 둔다.
   const enriched = useMemo(() => cards.map((card) => {
     const set = findSetForCard(card, setIndex);
+    const rows = parsePossessions(card.possessions);
+    const split = copyBreakdown(card);
     return {
+      graded: split.gradedCount,
+      maxPurchase: rows.reduce((m, r) => Math.max(m, Number(r.purchasePrice) || 0), 0),
+      lastBought: rows.map((r) => text(r.purchaseDate)).filter(Boolean).sort().pop() || '',
       card,
       set,
       setCode: set ? set.code : NONE,
       release: set?.releaseDate || '',
       no: card.cardNo ?? parseCardNo(card.cardNumber) ?? 0,
-      count: ownedCount(card),
+      count: split.total,
       rarityOrder: Number(rarityInfo.get(text(card.rarity))?.order) || 0,
     };
   }), [cards, setIndex, rarityInfo]);
@@ -162,6 +170,14 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
       name: (a, b) => text(a.card.cardName).localeCompare(text(b.card.cardName), 'ko') || byRelease(a, b, 1),
       added_desc: (a, b) => text(b.card.createdAt).localeCompare(text(a.card.createdAt)) || byRelease(a, b, -1),
       price_desc: (a, b) => (Number(b.card.price) || 0) - (Number(a.card.price) || 0) || byRelease(a, b, -1),
+      // 가격이 없는 카드는 뒤로 보낸다
+      price_asc: (a, b) => ((Number(a.card.price) || Infinity) - (Number(b.card.price) || Infinity)) || byRelease(a, b, -1),
+      purchase_desc: (a, b) => b.maxPurchase - a.maxPurchase || byRelease(a, b, -1),
+      bought_desc: (a, b) => b.lastBought.localeCompare(a.lastBought) || byRelease(a, b, -1),
+      // 세트 코드(가나다·ABC) → 카드 번호 순
+      set_no: (a, b) => (a.setCode === NONE) - (b.setCode === NONE) || a.setCode.localeCompare(b.setCode) || a.no - b.no,
+      count_desc: (a, b) => b.count - a.count || byRelease(a, b, -1),
+      graded_first: (a, b) => (b.graded > 0) - (a.graded > 0) || b.graded - a.graded || byRelease(a, b, -1),
     }[sort] || (() => 0);
     return list.sort(cmp);
   }, [enriched, query, owned, setFilter, rarityFilter, typeFilter, langFilter, sort]);
