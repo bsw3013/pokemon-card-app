@@ -44,7 +44,8 @@ async function fetchCard(url) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.text();
     } catch (err) {
-      if (attempt === 3) throw err;
+      // 공식 사이트에 없는 번호(빠진 번호)도 있어서, 세 번 실패하면 건너뛴다
+      if (attempt === 3) { console.warn(`  건너뜀: ${url} (${err.message})`); return ''; }
       await sleep(1500 * attempt);
     }
   }
