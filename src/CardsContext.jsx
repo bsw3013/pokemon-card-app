@@ -229,6 +229,62 @@ export function CardsProvider({ children }) {
     return newCard;
   }, [isAdmin, setIndex]);
 
+  // 여러 카드를 한 번에 새로 만든다 (관리자만). items: [{ master, ownership }] — ownership 이 있으면 내 보유 현황도 같이.
+  // 한 번에 최대 400번 저장씩 나눠서 보낸다. 만든 카드 id 목록을 돌려준다.
+  // sets: 방금 세트 표에 새 세트를 넣었다면 그 표를 넘겨준다 (화면 상태가 아직 안 바뀌었을 수 있어서)
+  const createCardsMany = useCallback(async (items, { sets } = {}) => {
+    if (!isAdmin) throw new Error('관리자만 카드를 추가할 수 있습니다.');
+    const now = new Date().toISOString();
+    const index = sets ? buildSetIndex(sets) : setIndex;
+    const prepared = (items || []).map(({ master, ownership }) => ({
+      ref: doc(collection(db, 'pokemon_cards')),
+      master: withCardMeta(master, { setIndex: index, isNew: true, now }),
+      ownership: ownership && user ? ownership : null,
+    }));
+    const created = [];
+    let batch = writeBatch(db);
+    let ops = 0;
+    for (const p of prepared) {
+      const need = p.ownership ? 2 : 1;
+      if (ops + need > 400) { await batch.commit(); batch = writeBatch(db); ops = 0; }
+      batch.set(p.ref, p.master);
+      if (p.ownership) {
+        batch.set(doc(db, 'cardOwnership', ownershipDocId(p.ref.id, user.uid)), { cardId: p.ref.id, ownerId: user.uid, ...p.ownership, updatedAt: now });
+      }
+      ops += need;
+      created.push(p);
+    }
+    if (ops) await batch.commit();
+    const newCards = created.map((p) => ({
+      id: p.ref.id,
+      ...p.master,
+      status: normalizeStatus(p.ownership?.status),
+      language: p.ownership?.language || '한국',
+      price: 0,
+      possessions: [],
+    }));
+    setCards((prev) => [...newCards, ...prev]);
+    setOwnershipCardIds((prev) => new Set([...prev, ...created.filter((p) => p.ownership).map((p) => p.ref.id)]));
+    return newCards.map((c) => c.id);
+  }, [isAdmin, user, setIndex]);
+
+  // 여러 카드를 한 번에 지운다 (관리자만, 방금 등록한 것 되돌리기용). 내 보유 현황 문서도 같이.
+  const deleteCardsMany = useCallback(async (ids) => {
+    if (!isAdmin) throw new Error('관리자만 카드를 삭제할 수 있습니다.');
+    const list = (ids || []).filter(Boolean);
+    for (let i = 0; i < list.length; i += 200) {
+      const batch = writeBatch(db);
+      list.slice(i, i + 200).forEach((id) => {
+        batch.delete(doc(db, 'pokemon_cards', id));
+        if (user) batch.delete(doc(db, 'cardOwnership', ownershipDocId(id, user.uid)));
+      });
+      await batch.commit();
+    }
+    await recordCardDeletes(list);
+    const gone = new Set(list);
+    setCards((prev) => prev.filter((c) => !gone.has(c.id)));
+  }, [isAdmin, user]);
+
   // 카드 마스터 정보 삭제. 관리자만 가능. 내 보유현황 문서도 함께 정리한다.
   const deleteCard = useCallback(async (cardId) => {
     if (!isAdmin) throw new Error('관리자만 카드를 삭제할 수 있습니다.');
@@ -244,9 +300,9 @@ export function CardsProvider({ children }) {
     () => ({
       cards, setCards, loading, fetchCards, ownershipCardIds,
       catalog, catalogLoaded, fetchCatalog, saveCatalog,
-      saveOwnership, saveCard, createCard, duplicateCard, deleteCard, saveOwnershipMany, saveMasterMany,
+      saveOwnership, saveCard, createCard, duplicateCard, deleteCard, saveOwnershipMany, saveMasterMany, createCardsMany, deleteCardsMany,
     }),
-    [cards, loading, fetchCards, ownershipCardIds, catalog, catalogLoaded, fetchCatalog, saveCatalog, saveOwnership, saveCard, createCard, duplicateCard, deleteCard, saveOwnershipMany, saveMasterMany],
+    [cards, loading, fetchCards, ownershipCardIds, catalog, catalogLoaded, fetchCatalog, saveCatalog, saveOwnership, saveCard, createCard, duplicateCard, deleteCard, saveOwnershipMany, saveMasterMany, createCardsMany, deleteCardsMany],
   );
   return <CardsContext.Provider value={value}>{children}</CardsContext.Provider>;
 }

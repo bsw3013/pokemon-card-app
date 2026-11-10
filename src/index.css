@@ -4531,3 +4531,81 @@ body:has(.ae) .scroll-to-top-btn { display: none !important; }
   .pk-pv.has .pk-pvt span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .pk-pick { width: auto; padding: 10px 14px; white-space: nowrap; }
 }
+
+/* ===== 마스터 설정 → 공식 목록 가져오기 ===== */
+.oi { --oi-sel: #1e3a8a; --oi-miss: #facc15; }
+[data-theme='dark'] .oi { --oi-sel: #60a5fa; }
+.oi-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.oi-langs { display: flex; gap: 2px; background: var(--surface-2); border-radius: 9px; padding: 3px; max-width: 100%; overflow-x: auto; }
+.oi-langs button { border: 0; background: transparent; color: var(--text-muted); font: 600 0.88rem var(--font-sans); padding: 8px 16px; border-radius: 7px; cursor: pointer; white-space: nowrap; }
+.oi-langs button.on { background: var(--surface-color); color: var(--text-main); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+.oi-langs button i { font-style: normal; font-weight: 500; color: var(--text-subtle); margin-left: 5px; font-size: 0.78rem; }
+.oi-msg { display: flex; align-items: center; gap: 12px; background: var(--surface-color); border: 1px solid var(--border-color); border-left: 4px solid var(--oi-sel); border-radius: var(--radius-s); padding: 10px 12px; margin-bottom: 14px; font-size: 0.9rem; }
+.oi-msg span { flex: 1; min-width: 0; }
+.oi-x { border: 0; background: none; color: var(--text-subtle); cursor: pointer; font-size: 0.95rem; }
+.oi-empty { background: var(--surface-color); border: 1px dashed var(--line-strong); border-radius: var(--radius-m); padding: 2.5rem 1.5rem; text-align: center; color: var(--text-muted); display: flex; flex-direction: column; gap: 6px; word-break: keep-all; }
+.oi-empty small { color: var(--text-subtle); font-size: 0.78rem; }
+.oi-wrap { display: flex; gap: 16px; align-items: flex-start; }
+.oi-sets { width: 300px; flex: none; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-m); overflow: hidden; position: sticky; top: 76px; }
+.oi-sets-hd { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--border-color); }
+.oi-sets-tools { display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--border-color); font-size: 0.8rem; color: var(--text-muted); }
+.oi-sets-tools input[type='search'] { width: 100%; box-sizing: border-box; border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-main); border-radius: var(--radius-s); padding: 7px 10px; font: 400 0.85rem var(--font-sans); }
+.oi-sets-tools label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.oi-set-list { max-height: calc(100vh - 260px); overflow-y: auto; }
+.oi-set { display: flex; flex-direction: column; gap: 6px; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--overlay-soft); background: transparent; color: var(--text-main); padding: 11px 14px; cursor: pointer; font-family: inherit; }
+.oi-set:hover { background: var(--surface-2); }
+.oi-set.on { background: rgba(30, 58, 138, 0.08); }
+[data-theme='dark'] .oi-set.on { background: rgba(96, 165, 250, 0.12); }
+.oi-set .l1 { display: flex; align-items: center; gap: 6px; }
+.oi-set .l1 b { flex: 1; min-width: 0; font-size: 0.84rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.oi-set .l2 { font-size: 0.74rem; color: var(--text-subtle); }
+.oi-set .l2 em { font-style: normal; font-weight: 700; color: #b45309; }
+[data-theme='dark'] .oi-set .l2 em { color: #fbbf24; }
+.oi-bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--surface-2); }
+.oi-bar .r { background: var(--oi-sel); }
+.oi-bar .m { background: var(--oi-miss); }
+.oi-tag { font-size: 0.68rem; padding: 2px 7px; border-radius: 4px; background: var(--surface-2); color: var(--text-muted); white-space: nowrap; flex: none; }
+.oi-tag.done { background: #dcfce7; color: #166534; }
+.oi-tag.wip { background: #fef9c3; color: #854d0e; }
+.oi-none { padding: 16px; font-size: 0.82rem; color: var(--text-subtle); text-align: center; }
+.oi-main { flex: 1; min-width: 0; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-m); padding: 18px 18px 0; }
+.oi-head { display: flex; align-items: flex-start; gap: 12px; justify-content: space-between; flex-wrap: wrap; margin-bottom: 10px; }
+.oi-head h3 { font-size: 1.05rem; margin: 0 0 3px; }
+.oi-head small { color: var(--text-subtle); font-size: 0.78rem; }
+.oi-info { background: rgba(37, 99, 235, 0.06); border: 1px solid rgba(37, 99, 235, 0.22); color: var(--text-main); border-radius: var(--radius-s); padding: 10px 12px; font-size: 0.8rem; line-height: 1.6; margin-bottom: 12px; word-break: keep-all; }
+.oi-raw, .oi-t.raw { color: #b45309; font-weight: 700; }
+[data-theme='dark'] .oi-raw, [data-theme='dark'] .oi-t.raw { color: #fbbf24; }
+.oi-filters { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.oi-chip { font: 500 0.78rem var(--font-sans); padding: 5px 11px; border-radius: 999px; border: 1px solid var(--surface-2); background: var(--surface-2); color: var(--text-main); cursor: pointer; white-space: nowrap; }
+.oi-chip i { font-style: normal; opacity: 0.55; margin-left: 4px; }
+.oi-chip.on { background: var(--text-main); border-color: var(--text-main); color: var(--surface-color); }
+.oi-sep { width: 1px; height: 18px; background: var(--line-strong); margin: 0 2px; }
+.oi-check { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-muted); margin-left: 4px; cursor: pointer; }
+.oi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 14px 12px; padding-bottom: 16px; }
+.oi-card { position: relative; display: flex; flex-direction: column; min-width: 0; border: 0; padding: 0; background: none; color: inherit; text-align: left; cursor: pointer; font-family: inherit; }
+.oi-card:disabled { cursor: default; }
+.oi-im { display: block; aspect-ratio: 63 / 88; border-radius: 6px; overflow: hidden; background: var(--surface-2); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18); }
+.oi-im img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.oi-card.sel .oi-im { box-shadow: 0 0 0 3px var(--oi-sel); }
+.oi-card.reg { opacity: 0.4; }
+.oi-ck { position: absolute; top: 6px; left: 6px; width: 22px; height: 22px; border-radius: 5px; background: rgba(255, 255, 255, 0.95); border: 1px solid #c8c8c3; color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 0.8rem; }
+.oi-card.sel .oi-ck { background: var(--oi-sel); border-color: var(--oi-sel); }
+.oi-badge { position: absolute; top: 6px; left: 6px; font-size: 0.66rem; background: #111; color: #fff; border-radius: 4px; padding: 2px 6px; }
+.oi-lb { position: absolute; top: 6px; right: 6px; font-size: 0.66rem; font-weight: 700; background: rgba(17, 17, 18, 0.82); color: #fff; border-radius: 4px; padding: 2px 6px; }
+.oi-t { font-size: 0.75rem; font-weight: 600; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.oi-s { font-size: 0.68rem; color: var(--text-subtle); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.oi-bar-sticky { position: sticky; bottom: 12px; margin: 0 -6px 12px; background: #111; color: #fff; border-radius: var(--radius-m); padding: 12px 16px; display: none; align-items: center; gap: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22); z-index: 5; }
+.oi-bar-sticky.show { display: flex; }
+.oi-bar-sticky small { color: #bbb; font-size: 0.78rem; }
+.oi-grow { flex: 1; }
+.oi-bar-sticky .oi-clear { background: transparent; color: #fff; border: 1px solid #555; }
+.oi-bar-sticky .oi-go { background: #fde047; color: #111; border: 0; font-weight: 700; }
+@media (max-width: 860px) {
+  .oi-wrap { flex-direction: column; }
+  .oi-sets { width: 100%; position: static; }
+  .oi-set-list { max-height: 260px; }
+  .oi-main { padding: 14px 12px 0; width: 100%; box-sizing: border-box; }
+  .oi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 8px; }
+  .oi-bar-sticky { flex-wrap: wrap; gap: 8px; bottom: calc(68px + env(safe-area-inset-bottom)); }
+  .oi-bar-sticky small { width: 100%; order: 3; }
+}

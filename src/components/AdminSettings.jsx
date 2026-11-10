@@ -8,6 +8,7 @@ import { useOwnedCards } from '../hooks/useOwnedCards';
 import CatalogSettings from './admin/CatalogSettings';
 import DataCheck from './admin/DataCheck';
 import CardManager from './admin/CardManager';
+import OfficialImport from './admin/OfficialImport';
 import { useCardDetail } from '../hooks/useCardDetail';
 import { DEFAULT_SETS, buildSetIndex, withCardMeta } from '../utils/catalog';
 import { nowStamp, recordCardDeletes } from '../utils/cardSync';
@@ -19,7 +20,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
    // 카드 관리·데이터 점검에서 카드를 누르면 이 화면 안에서 상세 창을 연다.
    const cardDetail = useCardDetail({ appConfig });
    // 화면 표시 항목으로 만들지 않는 시스템용 칸 (setCode/cardNo/updatedAt 는 저장할 때 자동으로 채워진다)
-   const hiddenSystemFields = ['raw_database_id', 'imageUrl', 'displayOrder', 'createdAt', 'updatedAt', 'setCode', 'cardNo', 'islegacy', 'isLegacy'];
+   const hiddenSystemFields = ['raw_database_id', 'imageUrl', 'displayOrder', 'createdAt', 'updatedAt', 'setCode', 'cardNo', 'islegacy', 'isLegacy', 'officialId'];
    const sanitizeDisplayFields = (fields = []) => {
       const cleaned = fields.filter((field) => field?.id && !hiddenSystemFields.includes(field.id));
       return cleaned.map((field, index) => ({ ...field, order: index + 1 }));
@@ -496,7 +497,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
     const qs = new URLSearchParams((window.location.hash.split('?')[1]) || '');
     const t = qs.get('tab');
     if (t === 'settings') return 'options';
-    return ['cards', 'catalog', 'options', 'check', 'backup'].includes(t) ? t : 'cards';
+    return ['cards', 'import', 'catalog', 'options', 'check', 'backup'].includes(t) ? t : 'cards';
   });
   const [catalogMessage, setCatalogMessage] = useState('');
   const selectAdminTab = (tab) => {
@@ -957,6 +958,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
 
   const ADMIN_TABS = [
     { id: 'cards', label: '카드 관리' },
+    { id: 'import', label: '공식 목록 가져오기' },
     { id: 'catalog', label: '세트·레어도' },
     { id: 'options', label: '목록값·표시 항목' },
     { id: 'check', label: '데이터 점검' },
@@ -999,6 +1001,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
        )}
        {adminTab === 'check' && <DataCheck appConfig={appConfig} />}
        {adminTab === 'cards' && <CardManager appConfig={appConfig} />}
+       {adminTab === 'import' && <OfficialImport />}
 
        {adminTab === 'options' && (<>
        {catalog && (
