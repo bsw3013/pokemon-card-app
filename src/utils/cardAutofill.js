@@ -20,7 +20,7 @@ const pad = (n, w) => String(n).padStart(w, '0');
 const JA_SUFFIX = /\s*(ex|EX|GX|V|VMAX|VSTAR|V-UNION|BREAK|LV\.X|δ|☆|◇|プリズムスター)$/u;
 const JA_REGION = [['ヒスイ', '히스이'], ['アローラ', '알로라'], ['ガラル', '가라르'], ['パルデア', '팔데아']];
 // 일본어 포켓몬 카드 이름 → 한글 (트레이너 카드 등 번역표에 없으면 null)
-function translateJa(raw) {
+export function translateJa(raw) {
   let name = String(raw || '').replace(/<[^>]+>/g, '').normalize('NFKC').trim();
   const mega = /^メガ|^M(?=[ァ-ヿ])/.test(name);
   name = name.replace(/^メガ|^M(?=[ァ-ヿ])/, '');
@@ -39,7 +39,7 @@ function translateJa(raw) {
 
 const EN_SUFFIX = /\s+(ex|EX|GX|V|VMAX|VSTAR|BREAK|LV\.X|δ)$/u;
 const EN_REGION = [['Hisuian ', '히스이'], ['Alolan ', '알로라'], ['Galarian ', '가라르'], ['Paldean ', '팔데아']];
-function translateEn(raw) {
+export function translateEn(raw) {
   let name = String(raw || '').trim();
   const mega = /^(Mega|M) /.test(name);
   name = name.replace(/^(Mega|M) /, '');
@@ -50,6 +50,18 @@ function translateEn(raw) {
   const ko = enToKr.get(base.toLowerCase());
   if (!ko) return null;
   return { name: `${region ? `${region} ` : ''}${mega ? '메가' : ''}${ko}${suf ? ` ${suf[1]}` : ''}`, dex: dexOf.get(ko) || 0 };
+}
+
+// 한글 카드 이름에서 포켓몬 도감 번호 찾기 (공식 사이트에서 ex 카드는 도감 번호가 비어 있음)
+// 예) '볼케니온 ex' → 721, '릴리에의 삐삐 ex' → 35, '히스이 조로아크 V' → 571, '메가리자몽 X ex' → 6
+export function koDexFromName(raw) {
+  let name = String(raw || '').trim();
+  if (!name) return 0;
+  name = name.replace(/\s+(ex|EX|GX|V|VMAX|VSTAR|V-UNION|BREAK|LV\.X|δ|☆|◇)$/u, '').trim();
+  const owner = name.lastIndexOf('의 ');
+  if (owner >= 0) name = name.slice(owner + 2).trim();
+  name = name.replace(/^(히스이|알로라|가라르|팔데아)\s*/, '').replace(/^메가\s*/, '').replace(/\s+[XY]$/, '').trim();
+  return dexOf.get(name) || 0;
 }
 
 const productShort = (name) => { const m = String(name || '').match(/「(.+?)」/); return m ? m[1] : ''; };
@@ -78,7 +90,7 @@ async function officialInfo(meta, { sets, loadJpDetail }) {
       cardNumber: numberText(findSet(meta.set)?.code || meta.set, meta.no),
       rarity: meta.rarity,
       type: meta.type,
-      pokedexNumber: meta.type === '포켓몬' && meta.dex ? pad(meta.dex, 4) : '',
+      pokedexNumber: meta.type === '포켓몬' && (meta.dex || koDexFromName(meta.name)) ? pad(meta.dex || koDexFromName(meta.name), 4) : '',
     };
   }
   if (meta.lang === 'kr-code') {
