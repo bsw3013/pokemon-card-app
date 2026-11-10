@@ -118,13 +118,3 @@ export function cardToSlot(card) {
     status: ownedCount(card) > 0 ? '보유중' : '미보유',
   };
 }
-
-// 바인더 크기 계산 단위 (카드 63×88 비율 기준)
-export function binderGeometry(cols, rows, sheets) {
-  const P = 63; const H = 88; const G = 6; const SP = 10; const BP = 14; const RING = 30;
-  const sheetW = cols * P + (cols - 1) * G + SP * 2;
-  const sheetH = rows * H + (rows - 1) * G + SP * 2;
-  const w = sheets * sheetW + (sheets - 1) * RING + BP * 2;
-  const h = sheetH + BP * 2;
-  return { w, h, ratio: w / h };
-}
