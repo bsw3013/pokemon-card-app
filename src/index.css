@@ -4038,3 +4038,18 @@ input, select, textarea, button { font-family: inherit; }
 .home-progress-legend .dot.empty { background: var(--surface-2); border: 1px solid var(--border-color); }
 .home-top .home-stats { padding-top: 12px; border-top: 1px solid var(--border-color); }
 @media (max-width: 768px) { .home-progress-line strong { font-size: 1.6rem; } }
+
+/* 홈: 레어도별 모음 */
+.home-rarity-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.home-rarity-item { display: flex; flex-direction: column; gap: 7px; padding: 12px 14px; border: 1px solid var(--border-color); border-radius: var(--radius-m); background: var(--surface-color); text-align: left; cursor: pointer; color: var(--text-main); }
+.home-rarity-item:hover { border-color: var(--line-strong, var(--text-subtle)); }
+.home-rarity-item.none { opacity: 0.6; }
+.home-rarity-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.home-rarity-num { font-size: 0.84rem; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.home-rarity-num b { color: var(--text-main); }
+.home-rarity-bar2 { display: block; height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.home-rarity-bar2 i { display: block; height: 100%; background: var(--text-main); border-radius: 999px; }
+.home-rarity-bar2.gold i { background: var(--rar-gold); }
+.home-rarity-bar2.silver i { background: var(--rar-silver); }
+.home-rarity-bar2.teal i { background: var(--rar-teal); }
+.home-rarity-meta { font-size: 0.76rem; color: var(--text-subtle); font-variant-numeric: tabular-nums; }

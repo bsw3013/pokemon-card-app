@@ -18,6 +18,24 @@ export const ERA_OPTIONS = ['메가', '스칼렛&바이올렛', '소드&실드',
 export const KIND_OPTIONS = ['확장팩', '강화 확장팩', '하이클래스팩', '스타터 덱', '프로모', '기타'];
 export const RARITY_GROUPS = ['일반', '힛카드', '기타'];
 
+// 레어도를 화면에 늘어놓을 때 쓰는 비교 함수: 힛카드(높은 것부터) → 일반(높은 것부터) → 기타 → 미분류
+export function makeRarityCompare(rarities) {
+  const info = new Map((rarities || []).map((r) => [String(r.code || '').trim(), r]));
+  const groupRank = { 힛카드: 0, 일반: 1, 기타: 2 };
+  const key = (code) => {
+    const r = info.get(String(code || '').trim());
+    if (!r) return [3, 0];
+    const g = groupRank[r.group] ?? 2;
+    const order = Number(r.order) || 0;
+    return [g, g === 2 ? order : -order]; // 기타는 설정 순서대로, 나머지는 높은 레어도부터
+  };
+  return (a, b) => {
+    const ka = key(a);
+    const kb = key(b);
+    return ka[0] - kb[0] || ka[1] - kb[1];
+  };
+}
+
 const S = (code, name, era, kind, releaseDate, printedTotal, label) => ({
   code, name, era, kind, releaseDate, printedTotal, label: label || `${code} -「${name}」`,
 });

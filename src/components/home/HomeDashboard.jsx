@@ -7,10 +7,11 @@ import { useCardDetail } from '../../hooks/useCardDetail';
 import { useThumbnailSettings } from '../../hooks/useThumbnailSettings';
 import pokemonMapAll from '../../utils/pokemonMapAll.json';
 import { buildPokedexEntries, computeGenerationStats, computePokedexHeaderStats } from '../../utils/homeStats';
-import { DEFAULT_RARITIES, DEFAULT_SETS, buildSetIndex, findSetForCard, parseCardNo } from '../../utils/catalog';
+import { DEFAULT_RARITIES, DEFAULT_SETS, buildSetIndex, findSetForCard, makeRarityCompare, parseCardNo } from '../../utils/catalog';
 import { copyBreakdown, ownedCount } from '../../utils/cardStats';
 import { cardIdFromKey, resolveLegacyCardKey } from '../../utils/cardKey';
 import { navigate } from '../../utils/hashRoute';
+import { rarityTone } from '../../utils/rarityTone';
 import CardTile from '../CardTile';
 import CardThumbnail from '../CardThumbnail';
 import Icon from '../Icon';
@@ -115,6 +116,21 @@ export default function HomeDashboard({ appConfig, onViewMarket }) {
     };
   }, [cards.length, totals]);
 
+  // 레어도별 모음: 레어도마다 전체 종류 중 몇 종을 모았는지 (높은 레어도부터)
+  const rarityRows = useMemo(() => {
+    const m = new Map();
+    cards.forEach((c) => {
+      const r = text(c.rarity) || '미분류';
+      const v = m.get(r) || { rarity: r, total: 0, owned: 0, copies: 0 };
+      v.total += 1;
+      const n = ownedCount(c);
+      if (n > 0) { v.owned += 1; v.copies += n; }
+      m.set(r, v);
+    });
+    const cmp = makeRarityCompare(catalog?.rarities || DEFAULT_RARITIES);
+    return [...m.values()].sort((a, b) => cmp(a.rarity, b.rarity) || b.total - a.total);
+  }, [cards, catalog]);
+
   // 포켓몬 도감판
   const entries = useMemo(() => buildPokedexEntries(cards, POKEMON_NAMES), [cards]);
   const generationStats = useMemo(() => computeGenerationStats(entries), [entries]);
@@ -202,6 +218,33 @@ export default function HomeDashboard({ appConfig, onViewMarket }) {
           {totals.value > 0 && <div><strong>{won(totals.value)}</strong><span>평가액</span></div>}
         </div>
       </section>
+
+      {rarityRows.length > 0 && (
+        <section className="home-sec">
+          <SectionHead title="레어도별 모음" action="레어도별 자세히" onAction={() => navigate(['collection'], { tab: 'rarity' })} />
+          <div className="home-rarity-grid">
+            {rarityRows.map((r) => {
+              const pct = r.total ? Math.round((r.owned / r.total) * 100) : 0;
+              return (
+                <button
+                  key={r.rarity}
+                  type="button"
+                  className={`home-rarity-item ${r.owned === 0 ? 'none' : ''}`}
+                  onClick={() => navigate(['cards'], { rarity: r.rarity === '미분류' ? '__none__' : r.rarity })}
+                  title={`${r.rarity} 카드 보기`}
+                >
+                  <span className="home-rarity-top">
+                    <span className={`rar-badge ${rarityTone(r.rarity)}`}>{r.rarity}</span>
+                    <span className="home-rarity-num"><b>{r.owned}</b> / {r.total}종</span>
+                  </span>
+                  <span className={`home-rarity-bar2 ${rarityTone(r.rarity)}`}><i style={{ width: `${pct}%` }} /></span>
+                  <span className="home-rarity-meta">{pct}%{r.copies > r.owned ? ` · ${r.copies}장` : ''}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {nearComplete.length > 0 && (
         <section className="home-sec">
