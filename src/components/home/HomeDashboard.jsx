@@ -16,14 +16,11 @@ import CardTile from '../CardTile';
 import CardThumbnail from '../CardThumbnail';
 import Icon from '../Icon';
 import PokedexGridWidget from './PokedexGridWidget';
-import { useMarketIndex } from '../../hooks/useMarketIndex';
-import { cardMarketValue } from '../../utils/marketPrice';
 import PokedexEntryModal from './PokedexEntryModal';
 
 // 전국도감 순서 그대로인 이름 배열 (krToEn 의 키 순서 = 1~1025번).
 const POKEMON_NAMES = Object.keys(pokemonMapAll.krToEn || {});
 const text = (v) => String(v ?? '').trim();
-const won = (n) => `${Math.round(Number(n) || 0).toLocaleString()}원`;
 const fmtDate = (d) => (d ? d.replaceAll('-', '.') : '');
 
 function SectionHead({ title, action, onAction }) {
@@ -96,17 +93,16 @@ export default function HomeDashboard({ appConfig, onViewMarket }) {
     return { title: `최신 세트 「${latest.set.name}」의 카드`, list: list.slice(0, 12), set: latest.set };
   }, [cards, latestSets, rarityOrder]);
 
-  const marketIndex = useMarketIndex();
   const totals = useMemo(() => {
-    const t = { kinds: 0, gradedKinds: 0, count: 0, value: 0 };
+    const t = { kinds: 0, gradedKinds: 0, count: 0 };
     cards.forEach((c) => {
       const n = ownedCount(c);
       if (!n) return;
-      t.kinds += 1; t.count += n; t.value += cardMarketValue(marketIndex, c).value;
+      t.kinds += 1; t.count += n;
       if (copyBreakdown(c).gradedCount > 0) t.gradedKinds += 1;
     });
     return t;
-  }, [cards, marketIndex]);
+  }, [cards]);
 
   // 도감 완성률 막대 (전체 카드 종류 중 보유 비율)
   const completion = useMemo(() => {
@@ -218,7 +214,6 @@ export default function HomeDashboard({ appConfig, onViewMarket }) {
         </div>
         <div className="home-stats">
           <div><strong>{totals.count.toLocaleString()}</strong><span>총 장수</span></div>
-          {totals.value > 0 && <div><strong>{won(totals.value)}</strong><span>평가액</span></div>}
         </div>
       </section>
 
