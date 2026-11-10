@@ -8,6 +8,9 @@ export function parsePossessions(raw) {
 
 // 판매완료한 장(sold)은 기록으로만 남고, 보유 장수·평가액·등급 집계에서는 빠진다.
 export const isSoldCopy = (p) => !!p?.sold;
+// 직뽑 = 팩을 직접 까서 나온 카드 (구매가 없음). 기록이 없으면 구매로 본다.
+export const isPulledCopy = (p) => p?.source === 'pull';
+
 // 지금 판매중으로 내놓은 장 (예전 "판매·교환 가능" 체크와 같은 값)
 export const isForSale = (p) => !!p?.forTrade && !p?.sold;
 

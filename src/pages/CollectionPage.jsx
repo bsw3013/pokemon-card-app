@@ -6,7 +6,7 @@ import { useOwnedCards } from '../hooks/useOwnedCards';
 import { useThumbnailSettings } from '../hooks/useThumbnailSettings';
 import { useCardDetail } from '../hooks/useCardDetail';
 import { DEFAULT_RARITIES, DEFAULT_SETS, buildSetIndex, findSetForCard, parseCardNo } from '../utils/catalog';
-import { activeRows, cardLanguage, gradedInfo, isForSale, langShort, ownedCount, possessionLabel, soldRows } from '../utils/cardStats';
+import { activeRows, cardLanguage, gradedInfo, isForSale, isPulledCopy, langShort, ownedCount, possessionLabel, soldRows } from '../utils/cardStats';
 import { cardIdFromKey, resolveLegacyCardKey } from '../utils/cardKey';
 import { rarityTone } from '../utils/rarityTone';
 import { navigate, parseHash, setHashParams } from '../utils/hashRoute';
@@ -14,6 +14,8 @@ import { todayStr } from '../utils/sales';
 import CardTile from '../components/CardTile';
 import CardThumbnail from '../components/CardThumbnail';
 import ThumbnailSettings from '../components/ThumbnailSettings';
+import SortControl from '../components/SortControl';
+import { readSort, sortItems, writeSort } from '../utils/sortCards';
 
 const text = (v) => String(v ?? '').trim();
 const won = (n) => `${Math.round(Number(n) || 0).toLocaleString()}원`;
@@ -28,19 +30,12 @@ const FILTERS = [
   ['all', '전체'],
   ['multi', '2장 이상'],
   ['graded', '등급 카드'],
+  ['pull', '직뽑'],
   ['trade', '판매중'],
   ['nodata', '기록 없음'],
 ];
-// 정렬 목록 (종류별로 묶어서 보여줌)
-const SORT_GROUPS = [
-  ['가격', [['value', '평가액 높은순'], ['value_asc', '평가액 낮은순'], ['purchase', '구매가 높은순']]],
-  ['날짜', [['recent', '최근 구매순'], ['release', '발매일 최신순'], ['release_asc', '발매일 오래된순']]],
-  ['카드 정보', [['set_no', '세트·카드번호순'], ['rarity', '레어도 높은순'], ['dex', '도감번호순'], ['name', '이름순 (가나다)']]],
-  ['수량·종류', [['count', '많이 가진 순'], ['graded_first', '등급 카드 먼저']]],
-];
-const SORT_KEYS = SORT_GROUPS.flatMap(([, items]) => items.map(([k]) => k));
-const readLS = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
-const writeLS = (k, v) => { try { localStorage.setItem(k, v); } catch { /* 저장 못 해도 화면은 그대로 동작 */ } };
+// 내 컬렉션에서 고를 수 있는 정렬 기준 (방향은 버튼으로 따로 바꾼다)
+const SORT_FIELD_KEYS = ['value', 'price', 'purchase', 'bought', 'pulled', 'release', 'rarity', 'dex', 'name', 'count', 'graded'];
 
 // 카드 한 장의 보유 요약
 function summarize(card) {
@@ -49,17 +44,19 @@ function summarize(card) {
   const count = ownedCount(card);
   const graded = gradedInfo(card).count;
   const trade = rows.some(isForSale);
-  const purchase = rows.reduce((s, r) => s + (Number(r.purchasePrice) || 0) * (Number(r.count) || 0), 0);
-  const purchasedCount = rows.filter((r) => Number(r.purchasePrice) > 0).reduce((s, r) => s + (Number(r.count) || 0), 0);
+  const pulled = rows.filter(isPulledCopy).reduce((n, r) => n + (Number(r.count) || 1), 0);
+  const bought = rows.filter((r) => !isPulledCopy(r)); // 직뽑은 구매가가 없으니 구매·손익 계산에서 뺀다
+  const purchase = bought.reduce((s, r) => s + (Number(r.purchasePrice) || 0) * (Number(r.count) || 0), 0);
+  const purchasedCount = bought.filter((r) => Number(r.purchasePrice) > 0).reduce((s, r) => s + (Number(r.count) || 0), 0);
   const lastBought = rows.map((r) => text(r.purchaseDate)).filter(Boolean).sort().pop() || '';
   const maxPurchase = rows.reduce((m, r) => Math.max(m, Number(r.purchasePrice) || 0), 0);
   const price = Number(card.price) || 0;
   const value = price * count;
   // 손익은 평가 가격과 구매가가 둘 다 있는 장만 비교한다.
-  const paired = price > 0 ? rows.filter((r) => Number(r.purchasePrice) > 0) : [];
+  const paired = price > 0 ? bought.filter((r) => Number(r.purchasePrice) > 0) : [];
   const pairedCount = paired.reduce((s, r) => s + (Number(r.count) || 0), 0);
   const pairedCost = paired.reduce((s, r) => s + (Number(r.purchasePrice) || 0) * (Number(r.count) || 0), 0);
-  return { lang: langShort(cardLanguage(card)), count, graded, trade, purchase, purchasedCount, lastBought, maxPurchase, value, pairedCount, pairedCost, pairedValue: price * pairedCount, hasRows: rows.length > 0 };
+  return { lang: langShort(cardLanguage(card)), count, graded, pulled, trade, purchase, purchasedCount, lastBought, maxPurchase, value, pairedCount, pairedCost, pairedValue: price * pairedCount, hasRows: rows.length > 0 };
 }
 
 export default function CollectionPage({ appConfig, onViewMarket }) {
@@ -70,8 +67,8 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
   const [tab, setTab] = useState(() => (TABS.some(([k]) => k === parseHash().params.tab) ? parseHash().params.tab : 'cards'));
   const [filter, setFilter] = useState('all');
   const [lang, setLang] = useState('all');
-  const [sort, setSort] = useState(() => { const v = readLS('collection_sort_v1', 'value'); return SORT_KEYS.includes(v) ? v : 'value'; });
-  useEffect(() => writeLS('collection_sort_v1', sort), [sort]);
+  const [sort, setSort] = useState(() => readSort('collection_sort_v2', SORT_FIELD_KEYS, { field: 'value', dir: 'desc' }));
+  useEffect(() => writeSort('collection_sort_v2', sort), [sort]);
   const [watchlist, setWatchlist] = useState(null);
 
   const selectTab = (k) => { setTab(k); setHashParams({ tab: k === 'cards' ? null : k }, { replace: true }); };
@@ -85,19 +82,21 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
         card, set, ...summarize(card),
         release: text(set?.releaseDate),
         no: Number(card.cardNo ?? parseCardNo(card.cardNumber)) || 0,
-        rarityRank: rarityOrder.get(text(card.rarity)) || 0,
+        setCode: text(set?.code) || '~',
+        rarityOrder: rarityOrder.get(text(card.rarity)) || 0,
       };
     })
     .filter((x) => x.count > 0), [cards, setIndex, rarityOrder]);
 
   const totals = useMemo(() => {
-    const t = { kinds: owned.length, count: 0, graded: 0, value: 0, purchase: 0, purchasedCount: 0, unpriced: 0, trade: 0, gradedKinds: 0, pairedCount: 0, pairedCost: 0, pairedValue: 0 };
+    const t = { kinds: owned.length, count: 0, graded: 0, value: 0, purchase: 0, purchasedCount: 0, unpriced: 0, trade: 0, pullKinds: 0, gradedKinds: 0, pairedCount: 0, pairedCost: 0, pairedValue: 0 };
     owned.forEach((x) => {
       t.count += x.count; t.graded += x.graded; t.value += x.value; t.purchase += x.purchase; t.purchasedCount += x.purchasedCount;
       t.pairedCount += x.pairedCount; t.pairedCost += x.pairedCost; t.pairedValue += x.pairedValue;
       if (!Number(x.card.price)) t.unpriced += 1;
       if (x.trade) t.trade += 1;
       if (x.graded > 0) t.gradedKinds += 1;
+      if (x.pulled > 0) t.pullKinds += 1;
     });
     return t;
   }, [owned]);
@@ -106,26 +105,11 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
     const f = owned.filter((x) => (lang === 'all' || x.lang === lang) && (
       filter === 'multi' ? x.count >= 2
         : filter === 'graded' ? x.graded > 0
+          : filter === 'pull' ? x.pulled > 0
           : filter === 'trade' ? x.trade
             : filter === 'nodata' ? !x.hasRows
               : true));
-    // 같은 값이면 발매일 최신 → 세트 → 카드 번호 순으로 정리
-    const tie = (a, b) => b.release.localeCompare(a.release) || text(a.set?.code).localeCompare(text(b.set?.code)) || a.no - b.no;
-    const cmp = {
-      value: (a, b) => b.value - a.value || b.count - a.count || tie(a, b),
-      value_asc: (a, b) => (a.value || Infinity) - (b.value || Infinity) || tie(a, b),
-      purchase: (a, b) => b.maxPurchase - a.maxPurchase || tie(a, b),
-      recent: (a, b) => b.lastBought.localeCompare(a.lastBought) || tie(a, b),
-      release: tie,
-      release_asc: (a, b) => a.release.localeCompare(b.release) || text(a.set?.code).localeCompare(text(b.set?.code)) || a.no - b.no,
-      set_no: (a, b) => text(a.set?.code || a.card.series).localeCompare(text(b.set?.code || b.card.series)) || a.no - b.no,
-      rarity: (a, b) => b.rarityRank - a.rarityRank || tie(a, b),
-      dex: (a, b) => ((Number(a.card.pokedexNumber) || 99999) - (Number(b.card.pokedexNumber) || 99999)) || tie(a, b),
-      name: (a, b) => text(a.card.cardName).localeCompare(text(b.card.cardName), 'ko') || tie(a, b),
-      count: (a, b) => b.count - a.count || tie(a, b),
-      graded_first: (a, b) => (b.graded > 0) - (a.graded > 0) || b.graded - a.graded || tie(a, b),
-    }[sort] || tie;
-    return f.sort(cmp);
+    return sortItems(f, sort.field, sort.dir);
   }, [owned, filter, sort, lang]);
 
   // 판매: 지금 판매중인 장 + 판매완료 기록 (전부 판 카드도 포함하려고 전체 카드에서 모은다)
@@ -240,7 +224,7 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
             <div className="seg">
               {FILTERS.map(([k, l]) => (
                 <button key={k} type="button" className={filter === k ? 'on' : ''} onClick={() => setFilter(k)}>
-                  {l}{k === 'trade' && totals.trade ? ` ${totals.trade}` : ''}{k === 'graded' && totals.gradedKinds ? ` ${totals.gradedKinds}` : ''}
+                  {l}{k === 'trade' && totals.trade ? ` ${totals.trade}` : ''}{k === 'graded' && totals.gradedKinds ? ` ${totals.gradedKinds}` : ''}{k === 'pull' && totals.pullKinds ? ` ${totals.pullKinds}` : ''}
                 </button>
               ))}
             </div>
@@ -254,14 +238,7 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
                 </div>
               )}
               <span className="count">{list.length.toLocaleString()}종</span>
-              <span className="sort-label">정렬</span>
-              <select className="select" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="정렬">
-                {SORT_GROUPS.map(([g, items]) => (
-                  <optgroup key={g} label={g}>
-                    {items.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-                  </optgroup>
-                ))}
-              </select>
+              <SortControl fields={SORT_FIELD_KEYS} value={sort} onChange={setSort} />
               <ThumbnailSettings settings={settings} toggleSetting={toggleSetting} updateSettings={updateSettings} hide={['showPrice']} />
             </div>
           </div>
@@ -358,7 +335,7 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
                       <td>{row.soldVia || '-'}</td>
                       <td className="num">{n}</td>
                       <td className="num">{won(row.soldPrice)}</td>
-                      <td className="num">{Number(row.purchasePrice) > 0 ? won(row.purchasePrice) : '-'}</td>
+                      <td className="num">{isPulledCopy(row) ? '직뽑' : Number(row.purchasePrice) > 0 ? won(row.purchasePrice) : '-'}</td>
                       <td className={`num ${profit === null ? '' : profit >= 0 ? 'up' : 'down'}`}>{profit === null ? '-' : `${profit >= 0 ? '+' : '-'}${won(Math.abs(profit))}`}</td>
                     </tr>
                   ))}

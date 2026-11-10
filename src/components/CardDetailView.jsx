@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useAuth } from '../AuthContext';
 import { useOwnedCards } from '../hooks/useOwnedCards';
 import { DEFAULT_SETS, buildSetIndex, findSetForCard, parseCardNo } from '../utils/catalog';
-import { UNKNOWN_GRADER, activeRows, cardLanguage, copyBreakdown, copyGrade, gradeLabel, isForSale, langShort, ownedCount, parsePossessions, soldRows } from '../utils/cardStats';
+import { UNKNOWN_GRADER, activeRows, cardLanguage, copyBreakdown, copyGrade, gradeLabel, isForSale, isPulledCopy, langShort, ownedCount, parsePossessions, soldRows } from '../utils/cardStats';
 import { recordSaleToMarket, removeSaleFromMarket, sellCopy, statusFromRows, unsellCopy } from '../utils/sales';
 import SaleForm from './SaleForm';
 import { rarityTone } from '../utils/rarityTone';
@@ -179,8 +179,8 @@ export default function CardDetailView({ card, isAdmin, marketSummary, onEdit, o
                   const qty = Number(p.count) > 1 ? ` ×${p.count}` : '';
                   const meta = [
                     langShort(p.language || language),
-                    p.purchasePrice ? `구매 ${won(p.purchasePrice)}` : '',
-                    p.purchaseDate, p.location,
+                    isPulledCopy(p) ? (p.purchaseDate ? `${p.purchaseDate} 뽑음` : '') : [p.purchasePrice ? `구매 ${won(p.purchasePrice)}` : '', p.purchaseDate].filter(Boolean).join(' '),
+                    p.location,
                     p.serial ? `인증번호 ${p.serial}` : '',
                     p.notes,
                   ].filter(Boolean).join(' · ');
@@ -192,6 +192,7 @@ export default function CardDetailView({ card, isAdmin, marketSummary, onEdit, o
                         <span className="own-copy-body">
                           <span className="own-copy-title">
                             {copyTitle(p)}{qty}
+                            {isPulledCopy(p) && <span className="pull-pill">직뽑</span>}
                             {isForSale(p) && <span className="sale-pill">판매중{p.askPrice ? ` · 희망 ${won(p.askPrice)}` : ''}</span>}
                           </span>
                           {meta && <span className="own-copy-meta">{meta}</span>}
