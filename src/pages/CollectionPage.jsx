@@ -5,7 +5,7 @@ import { useAuth } from '../AuthContext';
 import { useOwnedCards } from '../hooks/useOwnedCards';
 import { useThumbnailSettings } from '../hooks/useThumbnailSettings';
 import { useCardDetail } from '../hooks/useCardDetail';
-import { DEFAULT_RARITIES, DEFAULT_SETS, buildSetIndex, findSetForCard, parseCardNo } from '../utils/catalog';
+import { DEFAULT_RARITIES, DEFAULT_SETS, buildSetIndex, findSetForCard, makeRarityCompare, parseCardNo } from '../utils/catalog';
 import { activeRows, cardLanguage, gradedInfo, isForSale, isPulledCopy, langShort, ownedCount, possessionLabel, soldRows } from '../utils/cardStats';
 import { cardIdFromKey, resolveLegacyCardKey } from '../utils/cardKey';
 import { rarityTone } from '../utils/rarityTone';
@@ -167,7 +167,6 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
   }, [cards, setIndex]);
 
   const rarityRows = useMemo(() => {
-    const order = new Map((catalog?.rarities || DEFAULT_RARITIES).map((r) => [text(r.code), Number(r.order) || 0]));
     const m = new Map();
     cards.forEach((card) => {
       const r = text(card.rarity) || '미분류';
@@ -177,7 +176,8 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
       if (c > 0) { v.owned += 1; v.copies += c; }
       m.set(r, v);
     });
-    return [...m.values()].sort((a, b) => (order.get(b.rarity) || 0) - (order.get(a.rarity) || 0));
+    const cmp = makeRarityCompare(catalog?.rarities || DEFAULT_RARITIES);
+    return [...m.values()].sort((a, b) => cmp(a.rarity, b.rarity));
   }, [cards, catalog]);
 
   // 관심 카드 (시세 화면에서 등록한 목록)

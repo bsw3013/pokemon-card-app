@@ -7,10 +7,11 @@ import { useCardDetail } from '../../hooks/useCardDetail';
 import { useThumbnailSettings } from '../../hooks/useThumbnailSettings';
 import pokemonMapAll from '../../utils/pokemonMapAll.json';
 import { buildPokedexEntries, computeGenerationStats, computePokedexHeaderStats } from '../../utils/homeStats';
-import { DEFAULT_RARITIES, DEFAULT_SETS, buildSetIndex, findSetForCard, parseCardNo } from '../../utils/catalog';
-import { ownedCount } from '../../utils/cardStats';
+import { DEFAULT_RARITIES, DEFAULT_SETS, buildSetIndex, findSetForCard, makeRarityCompare, parseCardNo } from '../../utils/catalog';
+import { copyBreakdown, ownedCount } from '../../utils/cardStats';
 import { cardIdFromKey, resolveLegacyCardKey } from '../../utils/cardKey';
 import { navigate } from '../../utils/hashRoute';
+import { rarityTone } from '../../utils/rarityTone';
 import CardTile from '../CardTile';
 import CardThumbnail from '../CardThumbnail';
 import Icon from '../Icon';
@@ -94,14 +95,41 @@ export default function HomeDashboard({ appConfig, onViewMarket }) {
   }, [cards, latestSets, rarityOrder]);
 
   const totals = useMemo(() => {
-    const t = { kinds: 0, count: 0, value: 0 };
+    const t = { kinds: 0, gradedKinds: 0, count: 0, value: 0 };
     cards.forEach((c) => {
       const n = ownedCount(c);
       if (!n) return;
       t.kinds += 1; t.count += n; t.value += (Number(c.price) || 0) * n;
+      if (copyBreakdown(c).gradedCount > 0) t.gradedKinds += 1;
     });
     return t;
   }, [cards]);
+
+  // 도감 완성률 막대 (전체 카드 종류 중 보유 비율)
+  const completion = useMemo(() => {
+    const all = cards.length || 1;
+    const exact = (totals.kinds / all) * 100;
+    return {
+      pct: cards.length ? Math.floor(exact * 10) / 10 : 0,
+      ownedPct: ((totals.kinds - totals.gradedKinds) / all) * 100,
+      gradedPct: (totals.gradedKinds / all) * 100,
+    };
+  }, [cards.length, totals]);
+
+  // 레어도별 모음: 레어도마다 전체 종류 중 몇 종을 모았는지 (높은 레어도부터)
+  const rarityRows = useMemo(() => {
+    const m = new Map();
+    cards.forEach((c) => {
+      const r = text(c.rarity) || '미분류';
+      const v = m.get(r) || { rarity: r, total: 0, owned: 0, copies: 0 };
+      v.total += 1;
+      const n = ownedCount(c);
+      if (n > 0) { v.owned += 1; v.copies += n; }
+      m.set(r, v);
+    });
+    const cmp = makeRarityCompare(catalog?.rarities || DEFAULT_RARITIES);
+    return [...m.values()].sort((a, b) => cmp(a.rarity, b.rarity) || b.total - a.total);
+  }, [cards, catalog]);
 
   // 포켓몬 도감판
   const entries = useMemo(() => buildPokedexEntries(cards, POKEMON_NAMES), [cards]);
@@ -165,16 +193,58 @@ export default function HomeDashboard({ appConfig, onViewMarket }) {
   return (
     <main className="page home">
       <section className="home-top">
-        <div>
+        <div className="home-top-head">
           <p className="sub">{nickname ? `${nickname}님의 컬렉션` : '내 컬렉션'}</p>
-          <div className="home-stats">
-            <div><strong>{totals.kinds.toLocaleString()}</strong><span>보유 종류 / {cards.length.toLocaleString()}</span></div>
-            <div><strong>{totals.count.toLocaleString()}</strong><span>총 장수</span></div>
-            <div><strong>{won(totals.value)}</strong><span>평가액</span></div>
+          <button type="button" className="btn btn-secondary btn-compact" onClick={() => navigate(['collection'])}>내 컬렉션 보기</button>
+        </div>
+        {/* 도감 완성률 막대: 등급 카드가 있는 종류는 금색, 나머지 보유 종류는 진한 색 */}
+        <div className="home-progress">
+          <div className="home-progress-line">
+            <strong>{completion.pct}%</strong>
+            <span><b>{totals.kinds.toLocaleString()}</b> / {cards.length.toLocaleString()}종 모음</span>
+          </div>
+          <div className="home-progress-bar" role="img" aria-label={`도감 완성률 ${completion.pct}%`}>
+            <i className="owned" style={{ width: `${completion.ownedPct}%` }} />
+            <i className="graded" style={{ width: `${completion.gradedPct}%` }} />
+          </div>
+          <div className="home-progress-legend">
+            <span><i className="dot owned" />보유 {(totals.kinds - totals.gradedKinds).toLocaleString()}종</span>
+            <span><i className="dot graded" />등급 카드 보유 {totals.gradedKinds.toLocaleString()}종</span>
+            <span><i className="dot empty" />미보유 {(cards.length - totals.kinds).toLocaleString()}종</span>
           </div>
         </div>
-        <button type="button" className="btn btn-secondary" onClick={() => navigate(['collection'])}>내 컬렉션 보기</button>
+        <div className="home-stats">
+          <div><strong>{totals.count.toLocaleString()}</strong><span>총 장수</span></div>
+          {totals.value > 0 && <div><strong>{won(totals.value)}</strong><span>평가액</span></div>}
+        </div>
       </section>
+
+      {rarityRows.length > 0 && (
+        <section className="home-sec">
+          <SectionHead title="레어도별 모음" action="레어도별 자세히" onAction={() => navigate(['collection'], { tab: 'rarity' })} />
+          <div className="home-rarity-grid">
+            {rarityRows.map((r) => {
+              const pct = r.total ? Math.round((r.owned / r.total) * 100) : 0;
+              return (
+                <button
+                  key={r.rarity}
+                  type="button"
+                  className={`home-rarity-item ${r.owned === 0 ? 'none' : ''}`}
+                  onClick={() => navigate(['cards'], { rarity: r.rarity === '미분류' ? '__none__' : r.rarity })}
+                  title={`${r.rarity} 카드 보기`}
+                >
+                  <span className="home-rarity-top">
+                    <span className={`rar-badge ${rarityTone(r.rarity)}`}>{r.rarity}</span>
+                    <span className="home-rarity-num"><b>{r.owned}</b> / {r.total}종</span>
+                  </span>
+                  <span className={`home-rarity-bar2 ${rarityTone(r.rarity)}`}><i style={{ width: `${pct}%` }} /></span>
+                  <span className="home-rarity-meta">{pct}%{r.copies > r.owned ? ` · ${r.copies}장` : ''}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {nearComplete.length > 0 && (
         <section className="home-sec">
