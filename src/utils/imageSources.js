@@ -207,7 +207,7 @@ export async function searchTcgdexEn(name, limit = 400) {
       const img = c.image
         ? { thumbnail: `${c.image}/low.webp`, fullImage: `${c.image}/high.png`, source: 'TCGdex' }
         : { ...ptcgImage(c.setId, c.localId), source: 'pokemontcg.io' };
-      return { id: `en_${c.id}`, title: `${c.name} · ${c.id}`, ...img, meta: { lang: 'en', name: c.name } };
+      return { id: `en_${c.id}`, title: `${c.name} · ${c.id}`, ...img, meta: { lang: 'en', name: c.name, set: c.setId } };
     });
   // pokemontcg.io 는 사진이 없으면 카드 뒷면 그림을 보내서(404), 미리 확인해서 뺀다
   const ok = await Promise.all(cards.map(async (r) => {

@@ -38,6 +38,8 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
   const [pickerLoaded, setPickerLoaded] = useState(0);
   const [jpSameSet, setJpSameSet] = useState(true);
   const [jpPromoOnly, setJpPromoOnly] = useState(false);
+  const [pickerSetFilter, setPickerSetFilter] = useState(''); // 세트 버튼: '' = 전체
+  const [pickerPreview, setPickerPreview] = useState(null); // 크게 보는 사진 (고르기 전 확인)
   const [autofill, setAutofill] = useState(null); // 사진을 고르며 자동으로 채운 칸 { fields: {...} }
 
   // 📷 직접 업로드 및 URL 입력 상태
@@ -180,6 +182,8 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
     setPickerFailed(new Set());
     setPickerLoaded(0);
     setPickerNote('');
+    setPickerSetFilter('');
+    setPickerPreview(null);
     if (!q) return;
     setPickerLoading(true);
     try {
@@ -238,6 +242,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
   const closePicker = () => {
     setIsPickerOpen(false);
     setPickerResults([]);
+    setPickerPreview(null);
   };
 
   const handlePickerSearch = (e) => {
@@ -432,81 +437,130 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
         </div>
       </div>
 
-      {isPickerOpen && (
-        <div className="picker-backdrop fade-in" onClick={closePicker} style={{ zIndex: 2000 }}>
-          <div className="picker-content slide-up" onClick={e => e.stopPropagation()}>
-            <button className="modal-close" onClick={closePicker}>✕</button>
-            <div className="picker-header">
+      {isPickerOpen && (() => {
+        // 사진이 열린 결과만, 세트 버튼(세트별 장수)은 그 결과에서 만든다
+        const visible = pickerResults.filter((r) => !pickerFailed.has(r.id));
+        const setOf = (r) => String(r.meta?.set || '기타');
+        const setCounts = [];
+        visible.forEach((r) => {
+          const k = setOf(r);
+          const found = setCounts.find((x) => x.set === k);
+          if (found) found.n += 1; else setCounts.push({ set: k, n: 1 });
+        });
+        const shown = pickerSetFilter ? visible.filter((r) => setOf(r) === pickerSetFilter) : visible;
+        const preview = pickerPreview && !pickerFailed.has(pickerPreview.id) ? pickerPreview : null;
+        const fillText = { kr: '이름·세트·번호·레어도·종류·도감 번호', 'kr-code': '세트·번호', ja: '이름·세트·번호·레어도·도감 번호', en: '이름' }[preview?.meta?.lang];
+        const showSameSet = (pickerTab === 'ja' || (pickerTab === 'kr' && !parseCardCode(pickerQuery))) && pickerSet;
+        return (
+        <div className="pk-backdrop fade-in" onClick={closePicker} style={{ zIndex: 2000 }}>
+          <div className="pk" role="dialog" aria-label="카드 사진 찾기" onClick={e => e.stopPropagation()}>
+            <div className="pk-bar">
               <h2>카드 사진 찾기</h2>
-              <p>카드 이름이나 세트 코드·번호(예: SV8a-217)로 공식 사진을 찾아요.</p>
+              <div className="pk-tabs" role="tablist">
+                {[['kr', '한국판'], ['ja', '일본판'], ['en', '영문판']].map(([k, label]) => (
+                  <button key={k} type="button" role="tab" aria-selected={pickerTab === k} className={pickerTab === k ? 'on' : ''} onClick={() => switchPickerTab(k)}>{label}</button>
+                ))}
+              </div>
+              <form className="pk-search" onSubmit={handlePickerSearch}>
+                <input
+                  type="text"
+                  placeholder={pickerTab === 'kr' ? '카드 이름 또는 세트 코드-번호 (예: 리자몽, SV8a-217)' : '한글 이름 (자동으로 번역해서 찾아요)'}
+                  value={pickerQuery}
+                  onChange={(e) => setPickerQuery(e.target.value)}
+                />
+                <button type="submit" className="btn btn-primary">검색</button>
+              </form>
+              <button type="button" className="pk-x" onClick={closePicker} aria-label="닫기">✕</button>
             </div>
 
-            <div className="picker-tabs">
-              <button type="button" className={`tab-btn ${pickerTab === 'kr' ? 'active' : ''}`} onClick={() => switchPickerTab('kr')}>한국판 (공식)</button>
-              <button type="button" className={`tab-btn ${pickerTab === 'ja' ? 'active' : ''}`} onClick={() => switchPickerTab('ja')}>일본판 (공식)</button>
-              <button type="button" className={`tab-btn ${pickerTab === 'en' ? 'active' : ''}`} onClick={() => switchPickerTab('en')}>영문판 (TCGdex)</button>
-            </div>
-
-            <form className="picker-search-bar" onSubmit={handlePickerSearch}>
-              <input
-                type="text"
-                placeholder={pickerTab === 'kr' ? '카드 이름 또는 세트 코드-번호 (예: 리자몽, SV8a-217)' : '한글 이름 (자동으로 번역해서 찾아요)'}
-                value={pickerQuery}
-                onChange={(e) => setPickerQuery(e.target.value)}
-              />
-              <button type="submit" className="btn btn-primary">검색</button>
-            </form>
-            {(pickerTab === 'ja' || (pickerTab === 'kr' && !parseCardCode(pickerQuery))) && pickerSet && (
-              <label className="picker-option">
-                <input type="checkbox" checked={jpSameSet} onChange={(e) => { setJpSameSet(e.target.checked); runPickerSearch(pickerTab, pickerQuery, e.target.checked); }} />
-                이 카드 세트({pickerSet.code.toUpperCase()})에서만 찾기
-              </label>
-            )}
-            {pickerTab === 'ja' && (
-              <label className="picker-option">
-                <input type="checkbox" checked={jpPromoOnly} onChange={(e) => { setJpPromoOnly(e.target.checked); runPickerSearch(pickerTab, pickerQuery, jpSameSet, e.target.checked); }} />
-                프로모 카드만 보기
-              </label>
-            )}
-            {pickerNote && <p className="picker-note">{pickerNote}</p>}
-
-            <div className="picker-body">
-              {pickerLoading ? (
-                <div className="picker-loading">
-                  <div className="spinner"></div><div>사진을 찾는 중...</div>
-                </div>
-              ) : pickerResults.length > 0 && pickerFailed.size < pickerResults.length ? (
-                <>
-                  {pickerTab === 'kr' && pickerLoaded === 0 && parseCardCode(pickerQuery) && <p className="picker-note">공식 사진 주소를 확인하는 중...</p>}
-                  <div className="picker-grid">
-                    {pickerResults.filter((r) => !pickerFailed.has(r.id)).map((res) => (
-                      <div key={res.id} className="picker-img-wrapper" onClick={() => selectPickerImage(res)} title={res.title || res.source}>
-                        <img
-                          src={res.thumbnail}
-                          alt={res.title || 'card'}
-                          loading="lazy"
-                          onLoad={() => setPickerLoaded((n) => n + 1)}
-                          onError={() => setPickerFailed((prev) => new Set(prev).add(res.id))}
-                        />
-                        <div className="picker-img-overlay">선택하기</div>
-                        <span className="picker-src">{res.source}</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div className="picker-empty">
-                  {pickerTab === 'kr'
-                    ? (parseCardCode(pickerQuery)
-                      ? '이 세트 코드·번호로 된 공식 사진을 찾지 못했어요. 번호를 확인하거나 이름으로 찾아보세요.'
-                      : '이 이름으로 된 한국 공식 카드를 찾지 못했어요. 이름을 줄여서(예: "리자몽") 찾거나 일본판·영문판 탭을 써 보세요.')
-                    : '이 이름으로 된 사진을 찾지 못했어요.'}
-                </div>
+            <div className="pk-opts">
+              {showSameSet && (
+                <button type="button" className={`pk-chip ${jpSameSet ? 'on' : ''}`} aria-pressed={jpSameSet} onClick={() => { setJpSameSet(!jpSameSet); runPickerSearch(pickerTab, pickerQuery, !jpSameSet); }}>
+                  {jpSameSet ? '✓ ' : ''}이 카드 세트({pickerSet.code.toUpperCase()})만
+                </button>
               )}
+              {pickerTab === 'ja' && (
+                <button type="button" className={`pk-chip ${jpPromoOnly ? 'on' : ''}`} aria-pressed={jpPromoOnly} onClick={() => { setJpPromoOnly(!jpPromoOnly); runPickerSearch(pickerTab, pickerQuery, jpSameSet, !jpPromoOnly); }}>
+                  {jpPromoOnly ? '✓ ' : ''}프로모만
+                </button>
+              )}
+              {!pickerLoading && visible.length > 0 && <span className="pk-count">{shown.length.toLocaleString()}장{pickerSetFilter ? ` · ${pickerSetFilter}` : ' · 최신순'}</span>}
+            </div>
+            {setCounts.length > 1 && !pickerLoading && (
+              <div className="pk-sets">
+                <button type="button" className={`pk-set ${pickerSetFilter ? '' : 'on'}`} onClick={() => setPickerSetFilter('')}>전체<i>{visible.length}</i></button>
+                <span className="pk-sep" />
+                {setCounts.map(({ set, n }) => (
+                  <button key={set} type="button" className={`pk-set ${pickerSetFilter === set ? 'on' : ''}`} onClick={() => setPickerSetFilter(pickerSetFilter === set ? '' : set)}>{set}<i>{n}</i></button>
+                ))}
+              </div>
+            )}
+            {pickerNote && <p className="pk-note">{pickerNote}</p>}
+
+            <div className="pk-main">
+              <div className="pk-body">
+                {pickerLoading ? (
+                  <div className="pk-empty"><div className="spinner"></div><div>사진을 찾는 중...</div></div>
+                ) : visible.length > 0 ? (
+                  <>
+                    {pickerTab === 'kr' && pickerLoaded === 0 && parseCardCode(pickerQuery) && <p className="pk-note">공식 사진 주소를 확인하는 중...</p>}
+                    <div className="pk-grid">
+                      {shown.map((res) => (
+                        <button
+                          type="button"
+                          key={res.id}
+                          className={`pk-card ${preview?.id === res.id ? 'sel' : ''}`}
+                          onClick={() => setPickerPreview(res)}
+                          onDoubleClick={() => selectPickerImage(res)}
+                          title={`${res.title || ''} (두 번 누르면 바로 선택)`}
+                        >
+                          <span className="pk-im">
+                            <img
+                              src={res.thumbnail}
+                              alt={res.title || 'card'}
+                              loading="lazy"
+                              onLoad={() => setPickerLoaded((n) => n + 1)}
+                              onError={() => setPickerFailed((prev) => new Set(prev).add(res.id))}
+                            />
+                          </span>
+                          <span className="pk-t">{res.title || res.source}</span>
+                          <span className="pk-s">{res.source}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="pk-empty">
+                    {pickerTab === 'kr'
+                      ? (parseCardCode(pickerQuery)
+                        ? '이 세트 코드·번호로 된 공식 사진을 찾지 못했어요. 번호를 확인하거나 이름으로 찾아보세요.'
+                        : '이 이름으로 된 한국 공식 카드를 찾지 못했어요. 이름을 줄여서(예: "리자몽") 찾거나 일본판·영문판 탭을 써 보세요.')
+                      : '이 이름으로 된 사진을 찾지 못했어요.'}
+                  </div>
+                )}
+              </div>
+
+              <aside className={`pk-pv ${preview ? 'has' : ''}`}>
+                {preview ? (
+                  <>
+                    <div className="pk-pvh">고른 사진</div>
+                    <div className="pk-big"><img src={preview.fullImage} alt={preview.title || 'card'} onError={(e) => { if (e.currentTarget.src !== preview.thumbnail) e.currentTarget.src = preview.thumbnail; }} /></div>
+                    <div className="pk-pvt">
+                      <b>{preview.title || preview.source}</b>
+                      <span>{preview.source}</span>
+                    </div>
+                    {isAdmin && fillText && <p className="pk-fill">빈 칸만 채워요: {fillText}</p>}
+                    <button type="button" className="btn btn-primary pk-pick" onClick={() => selectPickerImage(preview)}>이 사진으로 선택</button>
+                  </>
+                ) : (
+                  <div className="pk-pv-empty">카드를 누르면 여기에서 크게 볼 수 있어요.<br />두 번 누르면 바로 골라요.</div>
+                )}
+              </aside>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
     </>
   );
 }
