@@ -3883,7 +3883,7 @@ input, select, textarea, button { font-family: inherit; }
 .home-search:focus-within { border-color: var(--text-main); }
 .home-search input { flex: 1; min-width: 0; border: none; background: none; outline: none; font: inherit; font-size: 1rem; color: var(--text-main); }
 .home-hero-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
-.home-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 20px 22px; border: 1px solid var(--border-color); border-radius: var(--radius-m); background: var(--surface-color); flex-wrap: wrap; }
+.home-top { display: flex; flex-direction: column; gap: 14px; padding: 20px 22px; border: 1px solid var(--border-color); border-radius: var(--radius-m); background: var(--surface-color); }
 .home-top .sub { margin: 0 0 8px; }
 .home-stats { display: flex; gap: 36px; flex-wrap: wrap; }
 .home-stats div { display: flex; flex-direction: column; gap: 2px; }
@@ -4017,3 +4017,24 @@ input, select, textarea, button { font-family: inherit; }
 .form-group .pe-f.pe-src, .pe-f.pe-src { font-size: 0.9rem; color: var(--text-muted); font-weight: 500; }
 .pe-f > .pe-type { align-self: flex-start; height: 34px; margin-bottom: 0; }
 .pe-f > .pe-type button { padding: 0 16px; }
+
+/* 홈: 도감 완성률 막대 */
+.home-top-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.home-top-head .sub { margin: 0; }
+.home-progress { display: flex; flex-direction: column; gap: 8px; }
+.home-progress-line { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.home-progress-line strong { font-size: 2rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1; }
+.home-progress-line span { font-size: 0.9rem; color: var(--text-muted); }
+.home-progress-line b { color: var(--text-main); font-variant-numeric: tabular-nums; }
+.home-progress .home-progress-bar { flex: none; display: flex; height: 14px; border-radius: 999px; background: var(--surface-2); overflow: hidden; border: 1px solid var(--border-color); }
+.home-progress .home-progress-bar i { display: block; height: 100%; }
+.home-progress .home-progress-bar i.owned { background: var(--text-main); }
+.home-progress .home-progress-bar i.graded { background: linear-gradient(135deg, #f3d77a, #c99a2e); }
+.home-progress-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.8rem; color: var(--text-muted); }
+.home-progress-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.home-progress-legend .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.home-progress-legend .dot.owned { background: var(--text-main); }
+.home-progress-legend .dot.graded { background: #d4a83c; }
+.home-progress-legend .dot.empty { background: var(--surface-2); border: 1px solid var(--border-color); }
+.home-top .home-stats { padding-top: 12px; border-top: 1px solid var(--border-color); }
+@media (max-width: 768px) { .home-progress-line strong { font-size: 1.6rem; } }

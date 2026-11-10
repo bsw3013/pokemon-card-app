@@ -8,7 +8,7 @@ import { useThumbnailSettings } from '../../hooks/useThumbnailSettings';
 import pokemonMapAll from '../../utils/pokemonMapAll.json';
 import { buildPokedexEntries, computeGenerationStats, computePokedexHeaderStats } from '../../utils/homeStats';
 import { DEFAULT_RARITIES, DEFAULT_SETS, buildSetIndex, findSetForCard, parseCardNo } from '../../utils/catalog';
-import { ownedCount } from '../../utils/cardStats';
+import { copyBreakdown, ownedCount } from '../../utils/cardStats';
 import { cardIdFromKey, resolveLegacyCardKey } from '../../utils/cardKey';
 import { navigate } from '../../utils/hashRoute';
 import CardTile from '../CardTile';
@@ -94,14 +94,26 @@ export default function HomeDashboard({ appConfig, onViewMarket }) {
   }, [cards, latestSets, rarityOrder]);
 
   const totals = useMemo(() => {
-    const t = { kinds: 0, count: 0, value: 0 };
+    const t = { kinds: 0, gradedKinds: 0, count: 0, value: 0 };
     cards.forEach((c) => {
       const n = ownedCount(c);
       if (!n) return;
       t.kinds += 1; t.count += n; t.value += (Number(c.price) || 0) * n;
+      if (copyBreakdown(c).gradedCount > 0) t.gradedKinds += 1;
     });
     return t;
   }, [cards]);
+
+  // 도감 완성률 막대 (전체 카드 종류 중 보유 비율)
+  const completion = useMemo(() => {
+    const all = cards.length || 1;
+    const exact = (totals.kinds / all) * 100;
+    return {
+      pct: cards.length ? Math.floor(exact * 10) / 10 : 0,
+      ownedPct: ((totals.kinds - totals.gradedKinds) / all) * 100,
+      gradedPct: (totals.gradedKinds / all) * 100,
+    };
+  }, [cards.length, totals]);
 
   // 포켓몬 도감판
   const entries = useMemo(() => buildPokedexEntries(cards, POKEMON_NAMES), [cards]);
@@ -165,15 +177,30 @@ export default function HomeDashboard({ appConfig, onViewMarket }) {
   return (
     <main className="page home">
       <section className="home-top">
-        <div>
+        <div className="home-top-head">
           <p className="sub">{nickname ? `${nickname}님의 컬렉션` : '내 컬렉션'}</p>
-          <div className="home-stats">
-            <div><strong>{totals.kinds.toLocaleString()}</strong><span>보유 종류 / {cards.length.toLocaleString()}</span></div>
-            <div><strong>{totals.count.toLocaleString()}</strong><span>총 장수</span></div>
-            <div><strong>{won(totals.value)}</strong><span>평가액</span></div>
+          <button type="button" className="btn btn-secondary btn-compact" onClick={() => navigate(['collection'])}>내 컬렉션 보기</button>
+        </div>
+        {/* 도감 완성률 막대: 등급 카드가 있는 종류는 금색, 나머지 보유 종류는 진한 색 */}
+        <div className="home-progress">
+          <div className="home-progress-line">
+            <strong>{completion.pct}%</strong>
+            <span><b>{totals.kinds.toLocaleString()}</b> / {cards.length.toLocaleString()}종 모음</span>
+          </div>
+          <div className="home-progress-bar" role="img" aria-label={`도감 완성률 ${completion.pct}%`}>
+            <i className="owned" style={{ width: `${completion.ownedPct}%` }} />
+            <i className="graded" style={{ width: `${completion.gradedPct}%` }} />
+          </div>
+          <div className="home-progress-legend">
+            <span><i className="dot owned" />보유 {(totals.kinds - totals.gradedKinds).toLocaleString()}종</span>
+            <span><i className="dot graded" />등급 카드 보유 {totals.gradedKinds.toLocaleString()}종</span>
+            <span><i className="dot empty" />미보유 {(cards.length - totals.kinds).toLocaleString()}종</span>
           </div>
         </div>
-        <button type="button" className="btn btn-secondary" onClick={() => navigate(['collection'])}>내 컬렉션 보기</button>
+        <div className="home-stats">
+          <div><strong>{totals.count.toLocaleString()}</strong><span>총 장수</span></div>
+          {totals.value > 0 && <div><strong>{won(totals.value)}</strong><span>평가액</span></div>}
+        </div>
       </section>
 
       {nearComplete.length > 0 && (
