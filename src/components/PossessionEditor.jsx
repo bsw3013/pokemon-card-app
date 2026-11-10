@@ -1,26 +1,9 @@
 import React from 'react';
 import { CONDITION_OPTIONS } from '../utils/cardStats';
+import { POSSESSION_LANGS, newPossessionRow } from '../utils/possessionRow';
 
-const LANGS = ['한국', '일본', '미국', '중국'];
-
-function newRow(defaultLanguage, company = '') {
-  return {
-    id: `p_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-    count: 1,
-    condition: company ? '' : '민트',
-    language: defaultLanguage || '한국',
-    company,
-    grade: '',
-    serial: '',
-    purchasePrice: '',
-    purchaseDate: '',
-    location: '',
-    source: 'buy', // 얻은 방법: buy(구매) / pull(직뽑 = 팩을 직접 까서 나온 카드)
-    forTrade: false,
-    askPrice: '',
-    notes: '',
-  };
-}
+const LANGS = POSSESSION_LANGS;
+const newRow = (defaultLanguage, company = '') => newPossessionRow(defaultLanguage, company);
 
 // 보유 기록 편집: "한 장(또는 같은 조건 묶음) = 한 줄"
 export default function PossessionEditor({ rows, onChange, gradingCompanies = [], gradingScale = [], defaultLanguage }) {

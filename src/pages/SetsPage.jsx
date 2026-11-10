@@ -9,6 +9,8 @@ import { rarityTone } from '../utils/rarityTone';
 import { navigate } from '../utils/hashRoute';
 import CardTile from '../components/CardTile';
 import Icon from '../components/Icon';
+import { useBulkSelect } from '../hooks/useBulkSelect';
+import BulkBar from '../components/BulkBar';
 
 const text = (v) => String(v ?? '').trim();
 const fmtDate = (d) => (d ? d.replaceAll('-', '.') : '발매일 미입력');
@@ -122,6 +124,10 @@ function SetDetail({ code, appConfig, onViewMarket }) {
       .sort((a, b) => a.first - b.first || (rarityOrder.get(a.rarity) || 0) - (rarityOrder.get(b.rarity) || 0));
   }, [entry, show, rarityOrder]);
 
+  // 여러 장 선택 (화면에 보이는 순서대로 Shift 범위 선택)
+  const bulk = useBulkSelect();
+  const orderIds = useMemo(() => sections.flatMap((sec) => sec.items.map((x) => x.card.id)), [sections]);
+
   if (!entry) {
     return (
       <main className="page sp">
@@ -188,7 +194,14 @@ function SetDetail({ code, appConfig, onViewMarket }) {
             ))}
           </div>
         ) : <span />}
-        <button type="button" className="btn btn-secondary btn-compact" onClick={() => navigate(['cards'], { set: set.code })}>카드 화면에서 거르기</button>
+        <div className="set-tools-right">
+          {user && (
+            <button type="button" className={`btn btn-compact ${bulk.active ? 'btn-primary' : 'btn-secondary'}`} onClick={bulk.active ? bulk.stop : bulk.start}>
+              {bulk.active ? '선택 끝내기' : '여러 장 선택'}
+            </button>
+          )}
+          <button type="button" className="btn btn-secondary btn-compact" onClick={() => navigate(['cards'], { set: set.code })}>카드 화면에서 거르기</button>
+        </div>
       </div>
 
       {sections.map(({ rarity, items }) => {
@@ -203,7 +216,14 @@ function SetDetail({ code, appConfig, onViewMarket }) {
             </div>
             <div className="card-grid ctile-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
               {items.map(({ card }) => (
-                <CardTile key={card.id} card={card} settings={{ ...settings, showSeries: false }} onClick={() => detail.openCard(card)} />
+                <CardTile
+                  key={card.id}
+                  card={card}
+                  settings={{ ...settings, showSeries: false }}
+                  selected={bulk.active && bulk.selected.has(card.id)}
+                  onClick={(e) => (bulk.active ? bulk.toggle(card.id, !!e?.shiftKey, orderIds) : detail.openCard(card))}
+                  overlay={bulk.active ? <div className="picker-checkbox">{bulk.selected.has(card.id) ? '✓' : ''}</div> : null}
+                />
               ))}
             </div>
           </section>
@@ -211,6 +231,7 @@ function SetDetail({ code, appConfig, onViewMarket }) {
       })}
       {sections.length === 0 && <div className="cp-empty">보여줄 카드가 없습니다.</div>}
       {detail.modal}
+      <BulkBar selection={bulk} visibleIds={orderIds} appConfig={appConfig} />
     </main>
   );
 }

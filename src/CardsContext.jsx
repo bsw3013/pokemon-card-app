@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { db } from './firebase';
 import { useAuth } from './AuthContext';
 import { normalizeStatus } from './utils/statusUtils';
@@ -138,6 +138,44 @@ export function CardsProvider({ children }) {
     )));
   }, [user]);
 
+  // 여러 카드의 내 보유 현황을 한 번에 저장. entries: [{ cardId, fields: { status, possessions, language } }]
+  const saveOwnershipMany = useCallback(async (entries) => {
+    if (!user) throw new Error('로그인해야 보유 정보를 저장할 수 있어요.');
+    const list = (entries || []).map(({ cardId, fields }) => ({ cardId, fields: splitCardPayload(fields).ownership }))
+      .filter(({ cardId, fields }) => cardId && Object.keys(fields).length > 0);
+    const now = new Date().toISOString();
+    for (let i = 0; i < list.length; i += 400) {
+      const batch = writeBatch(db);
+      list.slice(i, i + 400).forEach(({ cardId, fields }) => {
+        batch.set(doc(db, 'cardOwnership', ownershipDocId(cardId, user.uid)), {
+          cardId, ownerId: user.uid, ...fields, updatedAt: now,
+        }, { merge: true });
+      });
+      await batch.commit();
+    }
+    const byId = new Map(list.map((e) => [e.cardId, e.fields]));
+    setOwnershipCardIds((prev) => new Set([...prev, ...byId.keys()]));
+    setCards((prev) => prev.map((c) => {
+      const f = byId.get(c.id);
+      return f ? { ...c, ...f, status: normalizeStatus(f.status ?? c.status) } : c;
+    }));
+  }, [user]);
+
+  // 여러 카드의 마스터 정보를 한 번에 저장 (관리자만). patches: [{ id, patch }]
+  const saveMasterMany = useCallback(async (patches) => {
+    if (!isAdmin) throw new Error('관리자만 카드 정보를 바꿀 수 있습니다.');
+    const now = new Date().toISOString();
+    const byId = new Map(cardsRef.current.map((c) => [c.id, c]));
+    const finals = (patches || []).filter((p) => p.id).map(({ id, patch }) => ({ id, patch: withCardMeta(patch, { setIndex, existing: byId.get(id) || {}, now }) }));
+    for (let i = 0; i < finals.length; i += 400) {
+      const batch = writeBatch(db);
+      finals.slice(i, i + 400).forEach(({ id, patch }) => batch.update(doc(db, 'pokemon_cards', id), patch));
+      await batch.commit();
+    }
+    const map = new Map(finals.map((f) => [f.id, f.patch]));
+    setCards((prev) => prev.map((c) => (map.has(c.id) ? { ...c, ...map.get(c.id) } : c)));
+  }, [isAdmin, setIndex]);
+
   // 카드 마스터 정보(이름/시리즈/카드번호 등) + 보유현황을 함께 저장. 마스터 필드 저장은 관리자만 실제로 반영된다.
   const saveCard = useCallback(async (cardId, payload) => {
     if (!cardId) return;
@@ -206,9 +244,9 @@ export function CardsProvider({ children }) {
     () => ({
       cards, setCards, loading, fetchCards, ownershipCardIds,
       catalog, catalogLoaded, fetchCatalog, saveCatalog,
-      saveOwnership, saveCard, createCard, duplicateCard, deleteCard,
+      saveOwnership, saveCard, createCard, duplicateCard, deleteCard, saveOwnershipMany, saveMasterMany,
     }),
-    [cards, loading, fetchCards, ownershipCardIds, catalog, catalogLoaded, fetchCatalog, saveCatalog, saveOwnership, saveCard, createCard, duplicateCard, deleteCard],
+    [cards, loading, fetchCards, ownershipCardIds, catalog, catalogLoaded, fetchCatalog, saveCatalog, saveOwnership, saveCard, createCard, duplicateCard, deleteCard, saveOwnershipMany, saveMasterMany],
   );
   return <CardsContext.Provider value={value}>{children}</CardsContext.Provider>;
 }
