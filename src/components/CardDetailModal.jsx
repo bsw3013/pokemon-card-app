@@ -7,6 +7,9 @@ import CardThumbnail from './CardThumbnail';
 import CardDetailView from './CardDetailView';
 import PossessionEditor from './PossessionEditor';
 import { normalizeStatus } from '../utils/statusUtils';
+import { useOwnedCards } from '../hooks/useOwnedCards';
+import { DEFAULT_SETS, buildSetIndex, findSetForCard } from '../utils/catalog';
+import { koreanImageCandidates, loadJpIndex, parseCardCode, searchJpIndex, searchTcgdexEn } from '../utils/imageSources';
 import { statusFromRows } from '../utils/sales';
 
 const { krToEn, krToJa } = pokemonMapAll;
@@ -22,12 +25,17 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
   // 'loading' 상태는 null, 기록 없음은 'none', 있으면 {count,min,max,avg}
   const [isSaving, setIsSaving] = useState(false);
 
-  // 📸 두 번째 초대형 멀티 언어 이미지 픽커 상태
+  // 사진 찾기 창: 한국(세트 코드·번호로 바로) / 일본(공식 카드 목록) / 영어(TCGdex)
+  const { catalog } = useOwnedCards();
   const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const [pickerTab, setPickerTab] = useState('en'); // 'en', 'ja'
+  const [pickerTab, setPickerTab] = useState('kr'); // 'kr', 'ja', 'en'
   const [pickerQuery, setPickerQuery] = useState('');
   const [pickerResults, setPickerResults] = useState([]);
   const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerNote, setPickerNote] = useState('');
+  const [pickerFailed, setPickerFailed] = useState(() => new Set()); // 사진이 안 열린 후보(한국 탭)
+  const [pickerLoaded, setPickerLoaded] = useState(0);
+  const [jpSameSet, setJpSameSet] = useState(true);
 
   // 📷 직접 업로드 및 URL 입력 상태
   const [uploading, setUploading] = useState(false);
@@ -145,11 +153,71 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
     setUrlInput('');
   };
 
+  // 이 카드의 세트 코드·번호 (예: SV8a-217)
+  const pickerSet = findSetForCard(editData, buildSetIndex(catalog?.sets || DEFAULT_SETS));
+  const cardCodeText = () => {
+    const raw = String(editData.cardNumber || '').trim();
+    if (parseCardCode(raw)) return raw;
+    const no = String(raw).match(/(\d{1,3})\s*$/);
+    return pickerSet && no ? `${pickerSet.code}-${no[1]}` : raw;
+  };
+  const tabDefaultQuery = (tab) => (tab === 'kr' ? cardCodeText() : String(editData.cardName || '').trim());
+
+  // 한글 이름 → 일본어·영어 이름 (첫 단어만 번역되면 나머지는 그대로 붙임)
+  const translate = (text, map) => {
+    if (map[text]) return map[text];
+    const parts = text.split(' ');
+    return map[parts[0]] ? [map[parts[0]], ...parts.slice(1)].join(' ') : text;
+  };
+
+  const runPickerSearch = async (tab, queryText, sameSet = jpSameSet) => {
+    const q = String(queryText || '').trim();
+    setPickerResults([]);
+    setPickerFailed(new Set());
+    setPickerLoaded(0);
+    setPickerNote('');
+    if (!q) return;
+    setPickerLoading(true);
+    try {
+      if (tab === 'kr') {
+        const list = koreanImageCandidates(q, pickerSet?.era);
+        if (list.length === 0) setPickerNote('세트 코드와 번호를 "SV8a-217"처럼 적어 주세요.');
+        setPickerResults(list);
+      } else if (tab === 'ja') {
+        const index = await loadJpIndex();
+        const isJa = /[぀-ヿ]/.test(q);
+        const names = [isJa ? q : translate(q, krToJa)].filter(Boolean);
+        const setCode = sameSet && pickerSet ? pickerSet.code : '';
+        let list = searchJpIndex(index, { names, setCode });
+        if (list.length === 0 && setCode) list = searchJpIndex(index, { names });
+        setPickerResults(list);
+        setPickerNote(`일본 공식 카드 ${Number(index.count || 0).toLocaleString()}장 중에서 찾았어요 · 목록 갱신 ${String(index.updatedAt || '').slice(0, 10)}`);
+      } else {
+        setPickerResults(await searchTcgdexEn(translate(q, krToEn)));
+      }
+    } catch (err) {
+      console.error(err);
+      setPickerNote(tab === 'ja'
+        ? '일본 공식 카드 목록이 아직 없어요. GitHub Actions에서 "Build card image index"를 한 번 실행해 주세요.'
+        : `사진을 불러오지 못했어요. (${err.message})`);
+    } finally {
+      setPickerLoading(false);
+    }
+  };
+
   const openPicker = () => {
     setIsPickerOpen(true);
-    setPickerTab('en');
-    setPickerQuery(editData.cardName || editData.cardNumber || '');
-    setPickerResults([]);
+    setPickerTab('kr');
+    const q = tabDefaultQuery('kr');
+    setPickerQuery(q);
+    runPickerSearch('kr', q);
+  };
+
+  const switchPickerTab = (tab) => {
+    setPickerTab(tab);
+    const q = tabDefaultQuery(tab);
+    setPickerQuery(q);
+    runPickerSearch(tab, q);
   };
 
   const closePicker = () => {
@@ -157,59 +225,9 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
     setPickerResults([]);
   };
 
-  const handlePickerSearch = async (e) => {
+  const handlePickerSearch = (e) => {
     if (e) e.preventDefault();
-    if (!pickerQuery.trim()) return;
-
-    setPickerLoading(true);
-    setPickerResults([]);
-
-    try {
-      const queryText = pickerQuery.trim();
-
-      if (pickerTab === 'en') {
-        let enName = krToEn[queryText] || queryText;
-        const parts = queryText.split(' ');
-        if (krToEn[parts[0]]) {
-          enName = krToEn[parts[0]] + (parts.length > 1 ? ' ' + parts.slice(1).join(' ') : '');
-        }
-
-        const url = `https://api.pokemontcg.io/v2/cards?q=name:"*${enName}*" OR number:"*${queryText}*"&pageSize=50`;
-        const res = await fetch(url);
-        const json = await res.json();
-
-        if (json.data) {
-          setPickerResults(json.data.map((c) => ({
-            id: c.id,
-            thumbnail: c.images.small,
-            fullImage: c.images.large || c.images.small,
-          })));
-        }
-      } else if (pickerTab === 'ja') {
-        let jaName = krToJa[queryText] || queryText;
-        const parts = queryText.split(' ');
-        if (krToJa[parts[0]]) {
-          jaName = krToJa[parts[0]] + (parts.length > 1 ? ' ' + parts.slice(1).join(' ') : '');
-        }
-
-        const url = `https://api.tcgdex.net/v2/ja/cards?name=${encodeURIComponent(jaName)}`;
-        const res = await fetch(url);
-        const json = await res.json();
-        if (Array.isArray(json)) {
-          const valid = json.filter((c) => c.image).slice(0, 50);
-          setPickerResults(valid.map((c) => ({
-            id: c.id,
-            thumbnail: `${c.image}/low.webp`,
-            fullImage: `${c.image}/high.png`,
-          })));
-        }
-      }
-    } catch (err) {
-      console.error(err);
-      alert("검색 서버에 연결하는 데 실패했습니다. 잠시 후 다시 시도해주세요.");
-    } finally {
-      setPickerLoading(false);
-    }
+    runPickerSearch(pickerTab, pickerQuery);
   };
 
   const selectPickerImage = (imgUrl) => {
@@ -247,7 +265,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
 
                 <div className="upload-option">
                   <button type="button" className="btn btn-secondary fetch-btn" onClick={openPicker} disabled={!isAdmin}>
-                    스마트 다국어 검색
+                    공식 사진 찾기 (한·일·영)
                   </button>
                 </div>
 
@@ -371,36 +389,63 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
           <div className="picker-content slide-up" onClick={e => e.stopPropagation()}>
             <button className="modal-close" onClick={closePicker}>✕</button>
             <div className="picker-header">
-              <h2>글로벌 카드 라이브러리 검색</h2>
-              <p>전 세계의 서버에서 실시간으로 정품 고해상도 카드 디자인을 끌어옵니다.</p>
+              <h2>카드 사진 찾기</h2>
+              <p>한국판은 세트 코드·번호로 공식 사진을 바로 찾고, 일본판·영문판은 이름으로 찾아요.</p>
+            </div>
+
+            <div className="picker-tabs">
+              <button type="button" className={`tab-btn ${pickerTab === 'kr' ? 'active' : ''}`} onClick={() => switchPickerTab('kr')}>한국판 (공식)</button>
+              <button type="button" className={`tab-btn ${pickerTab === 'ja' ? 'active' : ''}`} onClick={() => switchPickerTab('ja')}>일본판 (공식)</button>
+              <button type="button" className={`tab-btn ${pickerTab === 'en' ? 'active' : ''}`} onClick={() => switchPickerTab('en')}>영문판 (TCGdex)</button>
             </div>
 
             <form className="picker-search-bar" onSubmit={handlePickerSearch}>
-              <input type="text" placeholder="한글 이름 또는 번호를 치세요 (알아서 다국어로 번역됩니다!)" value={pickerQuery} onChange={e => setPickerQuery(e.target.value)} />
+              <input
+                type="text"
+                placeholder={pickerTab === 'kr' ? '세트 코드-번호 (예: SV8a-217, M3-086)' : '한글 이름 (자동으로 번역해서 찾아요)'}
+                value={pickerQuery}
+                onChange={(e) => setPickerQuery(e.target.value)}
+              />
               <button type="submit" className="btn btn-primary">검색</button>
             </form>
-
-            <div className="picker-tabs">
-              <button className={`tab-btn ${pickerTab === 'en' ? 'active' : ''}`} onClick={() => setPickerTab('en')}>🇺🇸 영문판 글로벌 (가져오기 빠름)</button>
-              <button className={`tab-btn ${pickerTab === 'ja' ? 'active' : ''}`} onClick={() => setPickerTab('ja')}>🇯🇵 일본 오리지널판</button>
-            </div>
+            {pickerTab === 'ja' && pickerSet && (
+              <label className="picker-option">
+                <input type="checkbox" checked={jpSameSet} onChange={(e) => { setJpSameSet(e.target.checked); runPickerSearch('ja', pickerQuery, e.target.checked); }} />
+                이 카드 세트({pickerSet.code.toUpperCase()})에서만 찾기
+              </label>
+            )}
+            {pickerNote && <p className="picker-note">{pickerNote}</p>}
 
             <div className="picker-body">
               {pickerLoading ? (
                 <div className="picker-loading">
-                  <div className="spinner"></div><div>국경을 넘어 사진을 수집하는 중입니다...</div>
+                  <div className="spinner"></div><div>사진을 찾는 중...</div>
                 </div>
-              ) : pickerResults.length > 0 ? (
-                <div className="picker-grid">
-                  {pickerResults.map(res => (
-                    <div key={res.id} className="picker-img-wrapper" onClick={() => selectPickerImage(res.fullImage)}>
-                      <img src={res.thumbnail} alt="card" loading="lazy" />
-                      <div className="picker-img-overlay">선택하기</div>
-                    </div>
-                  ))}
-                </div>
+              ) : pickerResults.length > 0 && pickerFailed.size < pickerResults.length ? (
+                <>
+                  {pickerTab === 'kr' && pickerLoaded === 0 && <p className="picker-note">공식 사진 주소를 확인하는 중...</p>}
+                  <div className="picker-grid">
+                    {pickerResults.filter((r) => !pickerFailed.has(r.id)).map((res) => (
+                      <div key={res.id} className="picker-img-wrapper" onClick={() => selectPickerImage(res.fullImage)} title={res.title || res.source}>
+                        <img
+                          src={res.thumbnail}
+                          alt={res.title || 'card'}
+                          loading="lazy"
+                          onLoad={() => setPickerLoaded((n) => n + 1)}
+                          onError={() => setPickerFailed((prev) => new Set(prev).add(res.id))}
+                        />
+                        <div className="picker-img-overlay">선택하기</div>
+                        <span className="picker-src">{res.source}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
               ) : (
-                <div className="picker-empty">해당 국가에서는 이 이름으로 된 사진을 구하지 못했습니다.</div>
+                <div className="picker-empty">
+                  {pickerTab === 'kr'
+                    ? '이 세트 코드·번호로 된 공식 사진을 찾지 못했어요. 번호를 확인하거나 일본판·영문판 탭에서 찾아보세요.'
+                    : '이 이름으로 된 사진을 찾지 못했어요.'}
+                </div>
               )}
             </div>
           </div>
