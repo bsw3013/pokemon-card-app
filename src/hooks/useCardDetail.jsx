@@ -6,6 +6,7 @@ import { parseHash, setHashParams } from '../utils/hashRoute';
 import { buildCardKey } from '../utils/cardKey';
 import CardDetailModal from '../components/CardDetailModal';
 import MarketDrawer from '../components/MarketDrawer';
+import { invalidateMarketIndex } from './useMarketIndex';
 
 // 어느 화면에서든 카드 상세 창을 띄우기 위한 훅.
 // 주소 뒤 ?cardId=<카드ID> 와 연결돼 있어서, 링크로 바로 열거나 뒤로가기로 닫을 수 있다.
@@ -16,7 +17,6 @@ export function useCardDetail({ appConfig, onViewMarket } = {}) {
   const { cards, saveCard, createCard, duplicateCard, deleteCard } = useOwnedCards();
   const [cardId, setCardId] = useState(() => parseHash().params.cardId || null);
   const [marketCard, setMarketCard] = useState(null); // 시세 창에 띄운 카드
-  const [marketVersion, setMarketVersion] = useState(0); // 시세가 바뀌면 카드 상세의 시세 요약을 다시 읽게 하는 숫자
 
   useEffect(() => {
     const sync = () => setCardId(parseHash().params.cardId || null);
@@ -87,7 +87,6 @@ export function useCardDetail({ appConfig, onViewMarket } = {}) {
       onDelete={isAdmin && card && !card.isNew ? handleDelete : undefined}
       onDuplicate={isAdmin && card && !card.isNew ? handleDuplicate : undefined}
       onViewMarket={openMarket}
-      marketVersion={marketVersion}
       suspendKeys={showMarket}
       onOpenCard={openCard}
     />
@@ -98,7 +97,7 @@ export function useCardDetail({ appConfig, onViewMarket } = {}) {
         appConfig={appConfig}
         overModal
         onClose={() => setMarketCard(null)}
-        onChanged={() => setMarketVersion((v) => v + 1)}
+        onChanged={invalidateMarketIndex}
         onOpenMarketPage={onViewMarket ? () => { const c = card; setMarketCard(null); close(); onViewMarket({ ...c }); } : undefined}
       />
     )}

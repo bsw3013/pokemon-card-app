@@ -12,6 +12,8 @@ import CardThumbnail from '../components/CardThumbnail';
 import ThumbnailSettings from '../components/ThumbnailSettings';
 import Icon from '../components/Icon';
 import SortControl from '../components/SortControl';
+import { useMarketIndex } from '../hooks/useMarketIndex';
+import { cardMarketValue, representativePrice } from '../utils/marketPrice';
 import { readSort, sortItems, writeSort } from '../utils/sortCards';
 
 const PAGE = 120;
@@ -85,11 +87,15 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
   const rarityInfo = useMemo(() => new Map(rarities.map((r) => [text(r.code), r])), [rarities]);
 
   // 카드마다 세트를 한 번만 찾아 둔다.
+  const marketIndex = useMarketIndex();
   const enriched = useMemo(() => cards.map((card) => {
     const set = findSetForCard(card, setIndex);
     const rows = activeRows(card); // 판매완료한 장은 빼고
     const split = copyBreakdown(card);
+    // 1장 시세: 내 카드가 있으면 내 카드 종류의 시세, 없으면 그 언어판 Raw 시세
+    const unit = (split.total > 0 ? cardMarketValue(marketIndex, card).unit : null) ?? representativePrice(marketIndex, card);
     return {
+      unit,
       graded: split.gradedCount,
       pulled: rows.filter(isPulledCopy).reduce((n, r) => n + (Number(r.count) || 1), 0),
       trade: rows.some(isForSale),
@@ -103,7 +109,7 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
       count: split.total,
       rarityOrder: Number(rarityInfo.get(text(card.rarity))?.order) || 0,
     };
-  }), [cards, setIndex, rarityInfo]);
+  }), [cards, setIndex, rarityInfo, marketIndex]);
 
   const setCounts = useMemo(() => {
     const m = new Map();
@@ -371,10 +377,10 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
             <div className="cp-table-wrap">
               <table className="cp-table">
                 <thead>
-                  <tr><th></th><th>이름</th><th>세트</th><th>번호</th><th>레어도</th><th>종류</th><th>도감</th>{user && <th className="num">보유</th>}{user && <th className="num">내 평가 가격</th>}</tr>
+                  <tr><th></th><th>이름</th><th>세트</th><th>번호</th><th>레어도</th><th>종류</th><th>도감</th>{user && <th className="num">보유</th>}<th className="num">시세</th></tr>
                 </thead>
                 <tbody>
-                  {shown.map(({ card, set, no, count }) => (
+                  {shown.map(({ card, set, no, count, unit }) => (
                     <tr key={card.id} onClick={() => detail.openCard(card)} tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') detail.openCard(card); }}>
                       <td className="thumb"><CardThumbnail imageUrl={card.imageUrl} alt="" type="table" /></td>
                       <td className="name">{card.cardName || '이름 없음'}</td>
@@ -384,7 +390,7 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
                       <td>{card.type || '-'}</td>
                       <td className="mono">{card.pokedexNumber || '-'}</td>
                       {user && <td className="num">{count ? `${count}장` : '-'}</td>}
-                      {user && <td className="num">{Number(card.price) > 0 ? `${Number(card.price).toLocaleString()}원` : '-'}</td>}
+                      <td className="num">{unit ? `${unit.toLocaleString()}원` : '-'}</td>
                     </tr>
                   ))}
                 </tbody>

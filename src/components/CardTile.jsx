@@ -28,7 +28,7 @@ export default function CardTile({ card, settings = {}, onClick, selected = fals
     : '';
   const rawBadge = split.gradedCount > 0 && split.rawCount > 0 ? `Raw ×${split.rawCount}` : '';
   const {
-    showName = true, showSeries = true, showNumber = true, showRarity = true, showPrice = true, hoverMode = false,
+    showName = true, showSeries = true, showNumber = true, showRarity = true, hoverMode = false,
   } = settings;
 
   const handleKey = (e) => {
@@ -70,7 +70,6 @@ export default function CardTile({ card, settings = {}, onClick, selected = fals
         )}
         {showSeries && set && <div className="ctile-set">{set.name}</div>}
         {showSeries && !set && card.series && <div className="ctile-set">{card.series}</div>}
-        {showPrice && Number(card.price) > 0 && <div className="ctile-price">{Number(card.price).toLocaleString()}원</div>}
       </div>
     </article>
   );

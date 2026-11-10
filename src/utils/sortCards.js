@@ -8,8 +8,8 @@ const text = (v) => String(v ?? '').trim();
 // asc/desc: 방향 버튼에 보여줄 말, dir: 기준을 고를 때 처음 방향
 export const SORT_FIELDS = {
   release: { label: '세트 발매일·카드 번호', dir: 'desc', asc: '오래된 세트부터', desc: '최신 세트부터' },
-  price: { label: '내 평가 가격 (1장)', dir: 'desc', asc: '낮은 가격부터', desc: '높은 가격부터' },
-  value: { label: '평가액 (가격 × 장수)', dir: 'desc', asc: '낮은 금액부터', desc: '높은 금액부터' },
+  price: { label: '시세 (1장)', dir: 'desc', asc: '낮은 가격부터', desc: '높은 가격부터' },
+  value: { label: '평가액 (시세 × 장수)', dir: 'desc', asc: '낮은 금액부터', desc: '높은 금액부터' },
   purchase: { label: '구매가', dir: 'desc', asc: '낮은 가격부터', desc: '높은 가격부터' },
   bought: { label: '얻은 날 (구매일·뽑은 날)', dir: 'desc', asc: '오래전 것부터', desc: '최근 것부터' },
   pulled: { label: '직뽑', dir: 'desc', asc: '구매 먼저', desc: '직뽑 먼저' },
@@ -20,12 +20,12 @@ export const SORT_FIELDS = {
   graded: { label: '등급 카드 장수', dir: 'desc', asc: '적은 것부터', desc: '많은 것부터' },
 };
 
-// item: { card, release, setCode, no, rarityOrder, count, graded, pulled, maxPurchase, lastBought, value }
+// item: { card, unit(1장 시세), release, setCode, no, rarityOrder, count, graded, pulled, maxPurchase, lastBought, value }
 function valueOf(item, field) {
   const { card } = item;
   switch (field) {
     case 'release': return item.release || null;
-    case 'price': return Number(card.price) || null;
+    case 'price': return Number(item.unit) || null;
     case 'value': return Number(item.value) || null;
     case 'purchase': return Number(item.maxPurchase) || null;
     case 'bought': return item.lastBought || null;

@@ -4053,3 +4053,21 @@ input, select, textarea, button { font-family: inherit; }
 .home-rarity-bar2.silver i { background: var(--rar-silver); }
 .home-rarity-bar2.teal i { background: var(--rar-teal); }
 .home-rarity-meta { font-size: 0.76rem; color: var(--text-subtle); font-variant-numeric: tabular-nums; }
+
+/* 카드 상세: 종류별 시세 표 + 내 카드 줄 시세 */
+.cdv-market-table table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+.cdv-market-table th { text-align: left; font-size: 0.74rem; font-weight: 600; color: var(--text-subtle); padding: 6px 8px; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+.cdv-market-table td { padding: 7px 8px; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+.cdv-market-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.cdv-market-table td small { color: var(--text-subtle); }
+.cdv-market-table tr.mine td { background: rgba(243, 215, 122, 0.14); }
+.cdv-market-table .mine-tag { margin-left: 6px; font-size: 0.7rem; font-weight: 700; color: #92400e; background: rgba(245, 158, 11, 0.16); border-radius: 999px; padding: 1px 7px; }
+.cdv-market-table > .sub { margin: 6px 0 0; font-size: 0.76rem; }
+.own-copy-market { font-size: 0.8rem; color: var(--text-muted); }
+.own-copy-market b { color: var(--text-main); font-variant-numeric: tabular-nums; }
+.own-copy-market b.up { color: #15803d; }
+.own-copy-market b.down { color: #b91c1c; }
+.own-copy-market small { color: var(--text-subtle); }
+:root[data-theme="dark"] .own-copy-market b.up { color: #4ade80; }
+:root[data-theme="dark"] .own-copy-market b.down { color: #f87171; }
+:root[data-theme="dark"] .cdv-market-table .mine-tag { color: #fcd34d; }
