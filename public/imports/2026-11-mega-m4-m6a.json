@@ -1,0 +1,1278 @@
+{
+ "id": "2026-11-mega-m4-m6a",
+ "createdAt": "2026-11-10T05:20:05.827Z",
+ "source": "pokemoncard.co.kr",
+ "sets": [
+  {
+   "code": "m4",
+   "name": "닌자스피너",
+   "era": "메가",
+   "kind": "확장팩",
+   "releaseDate": "2026-05-01",
+   "printedTotal": 83,
+   "label": "m4 -「닌자스피너」"
+  },
+  {
+   "code": "m5",
+   "name": "어비스아이",
+   "era": "메가",
+   "kind": "확장팩",
+   "releaseDate": "2026-06-26",
+   "printedTotal": 81,
+   "label": "m5 -「어비스아이」"
+  },
+  {
+   "code": "m6",
+   "name": "스톰에메랄다",
+   "era": "메가",
+   "kind": "확장팩",
+   "releaseDate": "2026-08-21",
+   "printedTotal": 76,
+   "label": "m6 -「스톰에메랄다」"
+  },
+  {
+   "code": "m6a",
+   "name": "30th CELEBRATION",
+   "era": "메가",
+   "kind": "확장팩",
+   "releaseDate": "2026-09-16",
+   "printedTotal": 103,
+   "label": "m6a -「30th CELEBRATION」"
+  }
+ ],
+ "cards": [
+  {
+   "cardName": "도치마론",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-084",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0650",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_084.png"
+  },
+  {
+   "cardName": "푸호꼬",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-085",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0653",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_085.png"
+  },
+  {
+   "cardName": "개구마르",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-086",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0656",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_086.png"
+  },
+  {
+   "cardName": "개굴반장",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-087",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0657",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_087.png"
+  },
+  {
+   "cardName": "전룡",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-088",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0181",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_088.png"
+  },
+  {
+   "cardName": "제르네아스",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-089",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0716",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_089.png"
+  },
+  {
+   "cardName": "점토도리",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-090",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0344",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_090.png"
+  },
+  {
+   "cardName": "크로뱃",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-091",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0169",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_091.png"
+  },
+  {
+   "cardName": "메탕구",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-092",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0375",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_092.png"
+  },
+  {
+   "cardName": "미끄네일",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-093",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0705",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_093.png"
+  },
+  {
+   "cardName": "켄타로스",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-094",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0128",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_094.png"
+  },
+  {
+   "cardName": "보르그",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-095",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0505",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_095.png"
+  },
+  {
+   "cardName": "독침붕 ex",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-096",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0015",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_096.png"
+  },
+  {
+   "cardName": "메가화염레오 ex",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-097",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0668",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_097.png"
+  },
+  {
+   "cardName": "메가개굴닌자 ex",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-098",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0658",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_098.png"
+  },
+  {
+   "cardName": "메가플라엣테 ex",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-099",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0670",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_099.png"
+  },
+  {
+   "cardName": "펌킨인 ex",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-100",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0711",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_100.png"
+  },
+  {
+   "cardName": "코바르온 ex",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-101",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0638",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_101.png"
+  },
+  {
+   "cardName": "메가드래캄 ex",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-102",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0691",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_102.png"
+  },
+  {
+   "cardName": "치라치노 ex",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-103",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0573",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_103.png"
+  },
+  {
+   "cardName": "스페셜 레드카드",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-104",
+   "rarity": "SR",
+   "type": "아이템",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_104.png"
+  },
+  {
+   "cardName": "에너지 회수",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-105",
+   "rarity": "SR",
+   "type": "아이템",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_105.png"
+  },
+  {
+   "cardName": "점보 아이스",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-106",
+   "rarity": "SR",
+   "type": "아이템",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_106.png"
+  },
+  {
+   "cardName": "툴스크래퍼",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-107",
+   "rarity": "SR",
+   "type": "아이템",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_107.png"
+  },
+  {
+   "cardName": "AZ의 평온",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-108",
+   "rarity": "SR",
+   "type": "서포트",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_108.png"
+  },
+  {
+   "cardName": "마티에르",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-109",
+   "rarity": "SR",
+   "type": "서포트",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_109.png"
+  },
+  {
+   "cardName": "보미카의 연주",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-110",
+   "rarity": "SR",
+   "type": "서포트",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_110.png"
+  },
+  {
+   "cardName": "지프",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-111",
+   "rarity": "SR",
+   "type": "서포트",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_111.png"
+  },
+  {
+   "cardName": "파도타기 비치",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-112",
+   "rarity": "SR",
+   "type": "스타디움",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_112.png"
+  },
+  {
+   "cardName": "프리즘타워",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-113",
+   "rarity": "SR",
+   "type": "스타디움",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_113.png"
+  },
+  {
+   "cardName": "메가개굴닌자 ex",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-114",
+   "rarity": "SAR",
+   "type": "포켓몬",
+   "pokedexNumber": "0658",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_114.png"
+  },
+  {
+   "cardName": "메가플라엣테 ex",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-115",
+   "rarity": "SAR",
+   "type": "포켓몬",
+   "pokedexNumber": "0670",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_115.png"
+  },
+  {
+   "cardName": "메가드래캄 ex",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-116",
+   "rarity": "SAR",
+   "type": "포켓몬",
+   "pokedexNumber": "0691",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_116.png"
+  },
+  {
+   "cardName": "치라치노 ex",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-117",
+   "rarity": "SAR",
+   "type": "포켓몬",
+   "pokedexNumber": "0573",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_117.png"
+  },
+  {
+   "cardName": "AZ의 평온",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-118",
+   "rarity": "SAR",
+   "type": "서포트",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_118.png"
+  },
+  {
+   "cardName": "보미카의 연주",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-119",
+   "rarity": "SAR",
+   "type": "서포트",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_119.png"
+  },
+  {
+   "cardName": "메가개굴닌자 ex",
+   "series": "m4 -「닌자스피너」",
+   "cardNumber": "M4-120",
+   "rarity": "MUR",
+   "type": "포켓몬",
+   "pokedexNumber": "0658",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M4/M4_120.png"
+  },
+  {
+   "cardName": "짜랑랑",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-082",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0753",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_082.png"
+  },
+  {
+   "cardName": "카디나르마",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-083",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0936",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_083.png"
+  },
+  {
+   "cardName": "콘치",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-084",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0118",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_084.png"
+  },
+  {
+   "cardName": "누리레느",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-085",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0730",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_085.png"
+  },
+  {
+   "cardName": "썬더볼트",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-086",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0310",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_086.png"
+  },
+  {
+   "cardName": "야도란",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-087",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0080",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_087.png"
+  },
+  {
+   "cardName": "타타륜",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-088",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0781",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_088.png"
+  },
+  {
+   "cardName": "폭슬라이",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-089",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0828",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_089.png"
+  },
+  {
+   "cardName": "자루도",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-090",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0893",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_090.png"
+  },
+  {
+   "cardName": "바리톱스",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-091",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0411",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_091.png"
+  },
+  {
+   "cardName": "왕큰부리",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-092",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0733",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_092.png"
+  },
+  {
+   "cardName": "실버디",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-093",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0773",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_093.png"
+  },
+  {
+   "cardName": "라란티스 ex",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-094",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0754",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_094.png"
+  },
+  {
+   "cardName": "고래왕 ex",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-095",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0321",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_095.png"
+  },
+  {
+   "cardName": "메가제라오라 ex",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-096",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0807",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_096.png"
+  },
+  {
+   "cardName": "메가샹델라 ex",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-097",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0609",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_097.png"
+  },
+  {
+   "cardName": "램펄드 ex",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-098",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0409",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_098.png"
+  },
+  {
+   "cardName": "메가다크라이 ex",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-099",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0491",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_099.png"
+  },
+  {
+   "cardName": "모르페코 ex",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-100",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0877",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_100.png"
+  },
+  {
+   "cardName": "메가몰드류 ex",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-101",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0530",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_101.png"
+  },
+  {
+   "cardName": "다크벨",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-102",
+   "rarity": "SR",
+   "type": "아이템",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_102.png"
+  },
+  {
+   "cardName": "아이언 디펜드업",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-103",
+   "rarity": "SR",
+   "type": "아이템",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_103.png"
+  },
+  {
+   "cardName": "에너지 갈아 달기",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-104",
+   "rarity": "SR",
+   "type": "아이템",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_104.png"
+  },
+  {
+   "cardName": "크래시 해머",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-105",
+   "rarity": "SR",
+   "type": "아이템",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_105.png"
+  },
+  {
+   "cardName": "브레이브뱅글",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-106",
+   "rarity": "SR",
+   "type": "포켓몬의 도구",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_106.png"
+  },
+  {
+   "cardName": "호쾌봄",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-107",
+   "rarity": "SR",
+   "type": "포켓몬의 도구",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_107.png"
+  },
+  {
+   "cardName": "글라디오의 결전",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-108",
+   "rarity": "SR",
+   "type": "서포트",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_108.png"
+  },
+  {
+   "cardName": "녹청파의 조무래기",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-109",
+   "rarity": "SR",
+   "type": "서포트",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_109.png"
+  },
+  {
+   "cardName": "무쿠",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-110",
+   "rarity": "SR",
+   "type": "서포트",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_110.png"
+  },
+  {
+   "cardName": "이슬의 기력",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-111",
+   "rarity": "SR",
+   "type": "서포트",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_111.png"
+  },
+  {
+   "cardName": "메가제라오라 ex",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-112",
+   "rarity": "SAR",
+   "type": "포켓몬",
+   "pokedexNumber": "0807",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_112.png"
+  },
+  {
+   "cardName": "메가샹델라 ex",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-113",
+   "rarity": "SAR",
+   "type": "포켓몬",
+   "pokedexNumber": "0609",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_113.png"
+  },
+  {
+   "cardName": "메가다크라이 ex",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-114",
+   "rarity": "SAR",
+   "type": "포켓몬",
+   "pokedexNumber": "0491",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_114.png"
+  },
+  {
+   "cardName": "모르페코 ex",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-115",
+   "rarity": "SAR",
+   "type": "포켓몬",
+   "pokedexNumber": "0877",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_115.png"
+  },
+  {
+   "cardName": "글라디오의 결전",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-116",
+   "rarity": "SAR",
+   "type": "서포트",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_116.png"
+  },
+  {
+   "cardName": "무쿠",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-117",
+   "rarity": "SAR",
+   "type": "서포트",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_117.png"
+  },
+  {
+   "cardName": "메가다크라이 ex",
+   "series": "m5 -「어비스아이」",
+   "cardNumber": "M5-118",
+   "rarity": "MUR",
+   "type": "포켓몬",
+   "pokedexNumber": "0491",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M5/M5_118.png"
+  },
+  {
+   "cardName": "비나방",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-077",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0284",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_077.png"
+  },
+  {
+   "cardName": "가디",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-078",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0058",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_078.png"
+  },
+  {
+   "cardName": "마그마번",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-079",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0467",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_079.png"
+  },
+  {
+   "cardName": "가이오가",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-080",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0382",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_080.png"
+  },
+  {
+   "cardName": "에레키블",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-081",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0466",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_081.png"
+  },
+  {
+   "cardName": "찌르성게",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-082",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0871",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_082.png"
+  },
+  {
+   "cardName": "러브로스",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-083",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0905",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_083.png"
+  },
+  {
+   "cardName": "그란돈",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-084",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0383",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_084.png"
+  },
+  {
+   "cardName": "오케이징",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-085",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0686",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_085.png"
+  },
+  {
+   "cardName": "루리리",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-086",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0298",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_086.png"
+  },
+  {
+   "cardName": "파비코리",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-087",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0334",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_087.png"
+  },
+  {
+   "cardName": "켈리몬",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-088",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0352",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_088.png"
+  },
+  {
+   "cardName": "메가갑주무사 ex",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-089",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0768",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_089.png"
+  },
+  {
+   "cardName": "히트로토무 ex",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-090",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0479",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_090.png"
+  },
+  {
+   "cardName": "약어리 ex",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-091",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0746",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_091.png"
+  },
+  {
+   "cardName": "라이코 ex",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-092",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0243",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_092.png"
+  },
+  {
+   "cardName": "메가골루그 ex",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-093",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0623",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_093.png"
+  },
+  {
+   "cardName": "메가칼라마네로 ex",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-094",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0687",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_094.png"
+  },
+  {
+   "cardName": "메가레쿠쟈 ex",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-095",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0384",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_095.png"
+  },
+  {
+   "cardName": "파이어로 ex",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-096",
+   "rarity": "SR",
+   "type": "포켓몬",
+   "pokedexNumber": "0663",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_096.png"
+  },
+  {
+   "cardName": "모험 랜턴",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-097",
+   "rarity": "SR",
+   "type": "아이템",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_097.png"
+  },
+  {
+   "cardName": "포켓몬 캐처",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-098",
+   "rarity": "SR",
+   "type": "아이템",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_098.png"
+  },
+  {
+   "cardName": "특별주문조끼",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-099",
+   "rarity": "SR",
+   "type": "포켓몬의 도구",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_099.png"
+  },
+  {
+   "cardName": "MC의 호응유도",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-100",
+   "rarity": "SR",
+   "type": "서포트",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_100.png"
+  },
+  {
+   "cardName": "성한",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-101",
+   "rarity": "SR",
+   "type": "서포트",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_101.png"
+  },
+  {
+   "cardName": "풍&란의 수행",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-102",
+   "rarity": "SR",
+   "type": "서포트",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_102.png"
+  },
+  {
+   "cardName": "피아나의 신뢰",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-103",
+   "rarity": "SR",
+   "type": "서포트",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_103.png"
+  },
+  {
+   "cardName": "그로우 풀 에너지",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-104",
+   "rarity": "SR",
+   "type": "에너지",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_104.png"
+  },
+  {
+   "cardName": "니트로 불꽃 에너지",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-105",
+   "rarity": "SR",
+   "type": "에너지",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_105.png"
+  },
+  {
+   "cardName": "버블 물 에너지",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-106",
+   "rarity": "SR",
+   "type": "에너지",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_106.png"
+  },
+  {
+   "cardName": "메가갑주무사 ex",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-107",
+   "rarity": "SAR",
+   "type": "포켓몬",
+   "pokedexNumber": "0768",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_107.png"
+  },
+  {
+   "cardName": "라이코 ex",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-108",
+   "rarity": "SAR",
+   "type": "포켓몬",
+   "pokedexNumber": "0243",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_108.png"
+  },
+  {
+   "cardName": "메가골루그 ex",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-109",
+   "rarity": "SAR",
+   "type": "포켓몬",
+   "pokedexNumber": "0623",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_109.png"
+  },
+  {
+   "cardName": "메가레쿠쟈 ex",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-110",
+   "rarity": "SAR",
+   "type": "포켓몬",
+   "pokedexNumber": "0384",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_110.png"
+  },
+  {
+   "cardName": "성한",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-111",
+   "rarity": "SAR",
+   "type": "서포트",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_111.png"
+  },
+  {
+   "cardName": "피아나의 신뢰",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-112",
+   "rarity": "SAR",
+   "type": "서포트",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_112.png"
+  },
+  {
+   "cardName": "메가레쿠쟈 ex",
+   "series": "m6 -「스톰에메랄다」",
+   "cardNumber": "M6-113",
+   "rarity": "MUR",
+   "type": "포켓몬",
+   "pokedexNumber": "0384",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_113.png"
+  },
+  {
+   "cardName": "알로라 나시",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-104",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0103",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_104.png"
+  },
+  {
+   "cardName": "파이어",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-105",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0146",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_105.png"
+  },
+  {
+   "cardName": "라프라스",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-106",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0131",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_106.png"
+  },
+  {
+   "cardName": "프리져",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-107",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0144",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_107.png"
+  },
+  {
+   "cardName": "썬더",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-108",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0145",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_108.png"
+  },
+  {
+   "cardName": "스트린더",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-109",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0849",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_109.png"
+  },
+  {
+   "cardName": "모르페코",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-110",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0877",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_110.png"
+  },
+  {
+   "cardName": "흔들풍손",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-111",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0425",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_111.png"
+  },
+  {
+   "cardName": "샹델라",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-112",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0609",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_112.png"
+  },
+  {
+   "cardName": "루가루암",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-113",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0745",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_113.png"
+  },
+  {
+   "cardName": "니드리나",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-114",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0030",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_114.png"
+  },
+  {
+   "cardName": "알로라 나옹",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-115",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0052",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_115.png"
+  },
+  {
+   "cardName": "곤율랭",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-116",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0559",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_116.png"
+  },
+  {
+   "cardName": "가라르 나옹",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-117",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0052",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_117.png"
+  },
+  {
+   "cardName": "타부자고",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-118",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "1000",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_118.png"
+  },
+  {
+   "cardName": "나옹",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-120",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0052",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_120.png"
+  },
+  {
+   "cardName": "메타몽",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-121",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0132",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_121.png"
+  },
+  {
+   "cardName": "히스이 조로아",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-122",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0570",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_122.png"
+  },
+  {
+   "cardName": "파밀리쥐",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-123",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0925",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_123.png"
+  },
+  {
+   "cardName": "뜨아거 ex",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-124",
+   "rarity": "SAR",
+   "type": "포켓몬",
+   "pokedexNumber": "0909",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_124.png"
+  },
+  {
+   "cardName": "개굴닌자 ex",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-125",
+   "rarity": "SAR",
+   "type": "포켓몬",
+   "pokedexNumber": "0658",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_125.png"
+  },
+  {
+   "cardName": "피카츄 ex",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-126",
+   "rarity": "SAR",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_126.png"
+  },
+  {
+   "cardName": "피카츄 ex",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-127",
+   "rarity": "SAR",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_127.png"
+  },
+  {
+   "cardName": "님피아 ex",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-130",
+   "rarity": "SAR",
+   "type": "포켓몬",
+   "pokedexNumber": "0700",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_130.png"
+  },
+  {
+   "cardName": "지라치 ex",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-132",
+   "rarity": "SAR",
+   "type": "포켓몬",
+   "pokedexNumber": "0385",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_132.png"
+  },
+  {
+   "cardName": "보만다 ex",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-133",
+   "rarity": "SAR",
+   "type": "포켓몬",
+   "pokedexNumber": "0373",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_133.png"
+  }
+ ]
+}

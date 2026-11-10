@@ -72,6 +72,27 @@ function parse(htmlText) {
   };
 }
 
+export function baseNameForDex(name) {
+  return String(name || '')
+    .replace(/\s+(ex|EX|GX|V|VMAX|VSTAR|BREAK|LV\.X)$/u, '')
+    .replace(/^.+의\s+/u, '')
+    .replace(/^(메가|M)(?=[가-힣])/u, '')
+    .replace(/^(알로라|가라르|히스이|팔데아)\s*/u, '')
+    .replace(/\s+[XY]$/u, '')
+    .replace(/^(히트|워시|프로스트|스핀|커트)(?=로토무)/u, '')
+    .trim();
+}
+
+function fillDexNumbers(cards) {
+  const names = Object.keys(JSON.parse(readFileSync(path.join(ROOT, 'src/utils/pokemonMapAll.json'), 'utf8')).krToEn || {});
+  const byName = new Map(names.map((n, i) => [n, String(i + 1).padStart(4, '0')]));
+  cards.forEach((c) => {
+    if (c.type !== '포켓몬' || c.pokedexNumber) return;
+    const dex = byName.get(baseNameForDex(c.cardName));
+    if (dex) c.pokedexNumber = dex;
+  });
+}
+
 const out = { id: IMPORT_ID, createdAt: new Date().toISOString(), source: 'pokemoncard.co.kr', sets: [], cards: [] };
 for (const set of SETS) {
   let printed = null;
@@ -99,6 +120,9 @@ for (const set of SETS) {
   out.sets.push({ code: set.code, name: set.name, era: '메가', kind: set.kind, releaseDate: set.releaseDate, printedTotal: printed, label: `${set.code} -「${set.name}」` });
   console.log(`${set.code} ${set.name}: 일반 번호 ${printed}장, 힛카드 ${kept}장`);
 }
+
+// ex·메가진화 카드처럼 상세 페이지에 도감 번호가 없는 포켓몬은 이름으로 도감 번호를 채운다.
+fillDexNumbers(out.cards);
 
 const dir = path.join(ROOT, 'public', 'imports');
 mkdirSync(dir, { recursive: true });
