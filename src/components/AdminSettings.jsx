@@ -44,6 +44,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
    const [newGradingCompany, setNewGradingCompany] = useState('');
   const [newType, setNewType] = useState('');
   const [newStatus, setNewStatus] = useState('');
+  const [newMarketplace, setNewMarketplace] = useState('');
    const [newGradingScale, setNewGradingScale] = useState('');
   
   // 드래그 앤 드롭 정렬을 위한 로컬 상태
@@ -851,7 +852,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
 
   const handleArrayAdd = (key, value, setter) => {
     if (!value.trim()) return;
-    setConfig(prev => ({ ...prev, [key]: [...prev[key], value.trim()] }));
+    setConfig(prev => ({ ...prev, [key]: [...(prev[key] || []), value.trim()] }));
     setter('');
   };
 
@@ -915,7 +916,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
     <div className="admin-section">
       <h3>{title}</h3>
       <div className="array-list">
-        {config[key].map((item, idx) => (
+        {(config[key] || []).map((item, idx) => (
           <div 
             key={idx} 
             className={`field-row drag-item ${draggingItem && draggingItem.key === key && draggingItem.index === idx ? 'dragging' : ''}`}
@@ -1010,6 +1011,7 @@ export default function AdminSettings({ appConfig, setAppConfig }) {
           {renderArrayManager("등급(스케일) 관리 (1-10 기본)", "gradingScaleOptions", newGradingScale, setNewGradingScale)}
           {renderArrayManager("포켓몬 카드 종류 관리", "typeOptions", newType, setNewType)}
           {renderArrayManager("보관 상태 관리", "statusOptions", newStatus, setNewStatus)}
+          {renderArrayManager("시세 판매처 관리", "marketplaceOptions", newMarketplace, setNewMarketplace)}
        </div>
 
        <div className="admin-section full-width">

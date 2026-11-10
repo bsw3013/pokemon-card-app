@@ -100,6 +100,7 @@ function App() {
               seriesOptions: fetched.seriesOptions || defaultConfig.seriesOptions,
               rarityOptions: fetched.rarityOptions || defaultConfig.rarityOptions,
               typeOptions: fetched.typeOptions || defaultConfig.typeOptions,
+              marketplaceOptions: fetched.marketplaceOptions || defaultConfig.marketplaceOptions,
               statusOptions: sanitizeStatusOptions(fetched.statusOptions || defaultConfig.statusOptions)
             };
 

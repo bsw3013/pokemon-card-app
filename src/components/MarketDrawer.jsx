@@ -26,6 +26,19 @@ const MARKET_SERVER_URL = 'http://localhost:5175';
 const LANGUAGE_OPTIONS = ['한국', '일본', '미국', '중국'];
 const FALLBACK_GRADING_COMPANIES = ['PSA', 'BGS', 'CGC', '기타'];
 const FALLBACK_GRADING_SCALE = ['10', '9.5', '9', '8', '7', '6', '5'];
+const FALLBACK_MARKETPLACES = ['당근', '번개장터', 'ebay', 'MVP'];
+
+// 판매처 고르기: 목록은 마스터 설정 > 목록값·표시 항목 > "시세 판매처 관리"에서 바꾼다.
+// 예전에 직접 적어 둔 판매처(목록에 없는 값)도 그대로 보이고 저장된다.
+function MarketplaceSelect({ options, value, onChange }) {
+  const list = value && !options.includes(value) ? [...options, value] : options;
+  return (
+    <select value={value || ''} onChange={(e) => onChange(e.target.value)} aria-label="판매처">
+      <option value="">판매처 선택</option>
+      {list.map((m) => <option key={m} value={m}>{m}</option>)}
+    </select>
+  );
+}
 
 function fmtPrice(p) {
   return typeof p === 'number' ? `${p.toLocaleString()}원` : '-';
@@ -85,6 +98,7 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
 
   const gradingCompanies = appConfig?.gradingCompaniesOptions?.length ? appConfig.gradingCompaniesOptions : FALLBACK_GRADING_COMPANIES;
   const gradingScale = appConfig?.gradingScaleOptions?.length ? appConfig.gradingScaleOptions : FALLBACK_GRADING_SCALE;
+  const marketplaces = appConfig?.marketplaceOptions?.length ? appConfig.marketplaceOptions : FALLBACK_MARKETPLACES;
 
   // 열릴 때 이 카드의 시세 데이터를 읽는다. (다른 카드를 열 때는 바깥에서 key를 바꿔 창을 새로 만든다)
   useEffect(() => {
@@ -703,7 +717,7 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
                         </select>
                       </>
                     )}
-                    <input type="text" placeholder="판매처 (예: 트위터, 카페, 지인거래 등)" value={manualForm.marketplace} onChange={(e) => setManualForm((f) => ({ ...f, marketplace: e.target.value }))} />
+                    <MarketplaceSelect options={marketplaces} value={manualForm.marketplace} onChange={(v) => setManualForm((f) => ({ ...f, marketplace: v }))} />
                     <input type="text" placeholder="제목 (매물 목록에 표시돼요, 비우면 메모로 채워짐)" value={manualForm.title} onChange={(e) => setManualForm((f) => ({ ...f, title: e.target.value }))} />
                     <input type="text" placeholder="메모 (목록엔 안 보여요)" value={manualForm.memo} onChange={(e) => setManualForm((f) => ({ ...f, memo: e.target.value }))} />
                     <input type="url" placeholder="원본 링크 (선택, 예: 트윗/카페글 주소)" value={manualForm.url} onChange={(e) => setManualForm((f) => ({ ...f, url: e.target.value }))} />
@@ -836,7 +850,7 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
                     </select>
                   </>
                 )}
-                <input type="text" placeholder="판매처 (예: 번개장터, 트위터, 지인거래 등)" value={editingListing.marketplace} onChange={(e) => setEditingListing((l) => ({ ...l, marketplace: e.target.value }))} />
+                <MarketplaceSelect options={marketplaces} value={editingListing.marketplace} onChange={(v) => setEditingListing((l) => ({ ...l, marketplace: v }))} />
                 <input type="text" placeholder="제목 (매물 목록에 표시돼요)" value={editingListing.title} onChange={(e) => setEditingListing((l) => ({ ...l, title: e.target.value }))} />
                 <input type="text" placeholder="메모 (목록엔 안 보여요)" value={editingListing.memo} onChange={(e) => setEditingListing((l) => ({ ...l, memo: e.target.value }))} />
                 <input type="url" placeholder="원본 링크" value={editingListing.url} onChange={(e) => setEditingListing((l) => ({ ...l, url: e.target.value }))} />
