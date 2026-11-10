@@ -115,7 +115,7 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
       recent: (a, b) => b.lastBought.localeCompare(a.lastBought) || tie(a, b),
       release: tie,
       release_asc: (a, b) => a.release.localeCompare(b.release) || text(a.set?.code).localeCompare(text(b.set?.code)) || a.no - b.no,
-      set_no: (a, b) => b.release.localeCompare(a.release) || text(a.set?.code || a.card.series).localeCompare(text(b.set?.code || b.card.series)) || a.no - b.no,
+      set_no: (a, b) => text(a.set?.code || a.card.series).localeCompare(text(b.set?.code || b.card.series)) || a.no - b.no,
       rarity: (a, b) => b.rarityRank - a.rarityRank || tie(a, b),
       dex: (a, b) => ((Number(a.card.pokedexNumber) || 99999) - (Number(b.card.pokedexNumber) || 99999)) || tie(a, b),
       name: (a, b) => text(a.card.cardName).localeCompare(text(b.card.cardName), 'ko') || tie(a, b),
