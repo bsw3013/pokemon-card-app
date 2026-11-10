@@ -169,7 +169,7 @@ for (const set of SETS) {
     kept += 1;
   }
   out.sets.push({ code: set.code, name: set.name, era: '메가', kind: set.kind, releaseDate: set.releaseDate, printedTotal: printed, label: `${set.code} -「${set.name}」` });
-  console.log(`${set.code} ${set.name}: 일반 번호 ${printed}장, 힛카드 ${kept}장`);
+  console.log(`${set.code} ${set.name}: 일반 번호 ${printed}장, 넣은 카드 ${kept}장${set.all ? " (모든 카드)" : " (힛카드만)"}`);
 }
 
 // ex·메가진화 카드처럼 상세 페이지에 도감 번호가 없는 포켓몬은 이름으로 도감 번호를 채운다.

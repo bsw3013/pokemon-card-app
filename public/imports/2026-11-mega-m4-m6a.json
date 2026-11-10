@@ -1,6 +1,6 @@
 {
  "id": "2026-11-mega-m4-m6a",
- "createdAt": "2026-11-10T05:20:05.827Z",
+ "createdAt": "2026-11-10T05:41:55.418Z",
  "source": "pokemoncard.co.kr",
  "sets": [
   {
@@ -38,6 +38,13 @@
    "releaseDate": "2026-09-16",
    "printedTotal": 103,
    "label": "m6a -「30th CELEBRATION」"
+  }
+ ],
+ "rarities": [
+  {
+   "code": "FUR",
+   "order": 23,
+   "group": "힛카드"
   }
  ],
  "cards": [
@@ -1041,6 +1048,933 @@
    "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6/M6_113.png"
   },
   {
+   "cardName": "아라리",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-001",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0102",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_001.png"
+  },
+  {
+   "cardName": "알로라 나시",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-002",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0103",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_002.png"
+  },
+  {
+   "cardName": "볼비트",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-003",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0313",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_003.png"
+  },
+  {
+   "cardName": "네오비트",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-004",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0314",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_004.png"
+  },
+  {
+   "cardName": "비비용",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-005",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0666",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_005.png"
+  },
+  {
+   "cardName": "파이어",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-006",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0146",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_006.png"
+  },
+  {
+   "cardName": "칠색조",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-007",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0250",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_007.png"
+  },
+  {
+   "cardName": "레시라무",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-008",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0643",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_008.png"
+  },
+  {
+   "cardName": "뜨아거 ex",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-009",
+   "rarity": "RR",
+   "type": "포켓몬",
+   "pokedexNumber": "0909",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_009.png"
+  },
+  {
+   "cardName": "야돈",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-010",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0079",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_010.png"
+  },
+  {
+   "cardName": "라프라스",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-011",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0131",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_011.png"
+  },
+  {
+   "cardName": "프리져",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-012",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0144",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_012.png"
+  },
+  {
+   "cardName": "가이오가",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-013",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0382",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_013.png"
+  },
+  {
+   "cardName": "펄기아",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-014",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0484",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_014.png"
+  },
+  {
+   "cardName": "개굴닌자 ex",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-015",
+   "rarity": "RR",
+   "type": "포켓몬",
+   "pokedexNumber": "0658",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_015.png"
+  },
+  {
+   "cardName": "약어리",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-016",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0746",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_016.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-017",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_017.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-018",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_018.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-019",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_019.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-020",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_020.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-021",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_021.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-022",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_022.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-023",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_023.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-024",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_024.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-025",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_025.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-026",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_026.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-027",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_027.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-028",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_028.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-029",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_029.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-030",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_030.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-031",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_031.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-032",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_032.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-033",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_033.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-034",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_034.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-035",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_035.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-036",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_036.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-037",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_037.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-038",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_038.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-039",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_039.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-040",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_040.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-041",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_041.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-042",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_042.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-043",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_043.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-044",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_044.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-045",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_045.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-046",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_046.png"
+  },
+  {
+   "cardName": "피카츄 ex",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-047",
+   "rarity": "RR",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_047.png"
+  },
+  {
+   "cardName": "피카츄 ex",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-048",
+   "rarity": "RR",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_048.png"
+  },
+  {
+   "cardName": "썬더",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-049",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0145",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_049.png"
+  },
+  {
+   "cardName": "제크로무",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-050",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0644",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_050.png"
+  },
+  {
+   "cardName": "스트린더",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-051",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0849",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_051.png"
+  },
+  {
+   "cardName": "모르페코",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-052",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0877",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_052.png"
+  },
+  {
+   "cardName": "미라이돈",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-053",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "1008",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_053.png"
+  },
+  {
+   "cardName": "뮤츠",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-054",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0150",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_054.png"
+  },
+  {
+   "cardName": "뮤츠 ex",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-055",
+   "rarity": "RR",
+   "type": "포켓몬",
+   "pokedexNumber": "0150",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_055.png"
+  },
+  {
+   "cardName": "뮤",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-056",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0151",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_056.png"
+  },
+  {
+   "cardName": "뮤 ex",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-057",
+   "rarity": "RR",
+   "type": "포켓몬",
+   "pokedexNumber": "0151",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_057.png"
+  },
+  {
+   "cardName": "에브이",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-058",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0196",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_058.png"
+  },
+  {
+   "cardName": "님피아 ex",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-059",
+   "rarity": "RR",
+   "type": "포켓몬",
+   "pokedexNumber": "0700",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_059.png"
+  },
+  {
+   "cardName": "안농",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-060",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0201",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_060.png"
+  },
+  {
+   "cardName": "흔들풍손",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-061",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0425",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_061.png"
+  },
+  {
+   "cardName": "샹델라",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-062",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0609",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_062.png"
+  },
+  {
+   "cardName": "제르네아스",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-063",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0716",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_063.png"
+  },
+  {
+   "cardName": "코스모그",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-064",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0789",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_064.png"
+  },
+  {
+   "cardName": "코스모움",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-065",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0790",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_065.png"
+  },
+  {
+   "cardName": "루나아라",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-066",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0792",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_066.png"
+  },
+  {
+   "cardName": "모으령",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-067",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0999",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_067.png"
+  },
+  {
+   "cardName": "그란돈",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-068",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0383",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_068.png"
+  },
+  {
+   "cardName": "루카리오",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-069",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0448",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_069.png"
+  },
+  {
+   "cardName": "두빅굴",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-070",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0537",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_070.png"
+  },
+  {
+   "cardName": "루가루암",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-071",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0745",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_071.png"
+  },
+  {
+   "cardName": "코라이돈",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-072",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "1007",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_072.png"
+  },
+  {
+   "cardName": "니드런♀",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-073",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0029",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_073.png"
+  },
+  {
+   "cardName": "니드리나",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-074",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0030",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_074.png"
+  },
+  {
+   "cardName": "알로라 나옹",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-075",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0052",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_075.png"
+  },
+  {
+   "cardName": "팬텀 ex",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-076",
+   "rarity": "RR",
+   "type": "포켓몬",
+   "pokedexNumber": "0094",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_076.png"
+  },
+  {
+   "cardName": "블래키",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-077",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0197",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_077.png"
+  },
+  {
+   "cardName": "곤율랭",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-078",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0559",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_078.png"
+  },
+  {
+   "cardName": "이벨타르",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-079",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0717",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_079.png"
+  },
+  {
+   "cardName": "가라르 나옹",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-080",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0052",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_080.png"
+  },
+  {
+   "cardName": "지라치 ex",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-081",
+   "rarity": "RR",
+   "type": "포켓몬",
+   "pokedexNumber": "0385",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_081.png"
+  },
+  {
+   "cardName": "디아루가",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-082",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0483",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_082.png"
+  },
+  {
+   "cardName": "너트령",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-083",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0598",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_083.png"
+  },
+  {
+   "cardName": "솔가레오",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-084",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0791",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_084.png"
+  },
+  {
+   "cardName": "자시안",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-085",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0888",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_085.png"
+  },
+  {
+   "cardName": "자마젠타",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-086",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0889",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_086.png"
+  },
+  {
+   "cardName": "타부자고",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-087",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "1000",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_087.png"
+  },
+  {
+   "cardName": "보만다 ex",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-088",
+   "rarity": "RR",
+   "type": "포켓몬",
+   "pokedexNumber": "0373",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_088.png"
+  },
+  {
+   "cardName": "짜랑꼬",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-089",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0782",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_089.png"
+  },
+  {
+   "cardName": "짜랑고우",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-090",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0783",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_090.png"
+  },
+  {
+   "cardName": "짜랑고우거",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-091",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0784",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_091.png"
+  },
+  {
+   "cardName": "나옹",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-092",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0052",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_092.png"
+  },
+  {
+   "cardName": "메타몽",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-093",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0132",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_093.png"
+  },
+  {
+   "cardName": "이브이",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-094",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0133",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_094.png"
+  },
+  {
+   "cardName": "잠만보",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-095",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0143",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_095.png"
+  },
+  {
+   "cardName": "푸푸린",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-096",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0174",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_096.png"
+  },
+  {
+   "cardName": "루기아",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-097",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0249",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_097.png"
+  },
+  {
+   "cardName": "히스이 조로아",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-098",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0570",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_098.png"
+  },
+  {
+   "cardName": "히스이 조로아크",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-099",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0571",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_099.png"
+  },
+  {
+   "cardName": "파밀리쥐",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-100",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0925",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_100.png"
+  },
+  {
+   "cardName": "포켓몬 교체",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-101",
+   "rarity": "없음",
+   "type": "아이템",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_101.png"
+  },
+  {
+   "cardName": "포켓패드",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-102",
+   "rarity": "없음",
+   "type": "아이템",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_102.png"
+  },
+  {
+   "cardName": "하이퍼볼",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-103",
+   "rarity": "없음",
+   "type": "아이템",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_103.png"
+  },
+  {
    "cardName": "알로라 나시",
    "series": "m6a -「30th CELEBRATION」",
    "cardNumber": "M6a-104",
@@ -1176,6 +2110,15 @@
    "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_118.png"
   },
   {
+   "cardName": "짜랑고우거",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-119",
+   "rarity": "AR",
+   "type": "포켓몬",
+   "pokedexNumber": "0784",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_119.png"
+  },
+  {
    "cardName": "나옹",
    "series": "m6a -「30th CELEBRATION」",
    "cardNumber": "M6a-120",
@@ -1248,6 +2191,24 @@
    "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_127.png"
   },
   {
+   "cardName": "뮤츠 ex",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-128",
+   "rarity": "SAR",
+   "type": "포켓몬",
+   "pokedexNumber": "0150",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_128.png"
+  },
+  {
+   "cardName": "뮤 ex",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-129",
+   "rarity": "SAR",
+   "type": "포켓몬",
+   "pokedexNumber": "0151",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_129.png"
+  },
+  {
    "cardName": "님피아 ex",
    "series": "m6a -「30th CELEBRATION」",
    "cardNumber": "M6a-130",
@@ -1255,6 +2216,15 @@
    "type": "포켓몬",
    "pokedexNumber": "0700",
    "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_130.png"
+  },
+  {
+   "cardName": "팬텀 ex",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-131",
+   "rarity": "SAR",
+   "type": "포켓몬",
+   "pokedexNumber": "0094",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_131.png"
   },
   {
    "cardName": "지라치 ex",
@@ -1273,6 +2243,366 @@
    "type": "포켓몬",
    "pokedexNumber": "0373",
    "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_133.png"
+  },
+  {
+   "cardName": "뮤츠 ex",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-134",
+   "rarity": "FUR",
+   "type": "포켓몬",
+   "pokedexNumber": "0150",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_134.png"
+  },
+  {
+   "cardName": "뮤 ex",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-135",
+   "rarity": "FUR",
+   "type": "포켓몬",
+   "pokedexNumber": "0151",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_135.png"
+  },
+  {
+   "cardName": "피카츄",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-136",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_136.png"
+  },
+  {
+   "cardName": "리자몽",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-137",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0006",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_137.png"
+  },
+  {
+   "cardName": "이슬",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-138",
+   "rarity": "없음",
+   "type": "서포트",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_138.png"
+  },
+  {
+   "cardName": "민화의 푸린",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-139",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0039",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_139.png"
+  },
+  {
+   "cardName": "포푸니",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-140",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0215",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_140.png"
+  },
+  {
+   "cardName": "빛나는 세레비",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-141",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0251",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_141.png"
+  },
+  {
+   "cardName": "루기아",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-142",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0249",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_142.png"
+  },
+  {
+   "cardName": "델케티",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-143",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0301",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_143.png"
+  },
+  {
+   "cardName": "나쁜 마기라스",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-144",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0248",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_144.png"
+  },
+  {
+   "cardName": "핫삼 ex",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-145",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0212",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_145.png"
+  },
+  {
+   "cardName": "메타그로스 δ",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-146",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0376",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_146.png"
+  },
+  {
+   "cardName": "펄기아 LV.X",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-147",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0484",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_147.png"
+  },
+  {
+   "cardName": "유크시",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-148",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0480",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_148.png"
+  },
+  {
+   "cardName": "크로뱃 G",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-149",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0169",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_149.png"
+  },
+  {
+   "cardName": "팬텀",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-150",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0094",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_150.png"
+  },
+  {
+   "cardName": "다크라이&크레세리아 LEGEND",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-151",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0491",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_151.png"
+  },
+  {
+   "cardName": "다크라이&크레세리아 LEGEND",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-152",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0488",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_152.png"
+  },
+  {
+   "cardName": "N",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-153",
+   "rarity": "없음",
+   "type": "서포트",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_153.png"
+  },
+  {
+   "cardName": "레쿠쟈 EX",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-154",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0384",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_154.png"
+  },
+  {
+   "cardName": "게노세크트 EX",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-155",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0649",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_155.png"
+  },
+  {
+   "cardName": "M가디안 EX",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-156",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0282",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_156.png"
+  },
+  {
+   "cardName": "개굴닌자 BREAK",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-157",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0658",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_157.png"
+  },
+  {
+   "cardName": "솔가레오 GX",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-158",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0791",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_158.png"
+  },
+  {
+   "cardName": "매시붕 GX",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-159",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0794",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_159.png"
+  },
+  {
+   "cardName": "피카츄&제크로무 GX",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-160",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0025",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_160.png"
+  },
+  {
+   "cardName": "자시안 V",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-161",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0888",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_161.png"
+  },
+  {
+   "cardName": "라이코",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-162",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0243",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_162.png"
+  },
+  {
+   "cardName": "뮤 VMAX",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-163",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0151",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_163.png"
+  },
+  {
+   "cardName": "아르세우스 VSTAR",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-164",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0493",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_164.png"
+  },
+  {
+   "cardName": "잉어킹",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-165",
+   "rarity": "없음",
+   "type": "포켓몬",
+   "pokedexNumber": "0129",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_165.png"
+  },
+  {
+   "cardName": "기본 풀 에너지",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-169",
+   "rarity": "없음",
+   "type": "에너지",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_169.png"
+  },
+  {
+   "cardName": "기본 불꽃 에너지",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-170",
+   "rarity": "없음",
+   "type": "에너지",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_170.png"
+  },
+  {
+   "cardName": "기본 물 에너지",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-171",
+   "rarity": "없음",
+   "type": "에너지",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_171.png"
+  },
+  {
+   "cardName": "기본 번개 에너지",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-172",
+   "rarity": "없음",
+   "type": "에너지",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_172.png"
+  },
+  {
+   "cardName": "기본 초 에너지",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-173",
+   "rarity": "없음",
+   "type": "에너지",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_173.png"
+  },
+  {
+   "cardName": "기본 격투 에너지",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-174",
+   "rarity": "없음",
+   "type": "에너지",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_174.png"
+  },
+  {
+   "cardName": "기본 악 에너지",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-175",
+   "rarity": "없음",
+   "type": "에너지",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_175.png"
+  },
+  {
+   "cardName": "기본 강철 에너지",
+   "series": "m6a -「30th CELEBRATION」",
+   "cardNumber": "M6a-176",
+   "rarity": "없음",
+   "type": "에너지",
+   "pokedexNumber": "",
+   "imageUrl": "https://cards.image.pokemonkorea.co.kr/data/wmimages/MEGA/M6a/M6a_176.png"
   }
  ]
 }
