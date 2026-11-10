@@ -51,7 +51,7 @@ export default function PossessionEditor({ rows, onChange, gradingCompanies = []
         return (
           <div key={r.id || i} className={`pe-row ${graded ? 'graded' : 'raw'}`}>
             <div className="pe-type" role="group" aria-label="카드 종류">
-              <button type="button" className={!graded ? 'on' : ''} onClick={() => setType(i, false)}>일반 카드</button>
+              <button type="button" className={!graded ? 'on' : ''} onClick={() => setType(i, false)}>Raw</button>
               <button type="button" className={graded ? 'on' : ''} onClick={() => setType(i, true)}>등급 카드 (슬랩)</button>
             </div>
             <div className="pe-grid">
@@ -112,7 +112,7 @@ export default function PossessionEditor({ rows, onChange, gradingCompanies = []
         );
       })}
       <div className="pe-add">
-        <button type="button" className="btn btn-secondary" onClick={() => add('')}>+ 일반 카드 추가</button>
+        <button type="button" className="btn btn-secondary" onClick={() => add('')}>+ Raw 카드 추가</button>
         <button type="button" className="btn btn-secondary" onClick={() => add(firstCompany)}>+ 등급 카드 추가</button>
       </div>
     </div>

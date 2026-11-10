@@ -80,7 +80,7 @@ export default function CardDetailView({ card, isAdmin, marketSummary, onEdit, o
             {count > 0 && (
               <div className="own-summary">
                 {split.gradedCount > 0 && <span className="own-chip graded">등급 카드 {split.gradedCount}장</span>}
-                {split.rawCount > 0 && <span className="own-chip raw">일반 카드 {split.rawCount}장</span>}
+                {split.rawCount > 0 && <span className="own-chip raw">Raw {split.rawCount}장</span>}
                 {!language.includes('한국') && <span className={`own-chip lang lang-${langShort(language)}`}>{langShort(language)}</span>}
               </div>
             )}
@@ -108,11 +108,11 @@ export default function CardDetailView({ card, isAdmin, marketSummary, onEdit, o
                   return (
                     <li key={p.id || i} className={g ? 'graded' : 'raw'}>
                       <span className="own-copy-mark" aria-hidden="true">
-                        {g ? <><small>{g.company}</small><b>{g.grade || '-'}</b></> : <b>일반</b>}
+                        {g ? <><small>{g.company}</small><b>{g.grade || '-'}</b></> : <b>Raw</b>}
                       </span>
                       <span className="own-copy-body">
                         <span className="own-copy-title">
-                          {g ? `등급 카드 · ${g.company} ${g.grade || '(점수 미기록)'}` : `일반 카드 · ${p.condition || '상태 기록 없음'}`}{qty}
+                          {g ? `등급 카드 · ${g.company} ${g.grade || '(점수 미기록)'}` : `Raw · ${p.condition || '상태 기록 없음'}`}{qty}
                         </span>
                         {meta && <span className="own-copy-meta">{meta}</span>}
                       </span>

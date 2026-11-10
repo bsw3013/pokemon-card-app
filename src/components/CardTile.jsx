@@ -22,11 +22,11 @@ export default function CardTile({ card, settings = {}, onClick, selected = fals
   // 언어판(일판·영문판 등)과 등급 표시는 이미지 위에 크게 보여준다. (한판은 표시 안 함)
   const language = cardLanguage(card);
   const langBadge = user && !language.includes('한국') ? langShort(language) : '';
-  // 등급 카드: 금색 슬랩 배지(가장 높은 점수), 일반 카드와 같이 있으면 "일반 N" 배지를 따로 붙인다.
+  // 등급 카드: 금색 슬랩 배지(가장 높은 점수), Raw 카드와 같이 있으면 "Raw ×N" 배지를 따로 붙인다.
   const gradeBadge = split.gradedCount > 0
     ? `${split.top ? `${split.top.company} ${split.top.grade}`.trim() : '등급'}${split.gradedCount > 1 ? ` ×${split.gradedCount}` : ''}`
     : '';
-  const rawBadge = split.gradedCount > 0 && split.rawCount > 0 ? `일반 ×${split.rawCount}` : '';
+  const rawBadge = split.gradedCount > 0 && split.rawCount > 0 ? `Raw ×${split.rawCount}` : '';
   const {
     showName = true, showSeries = true, showNumber = true, showRarity = true, showPrice = true, hoverMode = false,
   } = settings;
@@ -50,7 +50,7 @@ export default function CardTile({ card, settings = {}, onClick, selected = fals
         {(langBadge || gradeBadge) && (
           <span className="ctile-badges">
             {gradeBadge && <span className="ctile-slab" title="등급 카드">{gradeBadge}</span>}
-            {rawBadge && <span className="ctile-raw" title="일반 카드">{rawBadge}</span>}
+            {rawBadge && <span className="ctile-raw" title="Raw 카드 (등급 안 받은 카드)">{rawBadge}</span>}
             {langBadge && <span className={`ctile-lang-badge lang-${langBadge}`}>{langBadge}</span>}
           </span>
         )}

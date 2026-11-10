@@ -39,7 +39,7 @@ export function isGradedCopy(p) {
 
 export function possessionLabel(p, cardLang) {
   if (!p) return '';
-  const base = isGradedCopy(p) ? `${p.company} ${p.grade || ''}`.trim() : (p.condition || '일반');
+  const base = isGradedCopy(p) ? `${p.company} ${p.grade || ''}`.trim() : (p.condition || 'Raw');
   const rowLang = p.language || cardLang;
   const lang = rowLang && !String(rowLang).includes('한국') ? ` · ${langShort(rowLang)}` : '';
   const qty = Number(p.count) > 1 ? ` ×${p.count}` : '';
@@ -69,7 +69,7 @@ export function copyGrade(p) {
 
 const isRawCopy = (p) => !copyGrade(p) && (p?.company === 'raw' || !!p?.condition);
 
-// 보유 카드를 "등급 카드"와 "일반 카드"로 나눈 결과.
+// 보유 카드를 "등급 카드"와 "Raw 카드"로 나눈 결과.
 // 보유 기록에 등급이 있으면 기록대로, 기록 없이 보유 상태만 "등급카드"면 전부 등급 카드로 본다.
 export function copyBreakdown(card) {
   const total = ownedCount(card);
