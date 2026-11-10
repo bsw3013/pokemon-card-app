@@ -8,7 +8,7 @@ import { useAuth } from '../AuthContext';
 import CardThumbnail from './CardThumbnail';
 import CardDetailView from './CardDetailView';
 import PossessionEditor from './PossessionEditor';
-import { isGradedCopy } from '../utils/cardStats';
+import { normalizeStatus } from '../utils/statusUtils';
 
 const { krToEn, krToJa } = pokemonMapAll;
 
@@ -113,9 +113,9 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
     }
     setIsSaving(true);
     try {
-      // 보유 기록이 있으면 보유 상태는 기록을 보고 자동으로 정한다. (등급 카드가 한 장이라도 있으면 "등급카드")
+      // 보유 기록이 한 줄이라도 있으면 "보유중". 등급 카드인지는 보유 기록(한 장씩)으로 구분한다.
       const rows = Array.isArray(editData.possessions) ? editData.possessions.filter((p) => p && Number(p.count ?? 1) > 0) : [];
-      const status = rows.length > 0 ? (rows.some(isGradedCopy) ? '등급카드' : (String(editData.status || '').includes('등급') && !rows.some((r) => r.company === 'raw') ? '등급카드' : '보유중')) : editData.status;
+      const status = rows.length > 0 ? '보유중' : normalizeStatus(editData.status);
       await onSave({ ...editData, possessions: rows, status });
       if (!card?.isNew) setMode('view');
     } finally {
@@ -335,10 +335,9 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
                             <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginRight: '0.4rem' }}>보유여부</label>
                           </div>
                           <div style={{ flex: '0 0 120px' }}>
-                            <select name="status" value={(editData.possessions || []).length > 0 ? ((editData.possessions || []).some(isGradedCopy) ? '등급카드' : '보유중') : (editData.status || '미보유')} onChange={handleEditChange} style={{ width: '100%' }} disabled={(editData.possessions || []).length > 0} title={(editData.possessions || []).length > 0 ? '아래 보유 기록을 보고 자동으로 정해집니다' : ''}>
+                            <select name="status" value={(editData.possessions || []).length > 0 ? '보유중' : normalizeStatus(editData.status)} onChange={handleEditChange} style={{ width: '100%' }} disabled={(editData.possessions || []).length > 0} title={(editData.possessions || []).length > 0 ? '아래 보유 기록을 보고 자동으로 정해집니다' : ''}>
                               <option value="미보유">미보유</option>
                               <option value="보유중">보유중</option>
-                              <option value="등급카드">등급카드</option>
                             </select>
                           </div>
                           <div style={{ flex: '0 0 auto', marginLeft: '0.5rem' }}>

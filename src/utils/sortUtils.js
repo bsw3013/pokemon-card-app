@@ -18,7 +18,7 @@ export function sortCards(cards, activeLevels, appConfig) {
     return rank;
   };
 
-  const statusRank = createRankMap(appConfig?.statusOptions, ['보유중', '등급카드', '미보유']);
+  const statusRank = createRankMap(appConfig?.statusOptions, ['보유중', '미보유']);
   const seriesRank = createRankMap(appConfig?.seriesOptions, []);
   const rarityRank = createRankMap(appConfig?.rarityOptions, []);
   const typeRank = createRankMap(appConfig?.typeOptions, []);

@@ -6,7 +6,7 @@ export function parsePossessions(raw) {
   return [];
 }
 
-// 보유 장수. 보유 여부는 지금처럼 "보유 상태"(보유중/등급카드/미보유)로 정하고,
+// 보유 장수. 보유 여부는 "보유 상태"(보유중/미보유)로 정하고,
 // 장수는 보유 기록의 수량 합계(기록이 없으면 1장)로 센다.
 export function ownedCount(card) {
   const status = String(card?.status || '');
@@ -39,7 +39,7 @@ export function isGradedCopy(p) {
 
 export function possessionLabel(p, cardLang) {
   if (!p) return '';
-  const base = isGradedCopy(p) ? `${p.company} ${p.grade || ''}`.trim() : (p.condition || 'Raw');
+  const base = isGradedCopy(p) ? gradeLabel(p) : (p.condition || 'Raw');
   const rowLang = p.language || cardLang;
   const lang = rowLang && !String(rowLang).includes('한국') ? ` · ${langShort(rowLang)}` : '';
   const qty = Number(p.count) > 1 ? ` ×${p.count}` : '';
@@ -67,6 +67,14 @@ export function copyGrade(p) {
   return g ? { company: g.company, grade: g.grade } : null;
 }
 
+// 등급 카드 표시 이름. 업체를 모르는 옛 등급카드는 "등급"으로 보여준다.
+export const UNKNOWN_GRADER = '미기록';
+export function gradeLabel(g) {
+  if (!g) return '';
+  if (!g.company || g.company === UNKNOWN_GRADER) return g.grade ? `등급 ${g.grade}` : '등급';
+  return `${g.company} ${g.grade || ''}`.trim();
+}
+
 const isRawCopy = (p) => !copyGrade(p) && (p?.company === 'raw' || !!p?.condition);
 
 // 보유 카드를 "등급 카드"와 "Raw 카드"로 나눈 결과.
@@ -90,6 +98,20 @@ export function copyBreakdown(card) {
   }
   gradedCount = Math.min(gradedCount, total);
   return { total, gradedCount, rawCount: Math.max(0, total - gradedCount), top, statusOnly };
+}
+
+// 예전에는 보유 상태에 "등급카드"가 따로 있었다. 지금은 "보유중" 하나로 합치고,
+// 등급 여부는 보유 기록(한 장씩)으로만 구분한다. 옛 "등급카드" 데이터는 읽을 때
+// 업체 미기록 등급 카드 기록으로 바꿔서 정보가 사라지지 않게 한다. (저장하면 새 형식으로 기록됨)
+export function absorbGradedStatus(status, possessions, language) {
+  const rows = parsePossessions(possessions);
+  if (!String(status || '').includes('등급')) return { status, possessions: rows };
+  const hasGraded = rows.some((r) => copyGrade(r));
+  if (hasGraded || rows.some(isRawCopy)) return { status: '보유중', possessions: rows };
+  const converted = rows.length > 0
+    ? rows.map((r) => ({ ...r, company: UNKNOWN_GRADER, grade: r.grade || '' }))
+    : [{ id: 'legacy_graded', count: 1, company: UNKNOWN_GRADER, grade: '', language: language || '한국' }];
+  return { status: '보유중', possessions: converted };
 }
 
 // 등급 카드 장수 (내 컬렉션 필터·통계용)

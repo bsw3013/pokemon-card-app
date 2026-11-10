@@ -4,7 +4,7 @@ import { useOwnedCards } from '../hooks/useOwnedCards';
 import { useAuth } from '../AuthContext';
 import { DEFAULT_SETS, buildSetIndex, findSetForCard, parseCardNo } from '../utils/catalog';
 import { rarityTone } from '../utils/rarityTone';
-import { cardLanguage, copyBreakdown, langShort } from '../utils/cardStats';
+import { cardLanguage, copyBreakdown, gradeLabel, langShort } from '../utils/cardStats';
 
 // 도감·필터 화면이 함께 쓰는 카드 한 장 타일.
 // 이미지 아래에는 이름 한 줄, "세트코드 번호/총장수" + 레어도 배지만 둔다.
@@ -24,7 +24,7 @@ export default function CardTile({ card, settings = {}, onClick, selected = fals
   const langBadge = user && !language.includes('한국') ? langShort(language) : '';
   // 등급 카드: 금색 슬랩 배지(가장 높은 점수), Raw 카드와 같이 있으면 "Raw ×N" 배지를 따로 붙인다.
   const gradeBadge = split.gradedCount > 0
-    ? `${split.top ? `${split.top.company} ${split.top.grade}`.trim() : '등급'}${split.gradedCount > 1 ? ` ×${split.gradedCount}` : ''}`
+    ? `${split.top ? gradeLabel(split.top) : '등급'}${split.gradedCount > 1 ? ` ×${split.gradedCount}` : ''}`
     : '';
   const rawBadge = split.gradedCount > 0 && split.rawCount > 0 ? `Raw ×${split.rawCount}` : '';
   const {

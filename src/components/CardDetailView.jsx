@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useAuth } from '../AuthContext';
 import { useOwnedCards } from '../hooks/useOwnedCards';
 import { DEFAULT_SETS, buildSetIndex, findSetForCard, parseCardNo } from '../utils/catalog';
-import { cardLanguage, copyBreakdown, copyGrade, langShort, ownedCount, parsePossessions } from '../utils/cardStats';
+import { UNKNOWN_GRADER, cardLanguage, copyBreakdown, copyGrade, gradeLabel, langShort, ownedCount, parsePossessions } from '../utils/cardStats';
 import { rarityTone } from '../utils/rarityTone';
 import { navigate } from '../utils/hashRoute';
 import { displayPokedexNumber } from '../utils/numberUtils';
@@ -108,11 +108,11 @@ export default function CardDetailView({ card, isAdmin, marketSummary, onEdit, o
                   return (
                     <li key={p.id || i} className={g ? 'graded' : 'raw'}>
                       <span className="own-copy-mark" aria-hidden="true">
-                        {g ? <><small>{g.company}</small><b>{g.grade || '-'}</b></> : <b>Raw</b>}
+                        {g ? <><small>{g.company === UNKNOWN_GRADER ? '등급' : g.company}</small><b>{g.grade || '-'}</b></> : <b>Raw</b>}
                       </span>
                       <span className="own-copy-body">
                         <span className="own-copy-title">
-                          {g ? `등급 카드 · ${g.company} ${g.grade || '(점수 미기록)'}` : `Raw · ${p.condition || '상태 기록 없음'}`}{qty}
+                          {g ? `등급 카드 · ${g.company === UNKNOWN_GRADER ? `업체 미기록${g.grade ? ` ${g.grade}` : ''}` : gradeLabel(g)}${g.grade ? '' : ' (점수 미기록)'}` : `Raw · ${p.condition || '상태 기록 없음'}`}{qty}
                         </span>
                         {meta && <span className="own-copy-meta">{meta}</span>}
                       </span>

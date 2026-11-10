@@ -3,6 +3,7 @@ import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, upd
 import { db } from './firebase';
 import { useAuth } from './AuthContext';
 import { normalizeStatus } from './utils/statusUtils';
+import { absorbGradedStatus } from './utils/cardStats';
 import { ownershipDocId, splitCardPayload } from './utils/ownershipUtils';
 import { DEFAULT_SETS, buildSetIndex, withCardMeta } from './utils/catalog';
 import { CardsContext } from './cardsContextObject';
@@ -88,13 +89,14 @@ export function CardsProvider({ children }) {
       const merged = masterSnap.docs.map((d) => {
         const master = d.data() || {};
         const ownership = ownershipByCardId.get(d.id) || {};
+        const own = absorbGradedStatus(ownership.status, ownership.possessions, ownership.language);
         return {
           id: d.id,
           ...master,
-          status: normalizeStatus(ownership.status),
+          status: normalizeStatus(own.status),
           language: ownership.language || '한국',
           price: Number(ownership.price) || 0,
-          possessions: parsePossessions(ownership.possessions),
+          possessions: own.possessions,
         };
       });
 
