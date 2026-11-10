@@ -1,14 +1,15 @@
 # 사진 찾기 창에서 쓸 "공식 카드 목록" 파일을 만든다.
-#  - jp.json: 일본 공식 카드 검색 (약 10분)
-#  - kr.json: 한국 공식 카드 상세 페이지를 한 장씩 천천히 읽음
-#      처음에는 전부 모으는 데 여러 시간이 걸려서, 한 번에 최대 약 5시간만 읽고 저장한 뒤
-#      다음 실행 때 이어서 읽는다. 다 모은 뒤에는 최근 1~2년 제품의 새 카드만 확인한다.
+#  - jp.json        : 일본 공식 카드 검색 결과 (이름·세트·사진, 약 10분)
+#  - jp-detail.json : 일본 카드 상세 (번호·레어도·도감 번호) — 한 장씩 천천히, 이어서 모음
+#  - kr.json        : 한국 공식 카드 상세 (이름·세트·번호·레어도·종류·도감 번호·사진) — 한 장씩 천천히, 이어서 모음
+#  천천히 모으는 목록은 한 번에 최대 약 5시간만 읽고 저장한 뒤 다음 실행 때 이어서 읽는다.
+#  다 모은 뒤에는 새로 나온 카드만 읽는다.
 # 실행 시각 (한국 시간)
-#  - 매주 월요일 새벽 4시 23분: 일본 + 한국
-#  - 매일 새벽 5시 41분: 한국 목록이 아직 다 안 모아졌을 때만 이어서 모으기 (다 모았으면 바로 끝남)
-#  - Actions 탭 → "Build card image index" → "Run workflow" 로 언제든 실행 가능 (all / jp / kr 고르기)
+#  - 매주 월요일 새벽 4시 23분: 전부
+#  - 매일 새벽 5시 41분: 아직 다 안 모아진 목록만 이어서 (다 모았으면 바로 끝남)
+#  - Actions 탭 → "Build card image index" → "Run workflow" 로 언제든 실행 (all / jp / kr)
 # 만든 파일은 card-index 브랜치에만 올린다. (main 브랜치·사이트 배포와는 상관없음)
-# 사이트는 jsDelivr(무료 CDN)로 불러온다: https://cdn.jsdelivr.net/gh/<저장소>@card-index/jp.json · kr.json
+# 사이트는 jsDelivr(무료 CDN)로 불러온다: https://cdn.jsdelivr.net/gh/<저장소>@card-index/<파일>
 # 깃허브가 자동으로 주는 임시 토큰(GITHUB_TOKEN)만 쓴다.
 name: Build card image index
 
@@ -31,60 +32,140 @@ concurrency:
   group: card-index
   cancel-in-progress: false
 
+env:
+  WEEKLY: ${{ github.event_name == 'schedule' && github.event.schedule == '23 19 * * 0' }}
+  DAILY: ${{ github.event_name == 'schedule' && github.event.schedule == '41 20 * * *' }}
+  TARGET: ${{ github.event.inputs.target || '' }}
+
 jobs:
-  build:
+  # 지금 card-index 브랜치에 있는 목록을 가져와 다른 작업들에 넘겨준다
+  prev:
     runs-on: ubuntu-latest
-    timeout-minutes: 340
-    env:
-      WEEKLY: ${{ github.event_name == 'schedule' && github.event.schedule == '23 19 * * 0' }}
-      DAILY: ${{ github.event_name == 'schedule' && github.event.schedule == '41 20 * * *' }}
-      TARGET: ${{ github.event.inputs.target || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir -p prev
+          if git fetch -q origin card-index; then
+            for f in jp.json jp-detail.json kr.json; do git show "origin/card-index:$f" > "prev/$f" 2>/dev/null || rm -f "prev/$f"; done
+          fi
+          touch prev/.keep
+          ls -la prev
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prev
+          path: prev/
+          include-hidden-files: true
+          retention-days: 2
+
+  jp-list:
+    needs: prev
+    if: ${{ (github.event_name == 'schedule' && github.event.schedule == '23 19 * * 0') || github.event.inputs.target == 'all' || github.event.inputs.target == 'jp' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - name: 지금 올라가 있는 목록 가져오기
-        run: |
-          mkdir -p "$RUNNER_TEMP/prev" "$RUNNER_TEMP/new"
-          if git fetch -q origin card-index; then
-            git show origin/card-index:jp.json > "$RUNNER_TEMP/prev/jp.json" 2>/dev/null || rm -f "$RUNNER_TEMP/prev/jp.json"
-            git show origin/card-index:kr.json > "$RUNNER_TEMP/prev/kr.json" 2>/dev/null || rm -f "$RUNNER_TEMP/prev/kr.json"
-          fi
-          ls -la "$RUNNER_TEMP/prev"
-
       - name: 일본 공식 카드 목록 모으기
-        if: env.WEEKLY == 'true' || env.TARGET == 'all' || env.TARGET == 'jp'
-        run: node scripts/build-jp-card-index.mjs "$RUNNER_TEMP/new/jp.json"
+        run: node scripts/build-jp-card-index.mjs out/jp.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jp-list
+          path: out/jp.json
+          retention-days: 2
 
+  # 일본 상세는 일본 목록이 끝난 뒤에 (같은 사이트에 동시에 요청하지 않도록)
+  jp-detail:
+    needs: [prev, jp-list]
+    if: ${{ always() && needs.prev.result == 'success' && (needs.jp-list.result == 'success' || needs.jp-list.result == 'skipped') && ((github.event_name == 'schedule') || github.event.inputs.target == 'all' || github.event.inputs.target == 'jp') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 320
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          name: prev
+          path: prev
+      - uses: actions/download-artifact@v4
+        if: needs.jp-list.result == 'success'
+        with:
+          name: jp-list
+          path: new
+      - name: 일본 카드 상세 모으기 (천천히, 이어서)
+        env:
+          JPD_BUDGET_MIN: '290'
+          JPD_ONLY_IF_INCOMPLETE: ${{ env.DAILY == 'true' && '1' || '' }}
+        run: |
+          LIST=new/jp.json; [ -f "$LIST" ] || LIST=prev/jp.json
+          node scripts/build-jp-card-details.mjs "$LIST" out/jp-detail.json prev/jp-detail.json
+          [ -f out/jp-detail.json ] || echo "새로 만든 상세 목록 없음"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jp-detail
+          path: out/jp-detail.json
+          if-no-files-found: ignore
+          retention-days: 2
+
+  kr:
+    needs: prev
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.target == 'all' || github.event.inputs.target == 'kr' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 320
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          name: prev
+          path: prev
       - name: 한국 공식 카드 목록 모으기 (천천히, 이어서)
-        if: env.WEEKLY == 'true' || env.DAILY == 'true' || env.TARGET == 'all' || env.TARGET == 'kr'
         env:
           KR_BUDGET_MIN: '290'
           KR_ONLY_IF_INCOMPLETE: ${{ env.DAILY == 'true' && '1' || '' }}
-        run: node scripts/build-kr-card-index.mjs "$RUNNER_TEMP/new/kr.json" "$RUNNER_TEMP/prev/kr.json"
+        run: node scripts/build-kr-card-index.mjs out/kr.json prev/kr.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kr
+          path: out/kr.json
+          if-no-files-found: ignore
+          retention-days: 2
 
+  publish:
+    needs: [prev, jp-list, jp-detail, kr]
+    if: ${{ always() && needs.prev.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: art
       - name: card-index 브랜치에 올리기
         run: |
-          if [ ! -f "$RUNNER_TEMP/new/jp.json" ] && [ ! -f "$RUNNER_TEMP/new/kr.json" ]; then
-            echo "새로 만든 목록이 없어서 올리지 않습니다."
-            exit 0
-          fi
+          mkdir -p new
+          [ -f art/jp-list/jp.json ] && cp art/jp-list/jp.json new/
+          [ -f art/jp-detail/jp-detail.json ] && cp art/jp-detail/jp-detail.json new/
+          [ -f art/kr/kr.json ] && cp art/kr/kr.json new/
+          if [ -z "$(ls new)" ]; then echo "새로 만든 목록이 없어서 올리지 않습니다."; exit 0; fi
           # 이번에 안 만든 목록은 이전 것을 그대로 둔다
-          for f in jp.json kr.json; do
-            if [ ! -f "$RUNNER_TEMP/new/$f" ] && [ -f "$RUNNER_TEMP/prev/$f" ]; then cp "$RUNNER_TEMP/prev/$f" "$RUNNER_TEMP/new/$f"; fi
+          for f in jp.json jp-detail.json kr.json; do
+            if [ ! -f "new/$f" ] && [ -f "art/prev/$f" ]; then cp "art/prev/$f" "new/$f"; fi
           done
           git config user.name "github-actions[bot]"
           git config user.email "41898699+github-actions[bot]@users.noreply.github.com"
           git checkout --orphan card-index-build
           git rm -rq --cached . || true
-          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-          cp "$RUNNER_TEMP"/new/*.json .
+          find . -mindepth 1 -maxdepth 1 ! -name .git ! -name new -exec rm -rf {} +
+          mv new/*.json . && rmdir new
           printf '# card-index\n\n사진 찾기 창에서 쓰는 카드 목록 파일만 두는 브랜치예요. GitHub Actions가 자동으로 새로 만들어요.\n' > README.md
           git add *.json README.md
-          JP=$( [ -f jp.json ] && node -e "console.log(require('./jp.json').count)" || echo 0 )
-          KR=$( [ -f kr.json ] && node -e "const d=require('./kr.json');console.log(d.count + (d.complete ? '' : ' (모으는 중)'))" || echo 0 )
-          git commit -qm "카드 목록 갱신: 일본 ${JP}장 · 한국 ${KR}장"
+          cnt() { [ -f "$1" ] && node -e "const d=require('./$1');console.log(d.count + (d.complete === false ? ' (모으는 중)' : ''))" || echo 0; }
+          MSG="카드 목록 갱신: 일본 $(cnt jp.json)장 · 일본 상세 $(cnt jp-detail.json)장 · 한국 $(cnt kr.json)장"
+          git commit -qm "$MSG"
           git push -f origin HEAD:card-index
-          echo "일본 ${JP}장 · 한국 ${KR}장"
+          echo "$MSG"

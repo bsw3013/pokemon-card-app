@@ -407,8 +407,9 @@ body { margin: 0; font-family: var(--font-sans); background-color: var(--bg-colo
 .url-input-group .btn { flex: 0 0 auto; width: auto; padding: 0.8rem 1.2rem; }
 
 .modal-form { flex: 1.5; display: flex; flex-direction: column; gap: 1.2rem; }
+.sub-group { min-width: 0; }
 .sub-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem; }
-.sub-group input, .sub-group select { width: 100%; padding: 0.45rem 0.6rem; background: rgba(0,0,0,0.18); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-main); font-family: inherit; font-size: 0.95rem; }
+.sub-group input, .sub-group select { width: 100%; box-sizing: border-box; min-width: 0; padding: 0.45rem 0.6rem; background: rgba(0,0,0,0.18); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-main); font-family: inherit; font-size: 0.95rem; }
 .sub-group input:focus, .sub-group select:focus { outline: none; border-color: var(--primary-color); }
 .modal-actions { display: flex; justify-content: space-between; margin-top: 1rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color); }
 .btn-danger { background-color: transparent; color: var(--text-muted); border: 1px solid transparent; }
@@ -4490,3 +4491,10 @@ body:has(.ae) .scroll-to-top-btn { display: none !important; }
   .picker-search-bar button { padding: 0 16px; font-size: 0.95rem; }
   .picker-note { padding: 0 12px; word-break: keep-all; }
 }
+
+/* 사진을 고르며 자동으로 채운 칸 */
+.modal-form .autofilled { border-color: var(--accent-color) !important; background: rgba(37, 99, 235, 0.06) !important; }
+.autofill-note { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 1rem; padding: 10px 12px; border-radius: var(--radius-s); background: rgba(37, 99, 235, 0.07); border: 1px solid rgba(37, 99, 235, 0.25); font-size: 0.85rem; color: var(--text-main); line-height: 1.45; }
+.autofill-note > span { flex: 1 1 200px; min-width: 0; word-break: keep-all; }
+.autofill-note .link-btn { font-weight: 700; }
+.autofill-x { border: 0; background: none; color: var(--text-subtle); cursor: pointer; font-size: 0.9rem; }

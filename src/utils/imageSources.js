@@ -23,7 +23,7 @@ export function parseCardCode(text) {
 }
 
 // sv8a → SV8a, s8b → S8b, sm10b → SM10b (앞 영문은 대문자, 숫자 뒤 마지막 한 글자는 소문자)
-function smartCase(code) {
+export function smartCase(code) {
   const m = code.match(/^([A-Za-z-]+)(\d+)([A-Za-z]?)$/);
   return m ? `${m[1].toUpperCase()}${m[2]}${m[3].toLowerCase()}` : code;
 }
@@ -43,7 +43,7 @@ export function koreanImageCandidates(text, era) {
   });
   // 같은 주소는 한 번만
   const seen = new Set();
-  return out.filter((x) => (seen.has(x.url) ? false : seen.add(x.url))).map((x, i) => ({ id: `kr_${i}`, ...x, thumbnail: x.url, fullImage: x.url }));
+  return out.filter((x) => (seen.has(x.url) ? false : seen.add(x.url))).map((x, i) => ({ id: `kr_${i}`, ...x, thumbnail: x.url, fullImage: x.url, meta: { lang: 'kr-code', set: parsed.code, no: String(parsed.num) } }));
 }
 
 // ---------- 한국: 공식 카드 목록 파일 (이름으로 찾기) ----------
@@ -73,7 +73,7 @@ export function searchKrIndex(index, { text = '', setCode = '' }, limit = 120) {
   const key = normKo(text);
   const set = String(setCode || '').trim().toLowerCase();
   const hits = [];
-  for (const [id, name, cardSet, no, rarity, , , img] of index.cards) {
+  for (const [id, name, cardSet, no, rarity, type, dex, img] of index.cards) {
     const setHit = !set || String(cardSet).toLowerCase() === set;
     let hit = false;
     if (code) {
@@ -90,6 +90,7 @@ export function searchKrIndex(index, { text = '', setCode = '' }, limit = 120) {
         title: `${name} · ${prod}${no ? ` ${no}` : ''}`,
         thumbnail: `${index.imageBase}${img}`,
         fullImage: full,
+        meta: { lang: 'kr', name, set: cardSet, no, rarity, type, dex, product: index.products?.[id.slice(0, 9)]?.name || '' },
       });
       if (hits.length >= limit) break;
     }
@@ -101,6 +102,15 @@ export function searchKrIndex(index, { text = '', setCode = '' }, limit = 120) {
 // GitHub Actions(.github/workflows/card-index.yml)가 card-index 브랜치에 올린 파일을 jsDelivr로 불러온다.
 export const JP_INDEX_URL = 'https://cdn.jsdelivr.net/gh/bsw3013/pokemon-card-app@card-index/jp.json';
 let jpIndexPromise = null;
+export const JP_DETAIL_URL = 'https://cdn.jsdelivr.net/gh/bsw3013/pokemon-card-app@card-index/jp-detail.json';
+let jpDetailPromise = null;
+// 일본 카드 번호·레어도·도감 번호 (정보 자동 입력용, 없으면 null)
+export function loadJpDetail() {
+  if (!jpDetailPromise) {
+    jpDetailPromise = fetch(JP_DETAIL_URL).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  }
+  return jpDetailPromise;
+}
 
 export function loadJpIndex() {
   if (!jpIndexPromise) {
@@ -129,7 +139,7 @@ export function searchJpIndex(index, { names = [], setCode = '' }, limit = 80) {
     const setHit = !set || cardSet.toLowerCase() === set;
     if (nameHit && setHit) {
       const url = `${index.imageBase}${cardSet}/${file}`;
-      hits.push({ id: `jp_${id}`, source: `일본 공식 · ${cardSet}`, title: name, thumbnail: url, fullImage: url });
+      hits.push({ id: `jp_${id}`, source: `일본 공식 · ${cardSet}`, title: name, thumbnail: url, fullImage: url, meta: { lang: 'ja', id: String(id), name, set: cardSet } });
       if (hits.length >= limit) break;
     }
   }
@@ -144,5 +154,5 @@ export async function searchTcgdexEn(name, limit = 80) {
   return (Array.isArray(list) ? list : [])
     .filter((c) => c.image) // 사진 없는 카드는 빼서 빈칸이 안 보이게
     .slice(0, limit)
-    .map((c) => ({ id: `en_${c.id}`, source: 'TCGdex', title: `${c.name} · ${c.id}`, thumbnail: `${c.image}/low.webp`, fullImage: `${c.image}/high.png` }));
+    .map((c) => ({ id: `en_${c.id}`, source: 'TCGdex', title: `${c.name} · ${c.id}`, thumbnail: `${c.image}/low.webp`, fullImage: `${c.image}/high.png`, meta: { lang: 'en', name: c.name } }));
 }
