@@ -4071,3 +4071,9 @@ input, select, textarea, button { font-family: inherit; }
 :root[data-theme="dark"] .own-copy-market b.up { color: #4ade80; }
 :root[data-theme="dark"] .own-copy-market b.down { color: #f87171; }
 :root[data-theme="dark"] .cdv-market-table .mine-tag { color: #fcd34d; }
+
+/* 카드 사진 찾기 창 */
+.picker-option { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-muted); margin: 4px 0 8px; cursor: pointer; }
+.picker-note { font-size: 0.8rem; color: var(--text-subtle); margin: 4px 0 8px; }
+.picker-img-wrapper { position: relative; }
+.picker-src { position: absolute; left: 4px; bottom: 4px; font-size: 10px; font-weight: 600; color: #fff; background: rgba(17, 17, 18, 0.75); border-radius: 4px; padding: 1px 5px; pointer-events: none; }

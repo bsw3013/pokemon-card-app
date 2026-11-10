@@ -1,0 +1,46 @@
+# 사진 찾기 창에서 쓸 "일본 공식 카드 목록" 파일을 만든다.
+# - 매주 월요일 새벽 4시 23분(한국 시간)에 자동 실행
+# - Actions 탭 → "Build card image index" → "Run workflow" 버튼으로 언제든 바로 실행 가능 (10분쯤 걸림)
+# - 만든 파일은 card-index 브랜치에 jp.json 하나만 올린다. (main 브랜치·사이트 배포와는 상관없음)
+# - 사이트는 jsDelivr(무료 CDN)로 이 파일을 불러온다:
+#   https://cdn.jsdelivr.net/gh/<저장소>@card-index/jp.json
+# 깃허브가 자동으로 주는 임시 토큰(GITHUB_TOKEN)만 쓰므로, 따로 만든 토큰이 필요 없다.
+name: Build card image index
+
+on:
+  schedule:
+    - cron: '23 19 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: card-index
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 일본 공식 카드 목록 모으기
+        run: node scripts/build-jp-card-index.mjs "$RUNNER_TEMP/jp.json"
+      - name: card-index 브랜치에 올리기
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898699+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan card-index-build
+          git rm -rq --cached . || true
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp "$RUNNER_TEMP/jp.json" jp.json
+          printf '# card-index\n\n사진 찾기 창에서 쓰는 카드 목록 파일만 두는 브랜치예요. GitHub Actions가 매주 자동으로 새로 만들어요.\n' > README.md
+          git add jp.json README.md
+          COUNT=$(node -e "console.log(require('./jp.json').count)")
+          git commit -qm "일본 공식 카드 목록 갱신: ${COUNT}장"
+          git push -f origin HEAD:card-index
+          echo "올린 카드 수: ${COUNT}장"
