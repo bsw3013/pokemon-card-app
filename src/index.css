@@ -3963,3 +3963,6 @@ input, select, textarea, button { font-family: inherit; }
 .tset-fields { display: flex; flex-direction: column; gap: 6px; }
 .tset-fields label { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; cursor: pointer; }
 .sort-label { font-size: 0.82rem; color: var(--text-subtle); }
+/* 필터 칩: 한 줄 안에서 높이가 늘어나지 않게 (종류 없음 칩의 위 여백 때문에 같은 줄 칩이 커지던 문제) */
+.chips { align-items: flex-start; }
+.chips .chip-muted { margin-top: 0; }
