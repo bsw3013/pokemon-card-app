@@ -1,0 +1,738 @@
+{
+  "rarities": [
+    {
+      "code": "C",
+      "group": "일반",
+      "order": 1
+    },
+    {
+      "code": "U",
+      "group": "일반",
+      "order": 2
+    },
+    {
+      "code": "R",
+      "group": "일반",
+      "order": 3
+    },
+    {
+      "code": "RR",
+      "group": "일반",
+      "order": 4
+    },
+    {
+      "code": "RRR",
+      "group": "일반",
+      "order": 5
+    },
+    {
+      "code": "S",
+      "group": "힛카드",
+      "order": 10
+    },
+    {
+      "code": "A",
+      "group": "힛카드",
+      "order": 11
+    },
+    {
+      "code": "MA",
+      "group": "힛카드",
+      "order": 12
+    },
+    {
+      "code": "AR",
+      "group": "힛카드",
+      "order": 13
+    },
+    {
+      "code": "CHR",
+      "group": "힛카드",
+      "order": 14
+    },
+    {
+      "code": "CSR",
+      "group": "힛카드",
+      "order": 15
+    },
+    {
+      "code": "SR",
+      "group": "힛카드",
+      "order": 16
+    },
+    {
+      "code": "SSR",
+      "group": "힛카드",
+      "order": 17
+    },
+    {
+      "code": "SAR",
+      "group": "힛카드",
+      "order": 18
+    },
+    {
+      "code": "HR",
+      "group": "힛카드",
+      "order": 19
+    },
+    {
+      "code": "UR",
+      "group": "힛카드",
+      "order": 20
+    },
+    {
+      "code": "BWR",
+      "group": "힛카드",
+      "order": 21
+    },
+    {
+      "code": "MUR",
+      "group": "힛카드",
+      "order": 22
+    },
+    {
+      "code": "PROMO",
+      "group": "기타",
+      "order": 30
+    },
+    {
+      "code": "기타 AR",
+      "group": "기타",
+      "order": 31
+    },
+    {
+      "code": "없음",
+      "group": "기타",
+      "order": 32
+    },
+    {
+      "code": "FUR",
+      "group": "힛카드",
+      "order": 23
+    }
+  ],
+  "sets": [
+    {
+      "code": "sc",
+      "era": "블랙&화이트",
+      "kind": "확장팩",
+      "label": "sc -「샤이니 컬렉션」",
+      "name": "샤이니 컬렉션",
+      "printedTotal": null,
+      "releaseDate": "2013-08-01"
+    },
+    {
+      "code": "xy1x",
+      "era": "XY",
+      "kind": "확장팩",
+      "label": "XY 확장팩 제1탄 「X컬렉션」",
+      "name": "X컬렉션",
+      "printedTotal": 60,
+      "releaseDate": "2014-03-01"
+    },
+    {
+      "code": "xy1y",
+      "era": "XY",
+      "kind": "확장팩",
+      "label": "XY 확장팩 제1탄 「Y컬렉션」",
+      "name": "Y컬렉션",
+      "printedTotal": 60,
+      "releaseDate": "2014-03-01"
+    },
+    {
+      "code": "CP3",
+      "era": "XY",
+      "kind": "확장팩",
+      "label": "CP3 - 「XY BREAK 확장팩 포켓심쿵 컬렉션」",
+      "name": "포켓심쿵 컬렉션",
+      "printedTotal": 32,
+      "releaseDate": "2016-04-01"
+    },
+    {
+      "code": "xy20th",
+      "era": "XY",
+      "kind": "확장팩",
+      "label": "XY BREAK 확장팩 BASE PACK 20th Anniversary",
+      "name": "BASE PACK 20th Anniversary",
+      "printedTotal": 100,
+      "releaseDate": "2016-09-29"
+    },
+    {
+      "code": "sm6a",
+      "era": "썬&문",
+      "kind": "강화 확장팩",
+      "label": "sm6a -「드래곤스톰」",
+      "name": "드래곤스톰",
+      "printedTotal": 53,
+      "releaseDate": "2018-06-01"
+    },
+    {
+      "code": "sm6b",
+      "era": "썬&문",
+      "kind": "강화 확장팩",
+      "label": "sm6b -「챔피언로드」",
+      "name": "챔피언로드",
+      "printedTotal": null,
+      "releaseDate": "2018-07-02"
+    },
+    {
+      "code": "sm8b",
+      "era": "썬&문",
+      "kind": "하이클래스팩",
+      "label": "sm8b -「울트라샤이니」",
+      "name": "울트라샤이니",
+      "printedTotal": 150,
+      "releaseDate": "2019-02-28"
+    },
+    {
+      "code": "sm9b",
+      "era": "썬&문",
+      "kind": "강화 확장팩",
+      "label": "sm9b -「풀메탈월」",
+      "name": "풀메탈월",
+      "printedTotal": 54,
+      "releaseDate": "2019-04-12"
+    },
+    {
+      "code": "sm10",
+      "era": "썬&문",
+      "kind": "확장팩",
+      "label": "sm10",
+      "name": "더블블레이즈",
+      "printedTotal": 95,
+      "releaseDate": "2019-05-10"
+    },
+    {
+      "code": "sm10b",
+      "era": "썬&문",
+      "kind": "강화 확장팩",
+      "label": "sm10b -「스카이레전드」",
+      "name": "스카이레전드",
+      "printedTotal": 54,
+      "releaseDate": "2019-07-10"
+    },
+    {
+      "code": "sm11",
+      "era": "썬&문",
+      "kind": "확장팩",
+      "label": "sm11",
+      "name": "미라클트윈",
+      "printedTotal": 94,
+      "releaseDate": "2019-08-07"
+    },
+    {
+      "code": "sm11a",
+      "era": "썬&문",
+      "kind": "강화 확장팩",
+      "label": "sm11a -「리믹스바우트」",
+      "name": "리믹스바우트",
+      "printedTotal": 64,
+      "releaseDate": "2019-09-10"
+    },
+    {
+      "code": "sm11b",
+      "era": "썬&문",
+      "kind": "강화 확장팩",
+      "label": "sm11b -「드림리그」",
+      "name": "드림리그",
+      "printedTotal": 49,
+      "releaseDate": "2019-10-11"
+    },
+    {
+      "code": "sm12a",
+      "era": "썬&문",
+      "kind": "하이클래스팩",
+      "label": "sm12a -「TAG TEAM GX 태그올스타즈」",
+      "name": "TAG TEAM GX 태그올스타즈",
+      "printedTotal": 173,
+      "releaseDate": "2019-12-06"
+    },
+    {
+      "code": "s5I",
+      "era": "소드&실드",
+      "kind": "확장팩",
+      "label": "s5I -「일격마스터」",
+      "name": "일격마스터",
+      "printedTotal": 70,
+      "releaseDate": "2021-02-24"
+    },
+    {
+      "code": "s5R",
+      "era": "소드&실드",
+      "kind": "확장팩",
+      "label": "s5R -「연격마스터」",
+      "name": "연격마스터",
+      "printedTotal": 70,
+      "releaseDate": "2021-02-24"
+    },
+    {
+      "code": "s6a",
+      "era": "소드&실드",
+      "kind": "강화 확장팩",
+      "label": "s6a -「이브이 히어로즈」",
+      "name": "이브이 히어로즈",
+      "printedTotal": 69,
+      "releaseDate": "2021-08-11"
+    },
+    {
+      "code": "s7D",
+      "era": "소드&실드",
+      "kind": "확장팩",
+      "label": "s7D -「마천퍼펙트」",
+      "name": "마천퍼펙트",
+      "printedTotal": 67,
+      "releaseDate": "2021-09-08"
+    },
+    {
+      "code": "s7R",
+      "era": "소드&실드",
+      "kind": "확장팩",
+      "label": "s7R -「창공스트림」",
+      "name": "창공스트림",
+      "printedTotal": 67,
+      "releaseDate": "2021-09-08"
+    },
+    {
+      "code": "s8a-P",
+      "era": "소드&실드",
+      "kind": "프로모",
+      "label": "s8a-P -「25주년 프로모팩」",
+      "name": "25주년 프로모팩",
+      "printedTotal": null,
+      "releaseDate": "2021-10-22"
+    },
+    {
+      "code": "s8",
+      "era": "소드&실드",
+      "kind": "확장팩",
+      "label": "s8 -「퓨전아츠」",
+      "name": "퓨전아츠",
+      "printedTotal": 100,
+      "releaseDate": "2021-12-01"
+    },
+    {
+      "code": "s8b",
+      "era": "소드&실드",
+      "kind": "하이클래스팩",
+      "label": "s8b -「VMAX 클라이맥스」",
+      "name": "VMAX 클라이맥스",
+      "printedTotal": 184,
+      "releaseDate": "2022-01-26"
+    },
+    {
+      "code": "s9",
+      "era": "소드&실드",
+      "kind": "확장팩",
+      "label": "s9 -「스타버스」",
+      "name": "스타버스",
+      "printedTotal": 100,
+      "releaseDate": "2022-02-23"
+    },
+    {
+      "code": "s9a",
+      "era": "소드&실드",
+      "kind": "강화 확장팩",
+      "label": "s9a -「배틀리전」",
+      "name": "배틀리전",
+      "printedTotal": 67,
+      "releaseDate": "2022-04-27"
+    },
+    {
+      "code": "s10P",
+      "era": "소드&실드",
+      "kind": "확장팩",
+      "label": "s10P -「스페이스 저글러」",
+      "name": "스페이스 저글러",
+      "printedTotal": 67,
+      "releaseDate": "2022-05-20"
+    },
+    {
+      "code": "s10a",
+      "era": "소드&실드",
+      "kind": "강화 확장팩",
+      "label": "s10a -「다크판타스마」",
+      "name": "다크판타스마",
+      "printedTotal": 71,
+      "releaseDate": "2022-07-22"
+    },
+    {
+      "code": "s11",
+      "era": "소드&실드",
+      "kind": "확장팩",
+      "label": "s11 -「로스트어비스」",
+      "name": "로스트어비스",
+      "printedTotal": 100,
+      "releaseDate": "2022-09-02"
+    },
+    {
+      "code": "s11a",
+      "era": "소드&실드",
+      "kind": "강화 확장팩",
+      "label": "s11a -「백열의 아르카나」",
+      "name": "백열의 아르카나",
+      "printedTotal": 68,
+      "releaseDate": "2022-10-14"
+    },
+    {
+      "code": "s12",
+      "era": "소드&실드",
+      "kind": "확장팩",
+      "label": "s12 -「패러다임트리거」",
+      "name": "패러다임트리거",
+      "printedTotal": 98,
+      "releaseDate": "2022-11-30"
+    },
+    {
+      "code": "s12a",
+      "era": "소드&실드",
+      "kind": "하이클래스팩",
+      "label": "s12a -「VSTAR 유니버스」",
+      "name": "VSTAR 유니버스",
+      "printedTotal": 172,
+      "releaseDate": "2023-01-13"
+    },
+    {
+      "code": "sv1S",
+      "era": "스칼렛&바이올렛",
+      "kind": "확장팩",
+      "label": "sv1S -「스칼렛 ex」",
+      "name": "스칼렛 ex",
+      "printedTotal": 78,
+      "releaseDate": "2023-03-15"
+    },
+    {
+      "code": "sv1V",
+      "era": "스칼렛&바이올렛",
+      "kind": "확장팩",
+      "label": "sv1V -「바이올렛 ex」",
+      "name": "바이올렛 ex",
+      "printedTotal": 78,
+      "releaseDate": "2023-03-15"
+    },
+    {
+      "code": "sv1a",
+      "era": "스칼렛&바이올렛",
+      "kind": "강화 확장팩",
+      "label": "sv1a -「트리플렛비트」",
+      "name": "트리플렛비트",
+      "printedTotal": 73,
+      "releaseDate": "2023-05-03"
+    },
+    {
+      "code": "sv2D",
+      "era": "스칼렛&바이올렛",
+      "kind": "확장팩",
+      "label": "sv2D -「클레이버스트」",
+      "name": "클레이버스트",
+      "printedTotal": 71,
+      "releaseDate": "2023-06-14"
+    },
+    {
+      "code": "sv2P",
+      "era": "스칼렛&바이올렛",
+      "kind": "확장팩",
+      "label": "sv2P -「스노해저드」",
+      "name": "스노해저드",
+      "printedTotal": 71,
+      "releaseDate": "2023-06-14"
+    },
+    {
+      "code": "sv2a",
+      "era": "스칼렛&바이올렛",
+      "kind": "강화 확장팩",
+      "label": "sv2a -「포켓몬 카드 151」",
+      "name": "포켓몬 카드 151",
+      "printedTotal": 165,
+      "releaseDate": "2023-07-28"
+    },
+    {
+      "code": "sv3",
+      "era": "스칼렛&바이올렛",
+      "kind": "확장팩",
+      "label": "sv3 - 「흑염의 지배자」",
+      "name": "흑염의 지배자",
+      "printedTotal": 108,
+      "releaseDate": "2023-08-25"
+    },
+    {
+      "code": "sv3a",
+      "era": "스칼렛&바이올렛",
+      "kind": "강화 확장팩",
+      "label": "sv3a -「레이징서프」",
+      "name": "레이징서프",
+      "printedTotal": 62,
+      "releaseDate": "2023-10-20"
+    },
+    {
+      "code": "sv4K",
+      "era": "스칼렛&바이올렛",
+      "kind": "확장팩",
+      "label": "sv4K -「고대의 포효」",
+      "name": "고대의 포효",
+      "printedTotal": 66,
+      "releaseDate": "2023-11-30"
+    },
+    {
+      "code": "sv4M",
+      "era": "스칼렛&바이올렛",
+      "kind": "확장팩",
+      "label": "sv4M -「미래의 일섬」",
+      "name": "미래의 일섬",
+      "printedTotal": 66,
+      "releaseDate": "2023-11-30"
+    },
+    {
+      "code": "sv4a",
+      "era": "스칼렛&바이올렛",
+      "kind": "하이클래스팩",
+      "label": "sv4a -「샤이니트레저 ex」",
+      "name": "샤이니트레저 ex",
+      "printedTotal": 190,
+      "releaseDate": "2024-01-26"
+    },
+    {
+      "code": "sv5K",
+      "era": "스칼렛&바이올렛",
+      "kind": "확장팩",
+      "label": "sv5K -「와일드포스」",
+      "name": "와일드포스",
+      "printedTotal": 71,
+      "releaseDate": "2024-03-06"
+    },
+    {
+      "code": "sv5M",
+      "era": "스칼렛&바이올렛",
+      "kind": "확장팩",
+      "label": "sv5M -「사이버저지」",
+      "name": "사이버저지",
+      "printedTotal": 71,
+      "releaseDate": "2024-03-06"
+    },
+    {
+      "code": "sv5a",
+      "era": "스칼렛&바이올렛",
+      "kind": "강화 확장팩",
+      "label": "sv5a -「크림슨헤이즈」",
+      "name": "크림슨헤이즈",
+      "printedTotal": 66,
+      "releaseDate": "2024-05-24"
+    },
+    {
+      "code": "sv6",
+      "era": "스칼렛&바이올렛",
+      "kind": "확장팩",
+      "label": "sv6 -「변환의 가면」",
+      "name": "변환의 가면",
+      "printedTotal": 101,
+      "releaseDate": "2024-06-21"
+    },
+    {
+      "code": "sv6a",
+      "era": "스칼렛&바이올렛",
+      "kind": "강화 확장팩",
+      "label": "sv6a -「나이트원더러」",
+      "name": "나이트원더러",
+      "printedTotal": 64,
+      "releaseDate": "2024-08-09"
+    },
+    {
+      "code": "sv7",
+      "era": "스칼렛&바이올렛",
+      "kind": "확장팩",
+      "label": "sv7 -「스텔라미라클」",
+      "name": "스텔라미라클",
+      "printedTotal": 102,
+      "releaseDate": "2024-09-06"
+    },
+    {
+      "code": "sv7a",
+      "era": "스칼렛&바이올렛",
+      "kind": "강화 확장팩",
+      "label": "sv7a -「낙원드래고나」",
+      "name": "낙원드래고나",
+      "printedTotal": 64,
+      "releaseDate": "2024-10-30"
+    },
+    {
+      "code": "sv8",
+      "era": "스칼렛&바이올렛",
+      "kind": "확장팩",
+      "label": "sv8 -「초전브레이커」",
+      "name": "초전브레이커",
+      "printedTotal": 106,
+      "releaseDate": "2024-11-27"
+    },
+    {
+      "code": "sv8a",
+      "era": "스칼렛&바이올렛",
+      "kind": "하이클래스팩",
+      "label": "sv8a -「테라스탈 페스타 ex」",
+      "name": "테라스탈 페스타 ex",
+      "printedTotal": 187,
+      "releaseDate": "2025-01-22"
+    },
+    {
+      "code": "sv9",
+      "era": "스칼렛&바이올렛",
+      "kind": "확장팩",
+      "label": "sv9 -「배틀파트너즈」",
+      "name": "배틀파트너즈",
+      "printedTotal": 100,
+      "releaseDate": "2025-03-21"
+    },
+    {
+      "code": "svOD",
+      "era": "스칼렛&바이올렛",
+      "kind": "스타터 덱",
+      "label": "svOD -「성호의 메탕&메타그로스 ex」",
+      "name": "성호의 메탕&메타그로스 ex",
+      "printedTotal": null,
+      "releaseDate": "2025-04-25"
+    },
+    {
+      "code": "svOM",
+      "era": "스칼렛&바이올렛",
+      "kind": "스타터 덱",
+      "label": "svOM -「마리의 모르페코&오롱털 ex」",
+      "name": "마리의 모르페코&오롱털 ex",
+      "printedTotal": null,
+      "releaseDate": "2025-04-25"
+    },
+    {
+      "code": "sv9a",
+      "era": "스칼렛&바이올렛",
+      "kind": "강화 확장팩",
+      "label": "sv9a -「열풍의 아레나」",
+      "name": "열풍의 아레나",
+      "printedTotal": 63,
+      "releaseDate": "2025-05-16"
+    },
+    {
+      "code": "sv10",
+      "era": "스칼렛&바이올렛",
+      "kind": "확장팩",
+      "label": "sv10 -「로켓단의 영광」",
+      "name": "로켓단의 영광",
+      "printedTotal": 98,
+      "releaseDate": "2025-06-20"
+    },
+    {
+      "code": "sv11B",
+      "era": "스칼렛&바이올렛",
+      "kind": "확장팩",
+      "label": "sv11B -「블랙볼트」",
+      "name": "블랙볼트",
+      "printedTotal": 86,
+      "releaseDate": "2025-08-01"
+    },
+    {
+      "code": "sv11W",
+      "era": "스칼렛&바이올렛",
+      "kind": "확장팩",
+      "label": "sv11W -「화이트플레어」",
+      "name": "화이트플레어",
+      "printedTotal": 86,
+      "releaseDate": "2025-08-01"
+    },
+    {
+      "code": "m1L",
+      "era": "메가",
+      "kind": "확장팩",
+      "label": "m1L -「메가 브레이브」",
+      "name": "메가 브레이브",
+      "printedTotal": 63,
+      "releaseDate": "2025-09-26"
+    },
+    {
+      "code": "m1S",
+      "era": "메가",
+      "kind": "확장팩",
+      "label": "m1S -「메가 심포니아」",
+      "name": "메가 심포니아",
+      "printedTotal": 63,
+      "releaseDate": "2025-09-26"
+    },
+    {
+      "code": "m2",
+      "era": "메가",
+      "kind": "확장팩",
+      "label": "m2 -「인페르노X」",
+      "name": "인페르노X",
+      "printedTotal": 80,
+      "releaseDate": "2025-11-28"
+    },
+    {
+      "code": "m2a",
+      "era": "메가",
+      "kind": "하이클래스팩",
+      "label": "m2a -「메가드림」",
+      "name": "메가드림",
+      "printedTotal": 193,
+      "releaseDate": "2026-01-23"
+    },
+    {
+      "code": "MC",
+      "era": "메가",
+      "kind": "스타터 덱",
+      "label": "MC - MEGA「스타트 덱 100 배틀컬렉션」",
+      "name": "MEGA 스타트 덱 100 배틀컬렉션",
+      "printedTotal": null,
+      "releaseDate": "2026-02-13"
+    },
+    {
+      "code": "m3",
+      "era": "메가",
+      "kind": "확장팩",
+      "label": "m3 -「니힐제로」",
+      "name": "니힐제로",
+      "printedTotal": 80,
+      "releaseDate": "2026-03-13"
+    },
+    {
+      "code": "promo",
+      "era": "기타",
+      "kind": "프로모",
+      "label": "PROMO",
+      "name": "프로모 카드",
+      "printedTotal": null,
+      "releaseDate": ""
+    },
+    {
+      "code": "m4",
+      "era": "메가",
+      "kind": "확장팩",
+      "label": "m4 -「닌자스피너」",
+      "name": "닌자스피너",
+      "printedTotal": 83,
+      "releaseDate": "2026-05-01"
+    },
+    {
+      "code": "m5",
+      "era": "메가",
+      "kind": "확장팩",
+      "label": "m5 -「어비스아이」",
+      "name": "어비스아이",
+      "printedTotal": 81,
+      "releaseDate": "2026-06-26"
+    },
+    {
+      "code": "m6",
+      "era": "메가",
+      "kind": "확장팩",
+      "label": "m6 -「스톰에메랄다」",
+      "name": "스톰에메랄다",
+      "printedTotal": 76,
+      "releaseDate": "2026-08-21"
+    },
+    {
+      "code": "m6a",
+      "era": "메가",
+      "kind": "확장팩",
+      "label": "m6a -「30th CELEBRATION」",
+      "name": "30th CELEBRATION",
+      "printedTotal": 103,
+      "releaseDate": "2026-09-16"
+    }
+  ],
+  "updatedAt": "2026-11-10T06:01:44.888Z"
+}
