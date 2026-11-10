@@ -6,7 +6,7 @@ import { useOwnedCards } from '../hooks/useOwnedCards';
 import { useThumbnailSettings } from '../hooks/useThumbnailSettings';
 import { useCardDetail } from '../hooks/useCardDetail';
 import { DEFAULT_RARITIES, DEFAULT_SETS, buildSetIndex, findSetForCard, parseCardNo } from '../utils/catalog';
-import { activeRows, cardLanguage, gradedInfo, isForSale, langShort, ownedCount, possessionLabel, soldRows } from '../utils/cardStats';
+import { activeRows, cardLanguage, gradedInfo, isForSale, isPulledCopy, langShort, ownedCount, possessionLabel, soldRows } from '../utils/cardStats';
 import { cardIdFromKey, resolveLegacyCardKey } from '../utils/cardKey';
 import { rarityTone } from '../utils/rarityTone';
 import { navigate, parseHash, setHashParams } from '../utils/hashRoute';
@@ -30,11 +30,12 @@ const FILTERS = [
   ['all', '전체'],
   ['multi', '2장 이상'],
   ['graded', '등급 카드'],
+  ['pull', '직뽑'],
   ['trade', '판매중'],
   ['nodata', '기록 없음'],
 ];
 // 내 컬렉션에서 고를 수 있는 정렬 기준 (방향은 버튼으로 따로 바꾼다)
-const SORT_FIELD_KEYS = ['value', 'price', 'purchase', 'bought', 'release', 'rarity', 'dex', 'name', 'count', 'graded'];
+const SORT_FIELD_KEYS = ['value', 'price', 'purchase', 'bought', 'pulled', 'release', 'rarity', 'dex', 'name', 'count', 'graded'];
 
 // 카드 한 장의 보유 요약
 function summarize(card) {
@@ -43,17 +44,19 @@ function summarize(card) {
   const count = ownedCount(card);
   const graded = gradedInfo(card).count;
   const trade = rows.some(isForSale);
-  const purchase = rows.reduce((s, r) => s + (Number(r.purchasePrice) || 0) * (Number(r.count) || 0), 0);
-  const purchasedCount = rows.filter((r) => Number(r.purchasePrice) > 0).reduce((s, r) => s + (Number(r.count) || 0), 0);
+  const pulled = rows.filter(isPulledCopy).reduce((n, r) => n + (Number(r.count) || 1), 0);
+  const bought = rows.filter((r) => !isPulledCopy(r)); // 직뽑은 구매가가 없으니 구매·손익 계산에서 뺀다
+  const purchase = bought.reduce((s, r) => s + (Number(r.purchasePrice) || 0) * (Number(r.count) || 0), 0);
+  const purchasedCount = bought.filter((r) => Number(r.purchasePrice) > 0).reduce((s, r) => s + (Number(r.count) || 0), 0);
   const lastBought = rows.map((r) => text(r.purchaseDate)).filter(Boolean).sort().pop() || '';
   const maxPurchase = rows.reduce((m, r) => Math.max(m, Number(r.purchasePrice) || 0), 0);
   const price = Number(card.price) || 0;
   const value = price * count;
   // 손익은 평가 가격과 구매가가 둘 다 있는 장만 비교한다.
-  const paired = price > 0 ? rows.filter((r) => Number(r.purchasePrice) > 0) : [];
+  const paired = price > 0 ? bought.filter((r) => Number(r.purchasePrice) > 0) : [];
   const pairedCount = paired.reduce((s, r) => s + (Number(r.count) || 0), 0);
   const pairedCost = paired.reduce((s, r) => s + (Number(r.purchasePrice) || 0) * (Number(r.count) || 0), 0);
-  return { lang: langShort(cardLanguage(card)), count, graded, trade, purchase, purchasedCount, lastBought, maxPurchase, value, pairedCount, pairedCost, pairedValue: price * pairedCount, hasRows: rows.length > 0 };
+  return { lang: langShort(cardLanguage(card)), count, graded, pulled, trade, purchase, purchasedCount, lastBought, maxPurchase, value, pairedCount, pairedCost, pairedValue: price * pairedCount, hasRows: rows.length > 0 };
 }
 
 export default function CollectionPage({ appConfig, onViewMarket }) {
@@ -86,13 +89,14 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
     .filter((x) => x.count > 0), [cards, setIndex, rarityOrder]);
 
   const totals = useMemo(() => {
-    const t = { kinds: owned.length, count: 0, graded: 0, value: 0, purchase: 0, purchasedCount: 0, unpriced: 0, trade: 0, gradedKinds: 0, pairedCount: 0, pairedCost: 0, pairedValue: 0 };
+    const t = { kinds: owned.length, count: 0, graded: 0, value: 0, purchase: 0, purchasedCount: 0, unpriced: 0, trade: 0, pullKinds: 0, gradedKinds: 0, pairedCount: 0, pairedCost: 0, pairedValue: 0 };
     owned.forEach((x) => {
       t.count += x.count; t.graded += x.graded; t.value += x.value; t.purchase += x.purchase; t.purchasedCount += x.purchasedCount;
       t.pairedCount += x.pairedCount; t.pairedCost += x.pairedCost; t.pairedValue += x.pairedValue;
       if (!Number(x.card.price)) t.unpriced += 1;
       if (x.trade) t.trade += 1;
       if (x.graded > 0) t.gradedKinds += 1;
+      if (x.pulled > 0) t.pullKinds += 1;
     });
     return t;
   }, [owned]);
@@ -101,6 +105,7 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
     const f = owned.filter((x) => (lang === 'all' || x.lang === lang) && (
       filter === 'multi' ? x.count >= 2
         : filter === 'graded' ? x.graded > 0
+          : filter === 'pull' ? x.pulled > 0
           : filter === 'trade' ? x.trade
             : filter === 'nodata' ? !x.hasRows
               : true));
@@ -219,7 +224,7 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
             <div className="seg">
               {FILTERS.map(([k, l]) => (
                 <button key={k} type="button" className={filter === k ? 'on' : ''} onClick={() => setFilter(k)}>
-                  {l}{k === 'trade' && totals.trade ? ` ${totals.trade}` : ''}{k === 'graded' && totals.gradedKinds ? ` ${totals.gradedKinds}` : ''}
+                  {l}{k === 'trade' && totals.trade ? ` ${totals.trade}` : ''}{k === 'graded' && totals.gradedKinds ? ` ${totals.gradedKinds}` : ''}{k === 'pull' && totals.pullKinds ? ` ${totals.pullKinds}` : ''}
                 </button>
               ))}
             </div>
@@ -330,7 +335,7 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
                       <td>{row.soldVia || '-'}</td>
                       <td className="num">{n}</td>
                       <td className="num">{won(row.soldPrice)}</td>
-                      <td className="num">{Number(row.purchasePrice) > 0 ? won(row.purchasePrice) : '-'}</td>
+                      <td className="num">{isPulledCopy(row) ? '직뽑' : Number(row.purchasePrice) > 0 ? won(row.purchasePrice) : '-'}</td>
                       <td className={`num ${profit === null ? '' : profit >= 0 ? 'up' : 'down'}`}>{profit === null ? '-' : `${profit >= 0 ? '+' : '-'}${won(Math.abs(profit))}`}</td>
                     </tr>
                   ))}

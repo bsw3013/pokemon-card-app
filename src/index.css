@@ -4011,3 +4011,9 @@ input, select, textarea, button { font-family: inherit; }
 .sortctl { display: inline-flex; align-items: center; gap: 6px; }
 .sortctl-dir { white-space: nowrap; }
 .sortctl-dir span { font-weight: 700; }
+.pull-pill { display: inline-block; margin-left: 8px; font-size: 0.74rem; font-weight: 700; color: #6d28d9; background: rgba(139, 92, 246, 0.12); border: 1px solid rgba(109, 40, 217, 0.25); border-radius: 999px; padding: 1px 8px; vertical-align: 1px; }
+:root[data-theme="dark"] .pull-pill { color: #c4b5fd; }
+/* 보유 기록 편집: "얻은 방법" 칸을 다른 입력칸과 같은 모양으로 */
+.form-group .pe-f.pe-src, .pe-f.pe-src { font-size: 0.9rem; color: var(--text-muted); font-weight: 500; }
+.pe-f > .pe-type { align-self: flex-start; height: 34px; margin-bottom: 0; }
+.pe-f > .pe-type button { padding: 0 16px; }

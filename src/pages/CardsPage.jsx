@@ -4,7 +4,7 @@ import { useOwnedCards } from '../hooks/useOwnedCards';
 import { useThumbnailSettings } from '../hooks/useThumbnailSettings';
 import { useCardDetail } from '../hooks/useCardDetail';
 import { DEFAULT_RARITIES, DEFAULT_SETS, ERA_OPTIONS, buildSetIndex, findSetForCard, parseCardNo } from '../utils/catalog';
-import { activeRows, copyBreakdown, isForSale, langShort } from '../utils/cardStats';
+import { activeRows, copyBreakdown, isForSale, isPulledCopy, langShort } from '../utils/cardStats';
 import { rarityTone } from '../utils/rarityTone';
 import { navigate, parseHash } from '../utils/hashRoute';
 import CardTile from '../components/CardTile';
@@ -18,7 +18,7 @@ const PAGE = 120;
 const NONE = '__none__';
 const LANGS = ['한국', '일본', '미국', '중국'];
 // 카드 화면에서 고를 수 있는 정렬 기준 (방향은 버튼으로 따로 바꾼다)
-const SORT_FIELD_KEYS = ['release', 'price', 'purchase', 'bought', 'added', 'rarity', 'dex', 'name', 'count', 'graded'];
+const SORT_FIELD_KEYS = ['release', 'price', 'purchase', 'bought', 'pulled', 'rarity', 'dex', 'name', 'count', 'graded'];
 const SIZES = { s: 118, m: 150, l: 190 };
 
 const text = (v) => String(v ?? '').trim();
@@ -91,6 +91,7 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
     const split = copyBreakdown(card);
     return {
       graded: split.gradedCount,
+      pulled: rows.filter(isPulledCopy).reduce((n, r) => n + (Number(r.count) || 1), 0),
       trade: rows.some(isForSale),
       maxPurchase: rows.reduce((m, r) => Math.max(m, Number(r.purchasePrice) || 0), 0),
       lastBought: rows.map((r) => text(r.purchaseDate)).filter(Boolean).sort().pop() || '',

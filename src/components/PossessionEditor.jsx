@@ -15,6 +15,7 @@ function newRow(defaultLanguage, company = '') {
     purchasePrice: '',
     purchaseDate: '',
     location: '',
+    source: 'buy', // 얻은 방법: buy(구매) / pull(직뽑 = 팩을 직접 까서 나온 카드)
     forTrade: false,
     askPrice: '',
     notes: '',
@@ -27,6 +28,12 @@ export default function PossessionEditor({ rows, onChange, gradingCompanies = []
     const next = rows.slice();
     next[index] = { ...next[index], [field]: value };
     if (field === 'company' && (value === '' || value === 'raw')) { next[index].grade = ''; next[index].serial = ''; }
+    onChange(next);
+  };
+  // 직뽑은 구매가가 없으므로 구매가를 비운다 (날짜 칸은 "뽑은 날"로 그대로 사용)
+  const setSource = (index, source) => {
+    const next = rows.slice();
+    next[index] = { ...next[index], source, ...(source === 'pull' ? { purchasePrice: '' } : {}) };
     onChange(next);
   };
   const remove = (index) => onChange(rows.filter((_, i) => i !== index));
@@ -93,10 +100,18 @@ export default function PossessionEditor({ rows, onChange, gradingCompanies = []
                   {LANGS.map((l) => <option key={l} value={l}>{l}</option>)}
                 </select>
               </label>
-              <label className="pe-f">구매가 (1장)
-                <input type="number" min={0} value={r.purchasePrice ?? ''} onChange={(e) => update(i, 'purchasePrice', e.target.value === '' ? '' : Number(e.target.value))} placeholder="원" />
-              </label>
-              <label className="pe-f">구매일
+              <div className="pe-f pe-src">얻은 방법
+                <div className="pe-type small" role="group" aria-label="얻은 방법">
+                  <button type="button" className={r.source !== 'pull' ? 'on' : ''} onClick={() => setSource(i, 'buy')}>구매</button>
+                  <button type="button" className={r.source === 'pull' ? 'on' : ''} onClick={() => setSource(i, 'pull')}>직뽑</button>
+                </div>
+              </div>
+              {r.source !== 'pull' && (
+                <label className="pe-f">구매가 (1장)
+                  <input type="number" min={0} value={r.purchasePrice ?? ''} onChange={(e) => update(i, 'purchasePrice', e.target.value === '' ? '' : Number(e.target.value))} placeholder="원" />
+                </label>
+              )}
+              <label className="pe-f">{r.source === 'pull' ? '뽑은 날' : '구매일'}
                 <input type="date" value={r.purchaseDate || ''} onChange={(e) => update(i, 'purchaseDate', e.target.value)} />
               </label>
               <label className="pe-f">보관 위치

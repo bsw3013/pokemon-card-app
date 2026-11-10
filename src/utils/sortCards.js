@@ -11,8 +11,8 @@ export const SORT_FIELDS = {
   price: { label: '내 평가 가격 (1장)', dir: 'desc', asc: '낮은 가격부터', desc: '높은 가격부터' },
   value: { label: '평가액 (가격 × 장수)', dir: 'desc', asc: '낮은 금액부터', desc: '높은 금액부터' },
   purchase: { label: '구매가', dir: 'desc', asc: '낮은 가격부터', desc: '높은 가격부터' },
-  bought: { label: '구매일', dir: 'desc', asc: '오래된 구매부터', desc: '최근 구매부터' },
-  added: { label: '도감에 추가된 날', dir: 'desc', asc: '오래전 추가부터', desc: '최근 추가부터' },
+  bought: { label: '얻은 날 (구매일·뽑은 날)', dir: 'desc', asc: '오래전 것부터', desc: '최근 것부터' },
+  pulled: { label: '직뽑', dir: 'desc', asc: '구매 먼저', desc: '직뽑 먼저' },
   rarity: { label: '레어도', dir: 'desc', asc: '낮은 레어도부터', desc: '높은 레어도부터' },
   dex: { label: '도감 번호', dir: 'asc', asc: '1번부터', desc: '큰 번호부터' },
   name: { label: '이름', dir: 'asc', asc: '가나다순', desc: '가나다 역순' },
@@ -20,7 +20,7 @@ export const SORT_FIELDS = {
   graded: { label: '등급 카드 장수', dir: 'desc', asc: '적은 것부터', desc: '많은 것부터' },
 };
 
-// item: { card, release, setCode, no, rarityOrder, count, graded, maxPurchase, lastBought, value }
+// item: { card, release, setCode, no, rarityOrder, count, graded, pulled, maxPurchase, lastBought, value }
 function valueOf(item, field) {
   const { card } = item;
   switch (field) {
@@ -29,7 +29,7 @@ function valueOf(item, field) {
     case 'value': return Number(item.value) || null;
     case 'purchase': return Number(item.maxPurchase) || null;
     case 'bought': return item.lastBought || null;
-    case 'added': return text(card.createdAt) || null;
+    case 'pulled': return Number(item.pulled) || 0;
     case 'rarity': return Number(item.rarityOrder) || null;
     case 'dex': return Number(card.pokedexNumber) || null;
     case 'name': return text(card.cardName) || null;
