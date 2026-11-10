@@ -3963,3 +3963,8 @@ input, select, textarea, button { font-family: inherit; }
 .tset-fields { display: flex; flex-direction: column; gap: 6px; }
 .tset-fields label { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; cursor: pointer; }
 .sort-label { font-size: 0.82rem; color: var(--text-subtle); }
+
+/* 카드 상세 위에 띄우는 시세 창 (카드 상세 창보다 위) */
+.market-drawer-backdrop.over-modal { z-index: 1250; }
+.market-drawer-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 0.2rem 0 0.5rem; }
+.market-watch-on { font-size: 0.82rem; font-weight: 600; color: var(--text-muted); padding: 4px 10px; border: 1px solid var(--border-color); border-radius: 999px; }
