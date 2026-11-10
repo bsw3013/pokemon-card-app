@@ -1,16 +1,28 @@
-# 사진 찾기 창에서 쓸 "일본 공식 카드 목록" 파일을 만든다.
-# - 매주 월요일 새벽 4시 23분(한국 시간)에 자동 실행
-# - Actions 탭 → "Build card image index" → "Run workflow" 버튼으로 언제든 바로 실행 가능 (10분쯤 걸림)
-# - 만든 파일은 card-index 브랜치에 jp.json 하나만 올린다. (main 브랜치·사이트 배포와는 상관없음)
-# - 사이트는 jsDelivr(무료 CDN)로 이 파일을 불러온다:
-#   https://cdn.jsdelivr.net/gh/<저장소>@card-index/jp.json
-# 깃허브가 자동으로 주는 임시 토큰(GITHUB_TOKEN)만 쓰므로, 따로 만든 토큰이 필요 없다.
+# 사진 찾기 창에서 쓸 "공식 카드 목록" 파일을 만든다.
+#  - jp.json: 일본 공식 카드 검색 (약 10분)
+#  - kr.json: 한국 공식 카드 상세 페이지를 한 장씩 천천히 읽음
+#      처음에는 전부 모으는 데 여러 시간이 걸려서, 한 번에 최대 약 5시간만 읽고 저장한 뒤
+#      다음 실행 때 이어서 읽는다. 다 모은 뒤에는 최근 1~2년 제품의 새 카드만 확인한다.
+# 실행 시각 (한국 시간)
+#  - 매주 월요일 새벽 4시 23분: 일본 + 한국
+#  - 매일 새벽 5시 41분: 한국 목록이 아직 다 안 모아졌을 때만 이어서 모으기 (다 모았으면 바로 끝남)
+#  - Actions 탭 → "Build card image index" → "Run workflow" 로 언제든 실행 가능 (all / jp / kr 고르기)
+# 만든 파일은 card-index 브랜치에만 올린다. (main 브랜치·사이트 배포와는 상관없음)
+# 사이트는 jsDelivr(무료 CDN)로 불러온다: https://cdn.jsdelivr.net/gh/<저장소>@card-index/jp.json · kr.json
+# 깃허브가 자동으로 주는 임시 토큰(GITHUB_TOKEN)만 쓴다.
 name: Build card image index
 
 on:
   schedule:
     - cron: '23 19 * * 0'
+    - cron: '41 20 * * *'
   workflow_dispatch:
+    inputs:
+      target:
+        description: '무엇을 만들까요?'
+        type: choice
+        options: [all, jp, kr]
+        default: all
 
 permissions:
   contents: write
@@ -22,25 +34,57 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 340
+    env:
+      WEEKLY: ${{ github.event_name == 'schedule' && github.event.schedule == '23 19 * * 0' }}
+      DAILY: ${{ github.event_name == 'schedule' && github.event.schedule == '41 20 * * *' }}
+      TARGET: ${{ github.event.inputs.target || '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: 지금 올라가 있는 목록 가져오기
+        run: |
+          mkdir -p "$RUNNER_TEMP/prev" "$RUNNER_TEMP/new"
+          if git fetch -q origin card-index; then
+            git show origin/card-index:jp.json > "$RUNNER_TEMP/prev/jp.json" 2>/dev/null || rm -f "$RUNNER_TEMP/prev/jp.json"
+            git show origin/card-index:kr.json > "$RUNNER_TEMP/prev/kr.json" 2>/dev/null || rm -f "$RUNNER_TEMP/prev/kr.json"
+          fi
+          ls -la "$RUNNER_TEMP/prev"
+
       - name: 일본 공식 카드 목록 모으기
-        run: node scripts/build-jp-card-index.mjs "$RUNNER_TEMP/jp.json"
+        if: env.WEEKLY == 'true' || env.TARGET == 'all' || env.TARGET == 'jp'
+        run: node scripts/build-jp-card-index.mjs "$RUNNER_TEMP/new/jp.json"
+
+      - name: 한국 공식 카드 목록 모으기 (천천히, 이어서)
+        if: env.WEEKLY == 'true' || env.DAILY == 'true' || env.TARGET == 'all' || env.TARGET == 'kr'
+        env:
+          KR_BUDGET_MIN: '290'
+          KR_ONLY_IF_INCOMPLETE: ${{ env.DAILY == 'true' && '1' || '' }}
+        run: node scripts/build-kr-card-index.mjs "$RUNNER_TEMP/new/kr.json" "$RUNNER_TEMP/prev/kr.json"
+
       - name: card-index 브랜치에 올리기
         run: |
+          if [ ! -f "$RUNNER_TEMP/new/jp.json" ] && [ ! -f "$RUNNER_TEMP/new/kr.json" ]; then
+            echo "새로 만든 목록이 없어서 올리지 않습니다."
+            exit 0
+          fi
+          # 이번에 안 만든 목록은 이전 것을 그대로 둔다
+          for f in jp.json kr.json; do
+            if [ ! -f "$RUNNER_TEMP/new/$f" ] && [ -f "$RUNNER_TEMP/prev/$f" ]; then cp "$RUNNER_TEMP/prev/$f" "$RUNNER_TEMP/new/$f"; fi
+          done
           git config user.name "github-actions[bot]"
           git config user.email "41898699+github-actions[bot]@users.noreply.github.com"
           git checkout --orphan card-index-build
           git rm -rq --cached . || true
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-          cp "$RUNNER_TEMP/jp.json" jp.json
-          printf '# card-index\n\n사진 찾기 창에서 쓰는 카드 목록 파일만 두는 브랜치예요. GitHub Actions가 매주 자동으로 새로 만들어요.\n' > README.md
-          git add jp.json README.md
-          COUNT=$(node -e "console.log(require('./jp.json').count)")
-          git commit -qm "일본 공식 카드 목록 갱신: ${COUNT}장"
+          cp "$RUNNER_TEMP"/new/*.json .
+          printf '# card-index\n\n사진 찾기 창에서 쓰는 카드 목록 파일만 두는 브랜치예요. GitHub Actions가 자동으로 새로 만들어요.\n' > README.md
+          git add *.json README.md
+          JP=$( [ -f jp.json ] && node -e "console.log(require('./jp.json').count)" || echo 0 )
+          KR=$( [ -f kr.json ] && node -e "const d=require('./kr.json');console.log(d.count + (d.complete ? '' : ' (모으는 중)'))" || echo 0 )
+          git commit -qm "카드 목록 갱신: 일본 ${JP}장 · 한국 ${KR}장"
           git push -f origin HEAD:card-index
-          echo "올린 카드 수: ${COUNT}장"
+          echo "일본 ${JP}장 · 한국 ${KR}장"

@@ -1,5 +1,5 @@
 // 카드 사진 찾기 창에서 쓰는 사진 출처 3가지
-//  - 한국: 세트 코드 + 카드 번호로 사진 주소를 바로 만든다 (포켓몬코리아 공식, mtg-kr.com)
+//  - 한국: 이름은 GitHub Actions가 모은 한국 공식 카드 목록(kr.json)에서 찾고, 세트 코드 + 번호는 사진 주소를 바로 만든다
 //  - 일본: GitHub Actions가 매주 만드는 일본 공식 카드 목록(jp.json)에서 이름으로 찾는다
 //  - 영어: TCGdex (키 없이 쓰는 무료 공개 API)
 
@@ -44,6 +44,57 @@ export function koreanImageCandidates(text, era) {
   // 같은 주소는 한 번만
   const seen = new Set();
   return out.filter((x) => (seen.has(x.url) ? false : seen.add(x.url))).map((x, i) => ({ id: `kr_${i}`, ...x, thumbnail: x.url, fullImage: x.url }));
+}
+
+// ---------- 한국: 공식 카드 목록 파일 (이름으로 찾기) ----------
+// GitHub Actions(.github/workflows/card-index.yml)가 한국 공식 사이트 카드 상세를 천천히 모아 만든 kr.json
+export const KR_INDEX_URL = 'https://cdn.jsdelivr.net/gh/bsw3013/pokemon-card-app@card-index/kr.json';
+let krIndexPromise = null;
+
+export function loadKrIndex() {
+  if (!krIndexPromise) {
+    krIndexPromise = fetch(KR_INDEX_URL)
+      .then((res) => {
+        if (!res.ok) throw new Error(`한국 공식 카드 목록을 불러오지 못했어요 (${res.status})`);
+        return res.json();
+      })
+      .catch((err) => { krIndexPromise = null; throw err; });
+  }
+  return krIndexPromise;
+}
+
+const normKo = (s) => String(s || '').replace(/\s+/g, '').toLowerCase();
+const productShort = (name) => { const m = String(name || '').match(/「(.+?)」/); return m ? m[1] : String(name || ''); };
+
+// 이름(또는 세트 코드·번호)으로 한국 공식 카드 찾기. setCode 를 주면 그 세트에서만.
+export function searchKrIndex(index, { text = '', setCode = '' }, limit = 120) {
+  if (!index?.cards) return [];
+  const code = parseCardCode(text);
+  const key = normKo(text);
+  const set = String(setCode || '').trim().toLowerCase();
+  const hits = [];
+  for (const [id, name, cardSet, no, rarity, , , img] of index.cards) {
+    const setHit = !set || String(cardSet).toLowerCase() === set;
+    let hit = false;
+    if (code) {
+      hit = String(cardSet).toLowerCase() === code.code.toLowerCase() && Number(String(no).split('/')[0]) === code.num;
+    } else {
+      hit = key && normKo(name).includes(key);
+    }
+    if (hit && setHit) {
+      const prod = productShort(index.products?.[id.slice(0, 9)]?.name);
+      const full = `${index.imageBase}${img.replace(/\.webp$/i, '.png')}`;
+      hits.push({
+        id: `krx_${id}`,
+        source: `한국 공식 · ${cardSet}${rarity ? ` ${rarity}` : ''}`,
+        title: `${name} · ${prod}${no ? ` ${no}` : ''}`,
+        thumbnail: `${index.imageBase}${img}`,
+        fullImage: full,
+      });
+      if (hits.length >= limit) break;
+    }
+  }
+  return hits;
 }
 
 // ---------- 일본: 공식 카드 목록 파일 ----------

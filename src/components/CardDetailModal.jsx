@@ -9,7 +9,7 @@ import PossessionEditor from './PossessionEditor';
 import { normalizeStatus } from '../utils/statusUtils';
 import { useOwnedCards } from '../hooks/useOwnedCards';
 import { DEFAULT_SETS, buildSetIndex, findSetForCard } from '../utils/catalog';
-import { koreanImageCandidates, loadJpIndex, parseCardCode, searchJpIndex, searchTcgdexEn } from '../utils/imageSources';
+import { koreanImageCandidates, loadJpIndex, loadKrIndex, parseCardCode, searchJpIndex, searchKrIndex, searchTcgdexEn } from '../utils/imageSources';
 import { statusFromRows } from '../utils/sales';
 
 const { krToEn, krToJa } = pokemonMapAll;
@@ -161,7 +161,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
     const no = String(raw).match(/(\d{1,3})\s*$/);
     return pickerSet && no ? `${pickerSet.code}-${no[1]}` : raw;
   };
-  const tabDefaultQuery = (tab) => (tab === 'kr' ? cardCodeText() : String(editData.cardName || '').trim());
+  const tabDefaultQuery = (tab) => (tab === 'kr' ? (cardCodeText() || String(editData.cardName || '').trim()) : String(editData.cardName || '').trim());
 
   // 한글 이름 → 일본어·영어 이름 (첫 단어만 번역되면 나머지는 그대로 붙임)
   const translate = (text, map) => {
@@ -180,9 +180,19 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
     setPickerLoading(true);
     try {
       if (tab === 'kr') {
-        const list = koreanImageCandidates(q, pickerSet?.era);
-        if (list.length === 0) setPickerNote('세트 코드와 번호를 "SV8a-217"처럼 적어 주세요.');
-        setPickerResults(list);
+        // 세트 코드·번호면 공식 사진 주소를 바로 만들고, 이름이면 한국 공식 카드 목록에서 찾는다
+        const isCode = !!parseCardCode(q);
+        let index = null;
+        try { index = await loadKrIndex(); } catch (err) { console.warn(err); }
+        const setCode = sameSet && pickerSet && !isCode ? pickerSet.code : '';
+        let fromIndex = index ? searchKrIndex(index, { text: q, setCode }) : [];
+        if (fromIndex.length === 0 && setCode && index) fromIndex = searchKrIndex(index, { text: q });
+        const direct = isCode ? koreanImageCandidates(q, pickerSet?.era) : [];
+        // 목록에서 찾은 사진을 앞에 두고, 같은 사진 주소는 한 번만
+        const seen = new Set(fromIndex.map((r) => r.fullImage));
+        setPickerResults([...fromIndex, ...direct.filter((r) => !seen.has(r.fullImage))]);
+        if (!index) setPickerNote(isCode ? '' : '한국 공식 카드 목록을 아직 못 불러와서 이름으로는 찾을 수 없어요. 세트 코드와 번호(예: SV8a-217)로 찾아 주세요.');
+        else setPickerNote(`한국 공식 카드 ${Number(index.count || 0).toLocaleString()}장 중에서 찾았어요${index.complete ? '' : ' (목록을 아직 모으는 중이라 빠진 카드가 있을 수 있어요)'} · 목록 갱신 ${String(index.updatedAt || '').slice(0, 10)}`);
       } else if (tab === 'ja') {
         const index = await loadJpIndex();
         const isJa = /[぀-ヿ]/.test(q);
@@ -390,7 +400,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
             <button className="modal-close" onClick={closePicker}>✕</button>
             <div className="picker-header">
               <h2>카드 사진 찾기</h2>
-              <p>한국판은 세트 코드·번호로 공식 사진을 바로 찾고, 일본판·영문판은 이름으로 찾아요.</p>
+              <p>카드 이름이나 세트 코드·번호(예: SV8a-217)로 공식 사진을 찾아요.</p>
             </div>
 
             <div className="picker-tabs">
@@ -402,15 +412,15 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
             <form className="picker-search-bar" onSubmit={handlePickerSearch}>
               <input
                 type="text"
-                placeholder={pickerTab === 'kr' ? '세트 코드-번호 (예: SV8a-217, M3-086)' : '한글 이름 (자동으로 번역해서 찾아요)'}
+                placeholder={pickerTab === 'kr' ? '카드 이름 또는 세트 코드-번호 (예: 리자몽, SV8a-217)' : '한글 이름 (자동으로 번역해서 찾아요)'}
                 value={pickerQuery}
                 onChange={(e) => setPickerQuery(e.target.value)}
               />
               <button type="submit" className="btn btn-primary">검색</button>
             </form>
-            {pickerTab === 'ja' && pickerSet && (
+            {(pickerTab === 'ja' || (pickerTab === 'kr' && !parseCardCode(pickerQuery))) && pickerSet && (
               <label className="picker-option">
-                <input type="checkbox" checked={jpSameSet} onChange={(e) => { setJpSameSet(e.target.checked); runPickerSearch('ja', pickerQuery, e.target.checked); }} />
+                <input type="checkbox" checked={jpSameSet} onChange={(e) => { setJpSameSet(e.target.checked); runPickerSearch(pickerTab, pickerQuery, e.target.checked); }} />
                 이 카드 세트({pickerSet.code.toUpperCase()})에서만 찾기
               </label>
             )}
@@ -423,7 +433,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
                 </div>
               ) : pickerResults.length > 0 && pickerFailed.size < pickerResults.length ? (
                 <>
-                  {pickerTab === 'kr' && pickerLoaded === 0 && <p className="picker-note">공식 사진 주소를 확인하는 중...</p>}
+                  {pickerTab === 'kr' && pickerLoaded === 0 && parseCardCode(pickerQuery) && <p className="picker-note">공식 사진 주소를 확인하는 중...</p>}
                   <div className="picker-grid">
                     {pickerResults.filter((r) => !pickerFailed.has(r.id)).map((res) => (
                       <div key={res.id} className="picker-img-wrapper" onClick={() => selectPickerImage(res.fullImage)} title={res.title || res.source}>
@@ -443,7 +453,9 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
               ) : (
                 <div className="picker-empty">
                   {pickerTab === 'kr'
-                    ? '이 세트 코드·번호로 된 공식 사진을 찾지 못했어요. 번호를 확인하거나 일본판·영문판 탭에서 찾아보세요.'
+                    ? (parseCardCode(pickerQuery)
+                      ? '이 세트 코드·번호로 된 공식 사진을 찾지 못했어요. 번호를 확인하거나 이름으로 찾아보세요.'
+                      : '이 이름으로 된 한국 공식 카드를 찾지 못했어요. 이름을 줄여서(예: "리자몽") 찾거나 일본판·영문판 탭을 써 보세요.')
                     : '이 이름으로 된 사진을 찾지 못했어요.'}
                 </div>
               )}

@@ -4477,3 +4477,16 @@ body:has(.ae) .scroll-to-top-btn { display: none !important; }
   .ae-tray-head .ae-hint { font-size: 0.74rem; }
   .ae-tray { padding: 6px 12px 8px; }
 }
+
+/* 사진 찾기 창: 휴대폰에서 검색칸·탭이 창 밖으로 넘치지 않게 */
+.picker-search-bar input { min-width: 0; }
+.picker-search-bar button { flex: none; }
+@media (max-width: 768px) {
+  .picker-content { overflow-x: hidden; }
+  .picker-tabs { gap: 0; padding: 0 8px; margin-top: 1rem; overflow-x: auto; justify-content: flex-start; }
+  .picker-tabs .tab-btn { flex: 1 1 auto; min-width: 0; padding: 0.75rem 0.4rem; font-size: 0.85rem; white-space: nowrap; }
+  .picker-search-bar { padding: 0 12px; gap: 8px; }
+  .picker-search-bar input { padding: 10px 12px; font-size: 16px; }
+  .picker-search-bar button { padding: 0 16px; font-size: 0.95rem; }
+  .picker-note { padding: 0 12px; word-break: keep-all; }
+}
