@@ -7,7 +7,8 @@
 //   npm run thumbs -- --prune   어떤 카드에서도 쓰지 않는 썸네일 파일을 지운다
 //   npm run thumbs -- --csv=database_backups/main_dataset.csv  Firestore 대신 CSV에서 목록을 읽는다
 //
-// 만든 뒤에는 public/thumbs 를 커밋해서 배포해야 사이트에 반영된다.
+// 매일 새벽 GitHub Actions(.github/workflows/backup-cards.yml)가 빠진 썸네일을 자동으로 만들고
+// 커밋·배포까지 한다. 손으로 돌릴 때는 만든 뒤 public/thumbs 를 커밋해서 배포해야 사이트에 반영된다.
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
