@@ -253,10 +253,9 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
             </div>
           ) : (
             <div className="card-grid ctile-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
-              {list.map(({ card, value, count, unit }) => (
+              {list.map(({ card }) => (
                 <div key={card.id} className="col-item">
                   <CardTile card={card} settings={settings} onClick={() => detail.openCard(card)} />
-                  {value > 0 && <div className="col-value">시세 {won(value)}{count > 1 && unit ? <small> (약 {won(unit)} × {count})</small> : null}</div>}
                 </div>
               ))}
             </div>
