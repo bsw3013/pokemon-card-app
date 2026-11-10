@@ -33,12 +33,13 @@ export function topGrading(card) {
 export const CONDITION_OPTIONS = ['미개봉', '민트', '거의 새것', '사용감 있음', '손상'];
 
 export function isGradedCopy(p) {
-  return !!(p && p.company && p.company !== 'raw' && p.grade);
+  // 등급 업체를 골랐으면 등급 카드 (점수는 나중에 적어도 됨)
+  return !!(p && p.company && p.company !== 'raw');
 }
 
 export function possessionLabel(p, cardLang) {
   if (!p) return '';
-  const base = isGradedCopy(p) ? `${p.company} ${p.grade}` : (p.condition || '일반');
+  const base = isGradedCopy(p) ? `${p.company} ${p.grade || ''}`.trim() : (p.condition || '일반');
   const rowLang = p.language || cardLang;
   const lang = rowLang && !String(rowLang).includes('한국') ? ` · ${langShort(rowLang)}` : '';
   const qty = Number(p.count) > 1 ? ` ×${p.count}` : '';
@@ -59,13 +60,40 @@ export function cardLanguage(card) {
   return String(card?.language || '').trim() || '한국';
 }
 
-// 등급 카드 정보. 보유 기록에 등급(PSA 10 등)이 있으면 그 장수,
-// 기록 없이 보유 상태만 "등급카드"로 해 둔 카드도 등급 카드로 센다.
+// 보유 기록 한 줄의 등급 정보 (없으면 null). 아주 옛날 형식(graded 배열)도 읽는다.
+export function copyGrade(p) {
+  if (isGradedCopy(p)) return { company: p.company, grade: p.grade || '' };
+  const g = Array.isArray(p?.graded) ? p.graded.find((x) => x?.company && x?.grade) : null;
+  return g ? { company: g.company, grade: g.grade } : null;
+}
+
+const isRawCopy = (p) => !copyGrade(p) && (p?.company === 'raw' || !!p?.condition);
+
+// 보유 카드를 "등급 카드"와 "일반 카드"로 나눈 결과.
+// 보유 기록에 등급이 있으면 기록대로, 기록 없이 보유 상태만 "등급카드"면 전부 등급 카드로 본다.
+export function copyBreakdown(card) {
+  const total = ownedCount(card);
+  const rows = parsePossessions(card?.possessions).filter((r) => r && Number(r.count ?? 1) > 0);
+  let gradedCount = 0;
+  let top = null;
+  rows.forEach((r) => {
+    const g = copyGrade(r);
+    if (!g) return;
+    gradedCount += Number(r.count) || 1;
+    const num = parseFloat(String(g.grade).replace(/[^0-9.]/g, '')) || 0;
+    if (!top || num > top.num) top = { ...g, num };
+  });
+  let statusOnly = false;
+  if (!gradedCount && total > 0 && String(card?.status || '').includes('등급') && !rows.some(isRawCopy)) {
+    gradedCount = total;
+    statusOnly = true;
+  }
+  gradedCount = Math.min(gradedCount, total);
+  return { total, gradedCount, rawCount: Math.max(0, total - gradedCount), top, statusOnly };
+}
+
+// 등급 카드 장수 (내 컬렉션 필터·통계용)
 export function gradedInfo(card) {
-  const rows = parsePossessions(card?.possessions);
-  const gradedRows = rows.filter((r) => isGradedCopy(r) || (Array.isArray(r?.graded) && r.graded.some((g) => g?.company && g?.grade)));
-  const count = gradedRows.reduce((s, r) => s + (Number(r.count) || 1), 0);
-  if (count > 0) return { count, statusOnly: false };
-  if (String(card?.status || '').includes('등급')) return { count: ownedCount(card), statusOnly: true };
-  return { count: 0, statusOnly: false };
+  const b = copyBreakdown(card);
+  return { count: b.gradedCount, statusOnly: b.statusOnly };
 }

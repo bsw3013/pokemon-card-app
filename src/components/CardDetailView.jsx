@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useAuth } from '../AuthContext';
 import { useOwnedCards } from '../hooks/useOwnedCards';
 import { DEFAULT_SETS, buildSetIndex, findSetForCard, parseCardNo } from '../utils/catalog';
-import { cardLanguage, gradedInfo, langShort, ownedCount, parsePossessions, possessionLabel } from '../utils/cardStats';
+import { cardLanguage, copyBreakdown, copyGrade, langShort, ownedCount, parsePossessions } from '../utils/cardStats';
 import { rarityTone } from '../utils/rarityTone';
 import { navigate } from '../utils/hashRoute';
 import { displayPokedexNumber } from '../utils/numberUtils';
@@ -23,10 +23,10 @@ export default function CardDetailView({ card, isAdmin, marketSummary, onEdit, o
   const index = useMemo(() => buildSetIndex(catalog?.sets || DEFAULT_SETS), [catalog]);
   const set = findSetForCard(card, index);
   const no = card.cardNo ?? parseCardNo(card.cardNumber);
-  const count = ownedCount(card);
-  const copies = parsePossessions(card.possessions);
+  const split = copyBreakdown(card);
+  const count = split.total;
+  const copies = parsePossessions(card.possessions).filter((p) => p && Number(p.count ?? 1) > 0);
   const language = cardLanguage(card);
-  const graded = gradedInfo(card);
 
   // 같은 포켓몬(도감번호가 같거나 이름이 같은) 다른 카드
   const relatives = useMemo(() => {
@@ -78,27 +78,47 @@ export default function CardDetailView({ card, isAdmin, marketSummary, onEdit, o
           <section className="cdv-section">
             <h3>내 보유 {count > 0 && <em>{count}장</em>}</h3>
             {count > 0 && (
-              <div className="cdv-own-tags">
-                <span className="cdv-tag">{langShort(language)}</span>
-                {graded.count > 0 && <span className="cdv-tag strong">등급 카드{graded.count > 1 ? ` ${graded.count}장` : ''}</span>}
-                {card.status && <span className="cdv-tag muted">보유 상태: {card.status}</span>}
+              <div className="own-summary">
+                {split.gradedCount > 0 && <span className="own-chip graded">등급 카드 {split.gradedCount}장</span>}
+                {split.rawCount > 0 && <span className="own-chip raw">일반 카드 {split.rawCount}장</span>}
+                {!language.includes('한국') && <span className={`own-chip lang lang-${langShort(language)}`}>{langShort(language)}</span>}
               </div>
             )}
             {count === 0 ? (
               <p className="sub">아직 갖고 있지 않은 카드예요.</p>
             ) : copies.length === 0 ? (
-              <p className="sub">자세한 보유 기록(등급 업체·점수, 구매가 등)이 아직 없어요. [{isAdmin ? '수정' : '보유 정보 기록'}]에서 적을 수 있어요.</p>
+              <p className="sub">
+                {split.statusOnly ? '등급 카드로만 표시돼 있어요. ' : ''}
+                자세한 기록(등급 업체·점수, 카드 상태, 구매가 등)은 [{isAdmin ? '수정' : '보유 정보 기록'}]에서 적을 수 있어요.
+              </p>
             ) : (
-              <ul className="cdv-copies">
-                {copies.map((p, i) => (
-                  <li key={p.id || i}>
-                    <span className="cdv-copy-main">{possessionLabel(p, language)}</span>
-                    <span className="cdv-copy-meta">
-                      {[p.purchasePrice ? `구매 ${won(p.purchasePrice)}` : '', p.purchaseDate, p.location, p.forTrade ? '판매·교환 가능' : '', p.serial ? `#${p.serial}` : '', p.notes]
-                        .filter(Boolean).join(' · ')}
-                    </span>
-                  </li>
-                ))}
+              <ul className="own-copies">
+                {copies.map((p, i) => {
+                  const g = copyGrade(p);
+                  const rowLang = langShort(p.language || language);
+                  const qty = Number(p.count) > 1 ? ` ×${p.count}` : '';
+                  const meta = [
+                    rowLang,
+                    p.purchasePrice ? `구매 ${won(p.purchasePrice)}` : '',
+                    p.purchaseDate, p.location,
+                    p.forTrade ? '판매·교환 가능' : '',
+                    p.serial ? `인증번호 ${p.serial}` : '',
+                    p.notes,
+                  ].filter(Boolean).join(' · ');
+                  return (
+                    <li key={p.id || i} className={g ? 'graded' : 'raw'}>
+                      <span className="own-copy-mark" aria-hidden="true">
+                        {g ? <><small>{g.company}</small><b>{g.grade || '-'}</b></> : <b>일반</b>}
+                      </span>
+                      <span className="own-copy-body">
+                        <span className="own-copy-title">
+                          {g ? `등급 카드 · ${g.company} ${g.grade || '(점수 미기록)'}` : `일반 카드 · ${p.condition || '상태 기록 없음'}`}{qty}
+                        </span>
+                        {meta && <span className="own-copy-meta">{meta}</span>}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
             {Number(card.price) > 0 && <p className="cdv-value">내 평가 가격 <b>{won(card.price)}</b>{count > 1 ? ` × ${count}장 = ${won(card.price * count)}` : ''}</p>}

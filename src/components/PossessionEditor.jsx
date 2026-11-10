@@ -3,13 +3,13 @@ import { CONDITION_OPTIONS } from '../utils/cardStats';
 
 const LANGS = ['한국', '일본', '미국', '중국'];
 
-function newRow(defaultLanguage) {
+function newRow(defaultLanguage, company = '') {
   return {
     id: `p_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
     count: 1,
-    condition: '민트',
+    condition: company ? '' : '민트',
     language: defaultLanguage || '한국',
-    company: '',
+    company,
     grade: '',
     serial: '',
     purchasePrice: '',
@@ -29,7 +29,15 @@ export default function PossessionEditor({ rows, onChange, gradingCompanies = []
     onChange(next);
   };
   const remove = (index) => onChange(rows.filter((_, i) => i !== index));
-  const add = () => onChange([...rows, newRow(defaultLanguage)]);
+  const firstCompany = gradingCompanies[0] || 'PSA';
+  const add = (company = '') => onChange([...rows, newRow(defaultLanguage, company)]);
+  const setType = (index, graded) => {
+    const next = rows.slice();
+    next[index] = graded
+      ? { ...next[index], company: next[index].company && next[index].company !== 'raw' ? next[index].company : firstCompany }
+      : { ...next[index], company: '', grade: '', serial: '', condition: next[index].condition || '민트' };
+    onChange(next);
+  };
   const total = rows.reduce((sum, r) => sum + (Number(r.count) || 0), 0);
 
   return (
@@ -41,19 +49,22 @@ export default function PossessionEditor({ rows, onChange, gradingCompanies = []
       {rows.map((r, i) => {
         const graded = r.company && r.company !== 'raw';
         return (
-          <div key={r.id || i} className="pe-row">
+          <div key={r.id || i} className={`pe-row ${graded ? 'graded' : 'raw'}`}>
+            <div className="pe-type" role="group" aria-label="카드 종류">
+              <button type="button" className={!graded ? 'on' : ''} onClick={() => setType(i, false)}>일반 카드</button>
+              <button type="button" className={graded ? 'on' : ''} onClick={() => setType(i, true)}>등급 카드 (슬랩)</button>
+            </div>
             <div className="pe-grid">
               <label className="pe-f pe-count">수량
                 <input type="number" min={1} value={r.count ?? 1} onChange={(e) => update(i, 'count', Math.max(0, parseInt(e.target.value || '0', 10)))} />
               </label>
-              <label className="pe-f">등급
-                <select value={r.company || ''} onChange={(e) => update(i, 'company', e.target.value)}>
-                  <option value="">무등급</option>
-                  {gradingCompanies.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </label>
               {graded ? (
                 <>
+                  <label className="pe-f">등급 업체
+                    <select value={r.company || ''} onChange={(e) => update(i, 'company', e.target.value)}>
+                      {[...new Set([...gradingCompanies, r.company].filter(Boolean))].map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </label>
                   <label className="pe-f pe-small">점수
                     <select value={r.grade || ''} onChange={(e) => update(i, 'grade', e.target.value)}>
                       <option value="">선택</option>
@@ -65,7 +76,7 @@ export default function PossessionEditor({ rows, onChange, gradingCompanies = []
                   </label>
                 </>
               ) : (
-                <label className="pe-f">상태
+                <label className="pe-f">카드 상태
                   <select value={r.condition || ''} onChange={(e) => update(i, 'condition', e.target.value)}>
                     <option value="">선택</option>
                     {CONDITION_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -100,7 +111,10 @@ export default function PossessionEditor({ rows, onChange, gradingCompanies = []
           </div>
         );
       })}
-      <button type="button" className="btn btn-secondary" onClick={add}>보유 기록 추가</button>
+      <div className="pe-add">
+        <button type="button" className="btn btn-secondary" onClick={() => add('')}>+ 일반 카드 추가</button>
+        <button type="button" className="btn btn-secondary" onClick={() => add(firstCompany)}>+ 등급 카드 추가</button>
+      </div>
     </div>
   );
 }
