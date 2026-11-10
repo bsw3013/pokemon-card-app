@@ -11,6 +11,8 @@ import { rarityTone } from '../utils/rarityTone';
 import { navigate } from '../utils/hashRoute';
 import { displayPokedexNumber } from '../utils/numberUtils';
 import CardThumbnail from './CardThumbnail';
+import { useWatchEntry } from '../hooks/useWatchlist';
+import { buildCardKey } from '../utils/cardKey';
 
 const text = (v) => String(v ?? '').trim();
 const won = (n) => `${Number(n || 0).toLocaleString()}원`;
@@ -39,7 +41,17 @@ function baseName(name) {
 
 // 카드 상세 "보기" 화면 (수정은 [수정] 버튼으로)
 export default function CardDetailView({ card, isAdmin, onEdit, onViewMarket, onOpenCard }) {
-  const { user, nickname } = useAuth();
+  const { user, nickname, signInWithGoogle } = useAuth();
+  const watch = useWatchEntry(card?.id ? buildCardKey(card) : '');
+  async function toggleWatch() {
+    if (!watch.signedIn) { signInWithGoogle(); return; }
+    try {
+      if (watch.entry) await watch.remove(); else await watch.add(card);
+    } catch (err) {
+      console.error('관심 카드 변경 실패', err);
+      alert('관심 카드를 바꾸지 못했어요.');
+    }
+  }
   const { cards, catalog, saveOwnership } = useOwnedCards();
   const [sellingId, setSellingId] = useState(null); // 판매완료 입력창을 연 보유 기록 줄
   const [busy, setBusy] = useState(false);
@@ -155,6 +167,18 @@ export default function CardDetailView({ card, isAdmin, onEdit, onViewMarket, on
             {isAdmin ? '수정' : user ? '보유 정보 기록' : '로그인하고 기록하기'}
           </button>
           {onViewMarket && <button type="button" className="btn btn-secondary" onClick={onViewMarket}>시세 보기</button>}
+          {card?.id && (
+            <button
+              type="button"
+              className={`btn btn-secondary cdv-watch${watch.entry ? ' is-on' : ''}`}
+              onClick={toggleWatch}
+              disabled={watch.busy}
+              aria-pressed={!!watch.entry}
+              title={watch.entry ? '관심 카드에서 빼기' : '관심 카드에 추가'}
+            >
+              <span aria-hidden="true">{watch.entry ? '★' : '☆'}</span> {watch.entry ? '관심 카드' : '관심 카드 추가'}
+            </button>
+          )}
         </div>
 
         <dl className="cdv-rows">

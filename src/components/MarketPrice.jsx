@@ -14,6 +14,7 @@ import { useAuth } from '../AuthContext';
 import { useOwnedCards } from '../hooks/useOwnedCards';
 import { buildCardKey, isIdCardKey, resolveLegacyCardKey } from '../utils/cardKey';
 import MarketDrawer, { LangConditionTable } from './MarketDrawer';
+import { invalidateWatchlist } from '../hooks/useWatchlist';
 
 const PICKER_RESULT_LIMIT = 60;
 
@@ -224,6 +225,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
         addedAt: new Date().toISOString(),
       });
       await loadWatchlist();
+      invalidateWatchlist();
     }
     selectCard(pendingAdd);
     setPendingAdd(null);
@@ -233,6 +235,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
 
   async function handleRemoveWatchlist(id) {
     await deleteDoc(doc(db, 'marketWatchlist', id));
+    invalidateWatchlist();
     loadWatchlist();
   }
 
