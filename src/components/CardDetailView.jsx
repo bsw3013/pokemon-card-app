@@ -50,8 +50,6 @@ export default function CardDetailView({ card, isAdmin, marketSummary, onEdit, o
   const sold = soldRows(card).sort((a, b) => String(b.soldDate || '').localeCompare(String(a.soldDate || '')));
   const language = cardLanguage(card);
 
-  // 보유 기록 없이 "보유중"만 표시된 카드도 판매완료로 기록할 수 있게 임시 줄을 만든다.
-  const sellableRows = copies.length > 0 ? copies : (count > 0 ? [{ id: 'auto_row', count, language }] : []);
 
   const saveRows = async (rows) => {
     await saveOwnership(card.id, { possessions: rows, status: statusFromRows(rows, card.status || '미보유') });
@@ -70,9 +68,7 @@ export default function CardDetailView({ card, isAdmin, marketSummary, onEdit, o
           alert('판매는 기록하지만, 시세 기록 추가는 실패했어요.');
         }
       }
-      const base = copies.length > 0 ? parsePossessions(card.possessions) : [{ ...row, id: `p_${card.id}_first` }];
-      const rowId = copies.length > 0 ? row.id : base[0].id;
-      await saveRows(sellCopy(base, rowId, { ...form, listingId }));
+      await saveRows(sellCopy(parsePossessions(card.possessions), row.id, { ...form, listingId }));
       setSellingId(null);
       if (listingId) onMarketChanged?.();
     } catch (err) {
@@ -161,17 +157,10 @@ export default function CardDetailView({ card, isAdmin, marketSummary, onEdit, o
             {count === 0 ? (
               <p className="sub">{sold.length > 0 ? '지금은 갖고 있지 않아요. (모두 판매완료)' : '아직 갖고 있지 않은 카드예요.'}</p>
             ) : copies.length === 0 ? (
-              <>
-                <p className="sub">
-                  {split.statusOnly ? '등급 카드로만 표시돼 있어요. ' : ''}
-                  자세한 기록(등급 업체·점수, 카드 상태, 구매가 등)은 [{isAdmin ? '수정' : '보유 정보 기록'}]에서 적을 수 있어요.
-                </p>
-                {sellingId === 'auto_row' ? (
-                  <SaleForm row={sellableRows[0]} busy={busy} onCancel={() => setSellingId(null)} onSubmit={(f) => handleSell(sellableRows[0], f)} />
-                ) : (
-                  <button type="button" className="btn btn-secondary btn-compact" onClick={() => setSellingId('auto_row')}>판매완료로 기록</button>
-                )}
-              </>
+              <p className="sub">
+                {split.statusOnly ? '등급 카드로만 표시돼 있어요. ' : ''}
+                자세한 기록(등급 업체·점수, 카드 상태, 구매가 등)은 [{isAdmin ? '수정' : '보유 정보 기록'}]에서 적을 수 있어요.
+              </p>
             ) : (
               <ul className="own-copies">
                 {copies.map((p, i) => {
@@ -197,7 +186,8 @@ export default function CardDetailView({ card, isAdmin, marketSummary, onEdit, o
                           </span>
                           {meta && <span className="own-copy-meta">{meta}</span>}
                         </span>
-                        {sellingId !== key && p.id && (
+                        {/* 판매완료 버튼은 [판매중]으로 고른 줄에만 */}
+                        {sellingId !== key && p.id && isForSale(p) && (
                           <button type="button" className="btn btn-secondary btn-compact own-copy-action" onClick={() => setSellingId(key)}>판매완료</button>
                         )}
                       </div>

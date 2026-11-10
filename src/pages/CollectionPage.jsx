@@ -317,10 +317,10 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
               <button type="button" className={salesView === 'sold' ? 'on' : ''} onClick={() => setSalesView('sold')}>판매 기록 {sales.done.length}</button>
               <button type="button" className={salesView === 'listed' ? 'on' : ''} onClick={() => setSalesView('listed')}>판매중 {sales.listed.length}</button>
             </div>
-            <span className="sub">카드를 누르면 상세에서 [판매완료]·[되돌리기]를 할 수 있어요.</span>
+            <span className="sub">판매중인 카드를 누르면 상세에서 [판매완료], 판매 기록은 [되돌리기]를 할 수 있어요.</span>
           </div>
           {salesView === 'sold' ? (sales.done.length === 0 ? (
-            <div className="cp-empty">아직 판매 기록이 없어요. 카드 상세의 "내 보유"에서 [판매완료]를 눌러 기록해 보세요.</div>
+            <div className="cp-empty">아직 판매 기록이 없어요. 카드 수정 화면에서 보유 기록을 [판매중]으로 바꾸면, 카드 상세에 [판매완료] 버튼이 생겨요.</div>
           ) : (
             <div className="cp-table-wrap">
               <table className="cp-table">
