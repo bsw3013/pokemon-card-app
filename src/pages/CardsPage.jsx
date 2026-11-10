@@ -15,6 +15,8 @@ import SortControl from '../components/SortControl';
 import { useMarketIndex } from '../hooks/useMarketIndex';
 import { cardMarketValue, representativePrice } from '../utils/marketPrice';
 import { readSort, sortItems, writeSort } from '../utils/sortCards';
+import { useBulkSelect } from '../hooks/useBulkSelect';
+import BulkBar from '../components/BulkBar';
 
 const PAGE = 120;
 const NONE = '__none__';
@@ -197,6 +199,11 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
   ];
   const ownedTotal = useMemo(() => enriched.filter((e) => e.count > 0).length, [enriched]);
   const shown = filtered.slice(0, visible);
+  // 여러 장 선택 (보유·관심 카드·카드 정보를 한꺼번에 바꾸기)
+  const bulk = useBulkSelect();
+  const filteredIds = useMemo(() => filtered.map((e) => e.card.id), [filtered]);
+  const bulkOn = bulk.active && !isPicker;
+  const openOrPick = (card, e) => (bulkOn ? bulk.toggle(card.id, !!e?.shiftKey, filteredIds) : detail.openCard(card));
 
   const filterPanel = (
     <aside className={`cp-filters ${filtersOpen ? 'open' : ''}`} aria-label="필터">
@@ -342,6 +349,11 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
                 </div>
               )}
               {view === 'grid' && <ThumbnailSettings settings={thumbSettings} toggleSetting={toggleSetting} updateSettings={updateSettings} />}
+              {!isPicker && user && (
+                <button type="button" className={`btn btn-compact ${bulkOn ? 'btn-primary' : 'btn-secondary'}`} onClick={bulkOn ? bulk.stop : bulk.start}>
+                  {bulkOn ? '선택 끝내기' : '여러 장 선택'}
+                </button>
+              )}
             </div>
           </div>
 
@@ -367,9 +379,11 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
                   key={card.id}
                   card={card}
                   settings={thumbSettings}
-                  selected={isPicker && selectedIds.includes(card.id)}
-                  onClick={() => (isPicker ? toggle(card.id, selectedIds, setSelectedIds) : detail.openCard(card))}
-                  overlay={isPicker ? <div className="picker-checkbox">{selectedIds.includes(card.id) ? '✓' : ''}</div> : null}
+                  selected={isPicker ? selectedIds.includes(card.id) : bulkOn && bulk.selected.has(card.id)}
+                  onClick={(e) => (isPicker ? toggle(card.id, selectedIds, setSelectedIds) : openOrPick(card, e))}
+                  overlay={isPicker
+                    ? <div className="picker-checkbox">{selectedIds.includes(card.id) ? '✓' : ''}</div>
+                    : bulkOn ? <div className="picker-checkbox">{bulk.selected.has(card.id) ? '✓' : ''}</div> : null}
                 />
               ))}
             </div>
@@ -381,8 +395,11 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
                 </thead>
                 <tbody>
                   {shown.map(({ card, set, no, count, unit }) => (
-                    <tr key={card.id} onClick={() => detail.openCard(card)} tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') detail.openCard(card); }}>
-                      <td className="thumb"><CardThumbnail imageUrl={card.imageUrl} alt="" type="table" /></td>
+                    <tr key={card.id} className={bulkOn && bulk.selected.has(card.id) ? 'selected' : ''} onClick={(e) => openOrPick(card, e)} tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') openOrPick(card, e); }}>
+                      <td className="thumb">
+                        {bulkOn && <span className="row-check" aria-hidden="true">{bulk.selected.has(card.id) ? '✓' : ''}</span>}
+                        <CardThumbnail imageUrl={card.imageUrl} alt="" type="table" />
+                      </td>
                       <td className="name">{card.cardName || '이름 없음'}</td>
                       <td className="set">{set ? <><span className="code">{set.code}</span> {set.name}</> : (card.series || '-')}</td>
                       <td className="mono">{no ? `${no}${set?.printedTotal ? `/${set.printedTotal}` : ''}` : (card.cardNumber || '-')}</td>
@@ -401,6 +418,7 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
         </section>
       </div>
       {!isPicker && detail.modal}
+      {!isPicker && <BulkBar selection={bulk} visibleIds={filteredIds} appConfig={appConfig} />}
     </main>
   );
 }
