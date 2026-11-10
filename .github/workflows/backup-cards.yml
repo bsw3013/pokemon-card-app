@@ -1,8 +1,12 @@
-# 카드 도감(pokemon_cards)을 매일 자동으로 CSV 백업해서 저장소에 커밋한다.
+# 매일 하는 자동 작업 두 가지
+#  1) 카드 도감(pokemon_cards)을 CSV로 백업해서 저장소에 커밋
+#  2) 썸네일이 없는 카드 사진만 골라 썸네일(public/thumbs)을 만들고,
+#     새로 만든 게 있으면 커밋한 뒤 사이트를 바로 다시 배포
+#     (봇이 올린 커밋은 "머지하면 배포" 작업을 다시 일으키지 않아서, 여기서 직접 배포한다)
 # - 매일 새벽 3시 17분(한국 시간)에 자동 실행
 # - Actions 탭 → "Backup card database" → "Run workflow" 버튼으로 언제든 바로 실행 가능
-# - 바뀐 내용이 없으면 커밋하지 않는다.
-# 깃허브가 자동으로 주는 임시 토큰(GITHUB_TOKEN)만 쓰므로, 따로 만든 토큰이 필요 없다.
+# - 바뀐 내용이 없으면 커밋·배포하지 않는다. (대부분의 날은 1분 안에 끝남)
+# 깃허브가 자동으로 주는 임시 토큰(GITHUB_TOKEN)과 이미 등록된 Firebase 배포 키만 쓴다.
 name: Backup card database
 
 on:
@@ -26,8 +30,12 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898699+github-actions[bot]@users.noreply.github.com"
+
       - run: node scripts/backup-cards.mjs database_backups/main_dataset.csv
-      - name: 바뀐 내용이 있으면 커밋
+      - name: 백업이 바뀌었으면 커밋
         run: |
           git add -N database_backups/catalog.json 2>/dev/null || true
           if git diff --quiet -- database_backups/main_dataset.csv database_backups/catalog.json; then
@@ -37,8 +45,46 @@ jobs:
           STAMP=$(TZ=Asia/Seoul date +%Y-%m-%d_%H-%M-%S)
           cp database_backups/main_dataset.csv "database_backups/backup_${STAMP}.csv"
           COUNT=$(($(grep -c '' database_backups/main_dataset.csv) - 1))
-          git config user.name "github-actions[bot]"
-          git config user.email "41898699+github-actions[bot]@users.noreply.github.com"
           git add database_backups
           git commit -m "카드 DB 자동 백업: ${STAMP} (총 ${COUNT}건)"
+          git pull --rebase origin main
           git push
+
+      - name: 빠진 썸네일 만들기
+        id: thumbs
+        run: |
+          node scripts/make-thumbnails.mjs
+          git add -A public/thumbs
+          if git diff --cached --quiet -- public/thumbs; then
+            echo "새로 만든 썸네일이 없어서 커밋·배포하지 않습니다."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          N=$(git diff --cached --name-only -- public/thumbs | wc -l)
+          git commit -m "카드 썸네일 자동 생성: ${N}장"
+          git pull --rebase origin main
+          git push
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: 사이트 빌드 (새 썸네일 반영)
+        if: steps.thumbs.outputs.changed == 'true'
+        run: npm run build
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_GITHUB_OWNER: ${{ secrets.VITE_GITHUB_OWNER }}
+          VITE_GITHUB_REPO: ${{ secrets.VITE_GITHUB_REPO }}
+          VITE_GITHUB_BACKUP_PATH: ${{ secrets.VITE_GITHUB_BACKUP_PATH }}
+
+      - name: 사이트 배포
+        if: steps.thumbs.outputs.changed == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_POKEMONCARD_0319 }}
+          channelId: live
+          projectId: pokemoncard-0319
