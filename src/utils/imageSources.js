@@ -67,7 +67,7 @@ const normKo = (s) => String(s || '').replace(/\s+/g, '').toLowerCase();
 const productShort = (name) => { const m = String(name || '').match(/「(.+?)」/); return m ? m[1] : String(name || ''); };
 
 // 이름(또는 세트 코드·번호)으로 한국 공식 카드 찾기. setCode 를 주면 그 세트에서만.
-export function searchKrIndex(index, { text = '', setCode = '' }, limit = 120) {
+export function searchKrIndex(index, { text = '', setCode = '' }, limit = 1000) {
   if (!index?.cards) return [];
   const code = parseCardCode(text);
   const key = normKo(text);
@@ -125,25 +125,33 @@ export function loadJpIndex() {
 }
 
 // 가타카나·히라가나·공백 차이를 줄여서 비교
-const normJa = (s) => String(s || '').replace(/[\s・･＝=]/g, '').replace(/[ぁ-ゖ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) + 0x60)).toLowerCase();
+// NFKC: 전각 글자(２・Ｚ)를 반각(2・Z)으로 맞춘다 (폴리곤2·폴리곤Z)
+const normJa = (s) => String(s || '').normalize('NFKC').replace(/[\s・･＝=]/g, '').replace(/[ぁ-ゖ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) + 0x60)).toLowerCase();
 
 // names: 찾을 일본어 이름들, setCode: 세트 코드로도 찾기(선택)
-export function searchJpIndex(index, { names = [], setCode = '' }, limit = 80) {
+// 일본 프로모 카드 세트: 코드가 "-P"로 끝나는 세트(SV-P, S-P, M-P …)와 예전 프로모 세트
+const JP_PROMO_SETS = new Set(['XYP', 'SMP', 'BWP', 'DPP', 'DPtP', 'LP', 'PPP', 'WCP', 'SVJP', 'SMSMP']);
+export const isJpPromoSet = (code) => /-P$/i.test(String(code || '')) || JP_PROMO_SETS.has(String(code || ''));
+// 공식 사이트 이름에 섞여 있는 "&amp;" 같은 글자를 원래 글자로
+const decodeHtml = (s) => String(s || '').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+
+// 최신 카드(카드 ID가 큰 것)부터 전부 보여준다
+export function searchJpIndex(index, { names = [], setCode = '', promoOnly = false }, limit = 1000) {
   if (!index?.cards) return [];
   const keys = names.map(normJa).filter(Boolean);
   const set = String(setCode || '').trim().toLowerCase();
   const hits = [];
-  for (const [id, name, cardSet, file] of index.cards) {
+  for (const [id, rawName, cardSet, file] of index.cards) {
+    const name = decodeHtml(rawName);
     const n = normJa(name);
     const nameHit = keys.length === 0 || keys.some((k) => n.includes(k));
     const setHit = !set || cardSet.toLowerCase() === set;
-    if (nameHit && setHit) {
+    if (nameHit && setHit && (!promoOnly || isJpPromoSet(cardSet))) {
       const url = `${index.imageBase}${cardSet}/${file}`;
       hits.push({ id: `jp_${id}`, source: `일본 공식 · ${cardSet}`, title: name, thumbnail: url, fullImage: url, meta: { lang: 'ja', id: String(id), name, set: cardSet } });
-      if (hits.length >= limit) break;
     }
   }
-  return hits;
+  return hits.sort((x, y) => Number(y.meta.id) - Number(x.meta.id)).slice(0, limit);
 }
 
 // ---------- 영어: TCGdex (+ 사진 없는 카드는 pokemontcg.io 사진) ----------

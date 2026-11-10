@@ -37,6 +37,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
   const [pickerFailed, setPickerFailed] = useState(() => new Set()); // 사진이 안 열린 후보(한국 탭)
   const [pickerLoaded, setPickerLoaded] = useState(0);
   const [jpSameSet, setJpSameSet] = useState(true);
+  const [jpPromoOnly, setJpPromoOnly] = useState(false);
   const [autofill, setAutofill] = useState(null); // 사진을 고르며 자동으로 채운 칸 { fields: {...} }
 
   // 📷 직접 업로드 및 URL 입력 상태
@@ -173,7 +174,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
     return map[parts[0]] ? [map[parts[0]], ...parts.slice(1)].join(' ') : text;
   };
 
-  const runPickerSearch = async (tab, queryText, sameSet = jpSameSet) => {
+  const runPickerSearch = async (tab, queryText, sameSet = jpSameSet, promoOnly = jpPromoOnly) => {
     const q = String(queryText || '').trim();
     setPickerResults([]);
     setPickerFailed(new Set());
@@ -200,11 +201,12 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
         const index = await loadJpIndex();
         const isJa = /[぀-ヿ]/.test(q);
         const names = [isJa ? q : translate(q, krToJa)].filter(Boolean);
-        const setCode = sameSet && pickerSet ? pickerSet.code : '';
-        let list = searchJpIndex(index, { names, setCode });
-        if (list.length === 0 && setCode) list = searchJpIndex(index, { names });
+        // 프로모만 볼 때는 프로모 세트가 따로 있어서 "이 카드 세트에서만"은 쓰지 않는다
+        const setCode = sameSet && pickerSet && !promoOnly ? pickerSet.code : '';
+        let list = searchJpIndex(index, { names, setCode, promoOnly });
+        if (list.length === 0 && setCode) list = searchJpIndex(index, { names, promoOnly });
         setPickerResults(list);
-        setPickerNote(`일본 공식 카드 ${Number(index.count || 0).toLocaleString()}장 중에서 찾았어요 · 목록 갱신 ${String(index.updatedAt || '').slice(0, 10)}`);
+        setPickerNote(`일본 공식 카드 ${Number(index.count || 0).toLocaleString()}장 중 ${list.length.toLocaleString()}장${promoOnly ? '(프로모)' : ''}을 찾았어요 · 최신 카드부터 · 목록 갱신 ${String(index.updatedAt || '').slice(0, 10)}`);
       } else {
         setPickerResults(await searchTcgdexEn(translate(q, krToEn)));
       }
@@ -458,6 +460,12 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
               <label className="picker-option">
                 <input type="checkbox" checked={jpSameSet} onChange={(e) => { setJpSameSet(e.target.checked); runPickerSearch(pickerTab, pickerQuery, e.target.checked); }} />
                 이 카드 세트({pickerSet.code.toUpperCase()})에서만 찾기
+              </label>
+            )}
+            {pickerTab === 'ja' && (
+              <label className="picker-option">
+                <input type="checkbox" checked={jpPromoOnly} onChange={(e) => { setJpPromoOnly(e.target.checked); runPickerSearch(pickerTab, pickerQuery, jpSameSet, e.target.checked); }} />
+                프로모 카드만 보기
               </label>
             )}
             {pickerNote && <p className="picker-note">{pickerNote}</p>}
