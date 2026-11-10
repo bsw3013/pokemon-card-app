@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { addDoc, collection, deleteDoc, doc, getDocs, query, setDoc, updateDoc, where } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, storage } from '../firebase';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import AlbumLibrary from './album/AlbumLibrary';
+import { shrinkImage } from './album/albumUtils';
 import { normalizeStatus } from '../utils/statusUtils';
 import { formatCardPayload } from '../utils/cardUtils';
 import { useOwnedCards } from '../hooks/useOwnedCards';
@@ -23,14 +26,6 @@ const LAYOUT_OPTIONS = [
   { key: '4x3', cols: 4, rows: 3, label: '4 x 3 (12칸)' },
 ];
 
-const SIGNATURE_COLORS = [
-  { hex: '#334155', label: '차콜' },
-  { hex: '#ef4444', label: '레드' },
-  { hex: '#3b82f6', label: '블루' },
-  { hex: '#10b981', label: '그린' },
-  { hex: '#f59e0b', label: '옐로우' },
-  { hex: '#8b5cf6', label: '퍼플' },
-];
 
 
 const MAX_HISTORY = 80;
@@ -84,29 +79,6 @@ function getStatusTone(status) {
   return 'unknown';
 }
 
-function countFilledSlots(album) {
-  if (!album?.pages?.length) return 0;
-  return album.pages.reduce((acc, page) => {
-    return acc + (page.slots || []).filter(Boolean).length;
-  }, 0);
-}
-
-function countOwnedAndPlacedSlots(album) {
-  if (!album?.pages?.length) return { ownedPlaced: 0, placed: 0 };
-
-  return album.pages.reduce((acc, page) => {
-    const slots = page?.slots || [];
-    slots.forEach((slot) => {
-      if (!slot) return;
-      acc.placed += 1;
-      if (String(slot.status || '').includes('보유중')) {
-        acc.ownedPlaced += 1;
-      }
-    });
-    return acc;
-  }, { ownedPlaced: 0, placed: 0 });
-}
-
 function totalSlots(album) {
   return (album?.pages?.length || 0) * ((album?.cols || 0) * (album?.rows || 0));
 }
@@ -122,14 +94,8 @@ export default function AlbumPlanner({ appConfig }) {
   const { cards: ownedCards, loading: loadingCards, saveCard, deleteCard } = useOwnedCards();
   const [loadingAlbums, setLoadingAlbums] = useState(true);
   const [albums, setAlbums] = useState([]);
-  const [albumViewMode, setAlbumViewMode] = useState('grid');
-  const [showTrash, setShowTrash] = useState(false);
 
   const [showCreate, setShowCreate] = useState(false);
-  const [newAlbumName, setNewAlbumName] = useState('');
-  const [newLayout, setNewLayout] = useState('3x3');
-  const [newPageCount, setNewPageCount] = useState(1);
-  const [newCoverColor, setNewCoverColor] = useState('#334155');
   const [bookStep, setBookStep] = useState(0);
   const [isFlipping, setIsFlipping] = useState(false);
   const [flipDirection, setFlipDirection] = useState('next');
@@ -268,8 +234,6 @@ export default function AlbumPlanner({ appConfig }) {
     return map;
   }, [allCards]);
 
-  const activeAlbums = useMemo(() => albums.filter(a => !a.isDeleted), [albums]);
-  const trashAlbums = useMemo(() => albums.filter(a => a.isDeleted), [albums]);
 
   const findMasterCardBySlot = (slot) => {
     if (!slot) return null;
@@ -513,7 +477,8 @@ export default function AlbumPlanner({ appConfig }) {
         if (localDraft?.updatedAt && String(localDraft.updatedAt) > String(normalized.updatedAt || '')) {
           const shouldRestore = window.confirm('마지막 자동 저장된 편집본이 있습니다. 이어서 복원할까요?');
           if (shouldRestore) {
-            setEditingAlbum(localDraft);
+            // 표지·색은 앨범 목록에서 바꾼 최신 값을 쓴다
+            setEditingAlbum({ ...localDraft, cover: normalized.cover, coverColor: normalized.coverColor ?? localDraft.coverColor });
           } else {
             setEditingAlbum(normalized);
           }
@@ -696,32 +661,50 @@ export default function AlbumPlanner({ appConfig }) {
     });
   };
 
-  const handleUpdateCoverColor = (color) => {
-    if (!editingAlbum) return;
-    applyAlbumUpdate((draft) => {
-      draft.coverColor = color;
-      return draft;
-    });
-  };
-
-  const handleCreateAlbum = async () => {
+  const handleCreateAlbum = async ({ name, layoutKey, pageCount, coverColor }) => {
     if (!user) return;
-    const payload = { ...createNewAlbumPayload(newAlbumName, newLayout, Number(newPageCount) || 1, newCoverColor), ownerId: user.uid };
+    const payload = { ...createNewAlbumPayload(name, layoutKey, Number(pageCount) || 1, coverColor), cover: { type: 'pages' }, ownerId: user.uid };
 
     try {
       const ref = await addDoc(collection(db, ALBUM_COLLECTION), payload);
       const newAlbum = { id: ref.id, ...payload };
       setAlbums((prev) => [newAlbum, ...prev]);
       closeCreateModal();
-      setNewAlbumName('');
-      setNewLayout('3x3');
-      setNewPageCount(1);
-      setNewCoverColor('#334155');
       openAlbumEditor(newAlbum);
     } catch (err) {
       console.error('create album error', err);
       alert('앨범 생성에 실패했습니다.');
     }
+  };
+
+  // 앨범 목록에서 이름·표지·색 바꾸기
+  const handlePatchAlbum = async (albumId, patch) => {
+    const next = { ...patch, updatedAt: new Date().toISOString() };
+    await updateDoc(doc(db, ALBUM_COLLECTION, albumId), next);
+    setAlbums((prev) => prev.map((a) => (a.id === albumId ? { ...a, ...next } : a)));
+  };
+
+  const handleDuplicateAlbum = async (album) => {
+    if (!user) return;
+    const now = new Date().toISOString();
+    const { id: _omit, isDeleted: _deleted, ...rest } = deepCopy(album);
+    const payload = { ...rest, name: `${album.name || '앨범'} (복사본)`, ownerId: user.uid, createdAt: now, updatedAt: now };
+    try {
+      const ref = await addDoc(collection(db, ALBUM_COLLECTION), payload);
+      setAlbums((prev) => [{ id: ref.id, ...payload }, ...prev]);
+    } catch (err) {
+      console.error('duplicate album error', err);
+      alert('앨범을 복제하지 못했어요.');
+    }
+  };
+
+  // 표지 사진 올리기: 작게 줄여서 albumCovers/{내 uid}/ 에 저장하고 주소를 돌려준다
+  const uploadAlbumCover = async (albumId, file) => {
+    if (!user) throw new Error('로그인이 필요해요');
+    const blob = await shrinkImage(file, 1200, 0.85);
+    const fileRef = storageRef(storage, `albumCovers/${user.uid}/${albumId}_${Date.now()}.jpg`);
+    const snap = await uploadBytes(fileRef, blob, { contentType: 'image/jpeg', cacheControl: 'public, max-age=31536000' });
+    return getDownloadURL(snap.ref);
   };
 
   const handleDeleteAlbum = async (albumId) => {
@@ -1105,115 +1088,22 @@ export default function AlbumPlanner({ appConfig }) {
 
   if (!editingAlbum) {
     return (
-      <main className="album-page slide-up">
-        <div className="album-header">
-          <div>
-            <h2>{showTrash ? '휴지통' : '앨범 꾸미기'}</h2>
-            <p>{showTrash ? '삭제된 앨범을 복구하거나 영구 삭제할 수 있습니다.' : '카드 배치를 미리 설계하고 페이지 구성을 저장하세요.'}</p>
-          </div>
-          <div className="album-header-actions">
-            <button type="button" className={`btn-toggle ${showTrash ? 'active' : ''}`} onClick={() => setShowTrash(!showTrash)} style={{ color: showTrash ? 'var(--danger-color)' : 'inherit' }}>
-               {showTrash ? '돌아가기' : `휴지통 (${trashAlbums.length}개)`}
-            </button>
-            <div className="view-toggle">
-              <button type="button" className={`btn-toggle ${albumViewMode === 'grid' ? 'active' : ''}`} onClick={() => setAlbumViewMode('grid')}>앨범형</button>
-              <button type="button" className={`btn-toggle ${albumViewMode === 'list' ? 'active' : ''}`} onClick={() => setAlbumViewMode('list')}>목록형</button>
-            </div>
-            {!showTrash && <button type="button" className="btn btn-primary" onClick={openCreateModal}>새 앨범 만들기</button>}
-          </div>
-        </div>
-
-        <section className={albumViewMode === 'grid' ? 'album-grid' : 'album-list'}>
-          {(showTrash ? trashAlbums : activeAlbums).map((album) => {
-            const filled = countFilledSlots(album);
-            const total = totalSlots(album);
-            const completion = countOwnedAndPlacedSlots(album);
-            return (
-              <article key={album.id} className={`album-card ${albumViewMode}`}>
-                {albumViewMode === 'list' ? (
-                  <div className="album-card-main list" onClick={() => !showTrash && openAlbumEditor(album)} style={{ cursor: showTrash ? 'default' : 'pointer' }}>
-                    <div className="album-info-title">
-                      <h3>{album.name} {showTrash && <span style={{fontSize: '0.8rem', color: 'var(--danger-color)'}}>(삭제됨)</span>}</h3>
-                    </div>
-                    <div className="album-info-details">
-                      <span className="info-item">
-                        <span className="info-label">레이아웃</span>
-                        <span className="info-val">{album.layoutKey} ({album.pageCount || album.pages?.length || 1}장)</span>
-                      </span>
-                      <span className="info-item">
-                        <span className="info-label">완성도</span>
-                        <span className="info-val">{completion.ownedPlaced}/{completion.placed}</span>
-                      </span>
-                      <span className="info-item">
-                        <span className="info-label">배치 현황</span>
-                        <span className="info-val">{filled}/{total}</span>
-                      </span>
-                      <span className="info-item">
-                        <span className="info-label">최근 수정</span>
-                        <span className="info-val">{String(album.updatedAt || '').replace('T', ' ').slice(0, 16) || '-'}</span>
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="album-card-main" onClick={() => !showTrash && openAlbumEditor(album)} style={{ cursor: showTrash ? 'default' : 'pointer' }}>
-                    <h3>{album.name} {showTrash && <span style={{fontSize: '0.8rem', color: 'var(--danger-color)'}}>(삭제됨)</span>}</h3>
-                    <p>레이아웃: {album.layoutKey} · 페이지 {album.pageCount || album.pages?.length || 1}장</p>
-                    <p>완성도(보유중/배치): {completion.ownedPlaced}/{completion.placed}</p>
-                    <small>배치 현황: {filled}/{total}</small>
-                    <small>최근 수정: {String(album.updatedAt || '').replace('T', ' ').slice(0, 16) || '-'}</small>
-                  </div>
-                )}
-                {showTrash ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <button type="button" className="btn btn-secondary" onClick={() => handleRestoreAlbum(album.id)}>복구하기</button>
-                    <button type="button" className="btn btn-danger" onClick={() => handlePermanentDeleteAlbum(album.id)}>영구 삭제</button>
-                  </div>
-                ) : (
-                  <button type="button" className="btn btn-danger" onClick={() => handleDeleteAlbum(album.id)}>휴지통</button>
-                )}
-              </article>
-            );
-          })}
-          {(showTrash ? trashAlbums : activeAlbums).length === 0 && (
-            <div className="album-empty">
-              {showTrash ? '휴지통이 비어 있습니다.' : '아직 앨범이 없습니다. 새 앨범을 만들어 시작해보세요.'}
-            </div>
-          )}
-        </section>
-
-        {showCreate && (
-          <div className="modal-backdrop" onClick={closeCreateModal}>
-            <div className="modal-content" style={{ maxWidth: '520px' }} onClick={(e) => e.stopPropagation()}>
-              <button type="button" className="modal-close" onClick={closeCreateModal}>✕</button>
-              <h2 className="modal-title">새 앨범 만들기</h2>
-
-              <div className="form-group">
-                <label>앨범 이름</label>
-                <input type="text" value={newAlbumName} onChange={(e) => setNewAlbumName(e.target.value)} placeholder="예: SV SAR 전시 앨범" />
-              </div>
-
-              <div className="form-group">
-                <label>페이지 배치</label>
-                <select value={newLayout} onChange={(e) => setNewLayout(e.target.value)}>
-                  {LAYOUT_OPTIONS.map((layout) => (
-                    <option key={layout.key} value={layout.key}>{layout.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>시작 페이지 수</label>
-                <input type="number" min={1} max={30} value={newPageCount} onChange={(e) => setNewPageCount(Number(e.target.value) || 1)} />
-              </div>
-
-              <div className="modal-actions">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowCreate(false)}>취소</button>
-                <button type="button" className="btn btn-primary" onClick={handleCreateAlbum}>생성</button>
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
+      <AlbumLibrary
+        albums={albums}
+        cardsById={cardsById}
+        layouts={LAYOUT_OPTIONS}
+        createOpen={showCreate}
+        onOpenCreate={openCreateModal}
+        onCloseCreate={closeCreateModal}
+        onCreate={handleCreateAlbum}
+        onOpen={openAlbumEditor}
+        onTrash={handleDeleteAlbum}
+        onRestore={handleRestoreAlbum}
+        onPurge={handlePermanentDeleteAlbum}
+        onPatch={handlePatchAlbum}
+        onDuplicate={handleDuplicateAlbum}
+        uploadCover={uploadAlbumCover}
+      />
     );
   }
 
