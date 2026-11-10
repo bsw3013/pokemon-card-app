@@ -1,7 +1,7 @@
 // 카드 사진 찾기 창에서 쓰는 사진 출처 3가지
 //  - 한국: 이름은 GitHub Actions가 모은 한국 공식 카드 목록(kr.json)에서 찾고, 세트 코드 + 번호는 사진 주소를 바로 만든다
 //  - 일본: GitHub Actions가 매주 만드는 일본 공식 카드 목록(jp.json)에서 이름으로 찾는다
-//  - 영어: TCGdex (키 없이 쓰는 무료 공개 API)
+//  - 영어: TCGdex (키 없이 쓰는 무료 공개 API), TCGdex에 사진이 없는 카드는 pokemontcg.io 사진
 
 // ---------- 한국: 주소 규칙으로 바로 만들기 ----------
 // 포켓몬코리아 공식: https://cards.image.pokemonkorea.co.kr/data/wmimages/{시대 폴더}/{세트}/{세트}_{번호 3자리}.png
@@ -146,13 +146,68 @@ export function searchJpIndex(index, { names = [], setCode = '' }, limit = 80) {
   return hits;
 }
 
-// ---------- 영어: TCGdex ----------
-export async function searchTcgdexEn(name, limit = 80) {
-  const res = await fetch(`https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(name)}`);
+// ---------- 영어: TCGdex (+ 사진 없는 카드는 pokemontcg.io 사진) ----------
+// 휴대폰 게임(Pokémon TCG Pocket) 세트는 실물 카드가 아니라서 뺀다
+const POCKET_SET = /^(?:[AB]\d+[a-z]?|P-[AB])$/;
+// TCGdex 세트 ID → pokemontcg.io 세트 ID (규칙으로 안 되는 것만)
+const PTCG_SET = {
+  lc: 'base6', 'sm3.5': 'sm35', 'sm7.5': 'sm75', 'swsh3.5': 'swsh35', 'swsh4.5': 'swsh45', 'swsh4.5sv': 'swsh45sv',
+  'swsh10.5': 'pgo', 'swsh12.5': 'swsh12pt5', 'swsh12.5gg': 'swsh12pt5gg', cel25cc: 'cel25c',
+  'sv10.5w': 'rsv10pt5', 'sv10.5b': 'zsv10pt5',
+};
+function ptcgImage(setId, localId) {
+  let set = PTCG_SET[setId];
+  if (!set) {
+    // sv03.5 → sv3pt5, me02 → me2, sm11.5 → sm115
+    set = /^(sv|me)\d/.test(setId) ? setId.replace(/^([a-z]+)0+(\d)/, '$1$2').replace('.5', 'pt5') : setId.replace('.', '');
+  }
+  const no = /^\d+$/.test(localId) ? String(Number(localId)) : localId;
+  return { thumbnail: `https://images.pokemontcg.io/${set}/${no}.png`, fullImage: `https://images.pokemontcg.io/${set}/${no}_hires.png` };
+}
+
+let tcgdexSetOrder = null; // 세트 ID → 발매 순서 (TCGdex 세트 목록은 오래된 것부터 차례대로)
+async function loadTcgdexSetOrder() {
+  if (tcgdexSetOrder) return tcgdexSetOrder;
+  try {
+    const res = await fetch('https://api.tcgdex.net/v2/en/sets');
+    const sets = res.ok ? await res.json() : [];
+    const order = new Map((Array.isArray(sets) ? sets : []).map((x, i) => [x.id, i]));
+    if (order.size) tcgdexSetOrder = order;
+    return order;
+  } catch {
+    return new Map();
+  }
+}
+
+// 최신 세트부터, 같은 세트는 번호 순. 사진이 안 열리는 카드는 사진 찾기 창이 알아서 숨긴다.
+export async function searchTcgdexEn(name, limit = 400) {
+  const [res, order] = await Promise.all([
+    fetch(`https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(name)}`),
+    loadTcgdexSetOrder(),
+  ]);
   if (!res.ok) throw new Error(`TCGdex 응답 오류 (${res.status})`);
   const list = await res.json();
-  return (Array.isArray(list) ? list : [])
-    .filter((c) => c.image) // 사진 없는 카드는 빼서 빈칸이 안 보이게
+  const num = (v) => { const n = parseInt(String(v).replace(/^\D+/, ''), 10); return Number.isFinite(n) ? n : 9999; };
+  const cards = (Array.isArray(list) ? list : [])
+    .map((c) => ({ ...c, setId: String(c.id).slice(0, String(c.id).length - String(c.localId).length - 1) }))
+    .filter((c) => c.setId && !POCKET_SET.test(c.setId))
+    .sort((a, b) => (order.get(b.setId) ?? -1) - (order.get(a.setId) ?? -1) || num(a.localId) - num(b.localId))
     .slice(0, limit)
-    .map((c) => ({ id: `en_${c.id}`, source: 'TCGdex', title: `${c.name} · ${c.id}`, thumbnail: `${c.image}/low.webp`, fullImage: `${c.image}/high.png`, meta: { lang: 'en', name: c.name } }));
+    .map((c) => {
+      const img = c.image
+        ? { thumbnail: `${c.image}/low.webp`, fullImage: `${c.image}/high.png`, source: 'TCGdex' }
+        : { ...ptcgImage(c.setId, c.localId), source: 'pokemontcg.io' };
+      return { id: `en_${c.id}`, title: `${c.name} · ${c.id}`, ...img, meta: { lang: 'en', name: c.name } };
+    });
+  // pokemontcg.io 는 사진이 없으면 카드 뒷면 그림을 보내서(404), 미리 확인해서 뺀다
+  const ok = await Promise.all(cards.map(async (r) => {
+    if (r.source !== 'pokemontcg.io') return true;
+    try {
+      const head = await fetch(r.thumbnail, { method: 'HEAD', signal: AbortSignal.timeout(6000) });
+      return head.ok;
+    } catch {
+      return false;
+    }
+  }));
+  return cards.filter((_, i) => ok[i]);
 }

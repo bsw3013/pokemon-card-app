@@ -12,6 +12,8 @@ export const defaultConfig = {
   gradingScaleOptions: ["1","2","3","4","5","6","7","8","9","10"],
   typeOptions: ["포켓몬", "서포트", "도구", "스타디움", "에너지"],
   statusOptions: ["미보유", "보유중"],
+  // 시세 창에서 매물을 직접 넣을 때 고르는 판매처 목록
+  marketplaceOptions: ["당근", "번개장터", "ebay", "MVP"],
   displayFields: [
     { id: 'cardName', label: '고유 이름', visible: true, order: 1 },
     { id: 'pokedexNumber', label: '전국 도감 번호', visible: true, order: 2 },
