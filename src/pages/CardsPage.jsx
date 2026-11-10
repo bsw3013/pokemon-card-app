@@ -11,19 +11,14 @@ import CardTile from '../components/CardTile';
 import CardThumbnail from '../components/CardThumbnail';
 import ThumbnailSettings from '../components/ThumbnailSettings';
 import Icon from '../components/Icon';
+import SortControl from '../components/SortControl';
+import { readSort, sortItems, writeSort } from '../utils/sortCards';
 
 const PAGE = 120;
 const NONE = '__none__';
 const LANGS = ['한국', '일본', '미국', '중국'];
-// 정렬 목록 (종류별로 묶어서 보여줌)
-// 내 컬렉션 정렬과 같은 종류로 맞춤 (+ 카드 화면에만 있는 "최근 추가순")
-const SORT_GROUPS = [
-  ['가격', [['price_desc', '평가 가격 높은순'], ['price_asc', '평가 가격 낮은순'], ['purchase_desc', '구매가 높은순']]],
-  ['날짜', [['bought_desc', '최근 구매순'], ['release_desc', '발매일 최신순'], ['release_asc', '발매일 오래된순'], ['added_desc', '최근 추가순']]],
-  ['카드 정보', [['set_no', '세트·카드번호순'], ['rarity_desc', '레어도 높은순'], ['dex', '도감번호순'], ['name', '이름순 (가나다)']]],
-  ['수량·종류', [['count_desc', '많이 가진 순'], ['graded_first', '등급 카드 먼저']]],
-];
-const SORT_KEYS = SORT_GROUPS.flatMap(([, items]) => items.map(([k]) => k));
+// 카드 화면에서 고를 수 있는 정렬 기준 (방향은 버튼으로 따로 바꾼다)
+const SORT_FIELD_KEYS = ['release', 'price', 'purchase', 'bought', 'added', 'rarity', 'dex', 'name', 'count', 'graded'];
 const SIZES = { s: 118, m: 150, l: 190 };
 
 const text = (v) => String(v ?? '').trim();
@@ -50,7 +45,7 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
   const [typeFilter, setTypeFilter] = useState([]);
   const [langFilter, setLangFilter] = useState([]);
   const [openEras, setOpenEras] = useState(() => new Set(['메가']));
-  const [sort, setSort] = useState(() => { const v = readLS('cards_sort_v1', 'release_desc'); return SORT_KEYS.includes(v) ? v : 'release_desc'; });
+  const [sort, setSort] = useState(() => readSort('cards_sort_v2', SORT_FIELD_KEYS, { field: 'release', dir: 'desc' }));
   const [view, setView] = useState(() => (isPicker ? 'grid' : readLS('cards_view_v1', 'grid')));
   const [size, setSize] = useState(() => readLS('cards_size_v1', 'm'));
   const [visibleState, setVisibleState] = useState({ key: '', n: PAGE });
@@ -58,7 +53,7 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
   const [selectedIds, setSelectedIds] = useState([]);
   const sentinelRef = useRef(null);
 
-  useEffect(() => writeLS('cards_sort_v1', sort), [sort]);
+  useEffect(() => writeSort('cards_sort_v2', sort), [sort]);
   useEffect(() => { if (!isPicker) writeLS('cards_view_v1', view); }, [view, isPicker]);
   useEffect(() => writeLS('cards_size_v1', size), [size]);
 
@@ -164,25 +159,7 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
         .map(text).join(' ').toLowerCase();
       return hay.includes(keyword);
     });
-    const byRelease = (a, b, dir) => (a.release === b.release ? a.no - b.no : (a.release < b.release ? -dir : dir));
-    const cmp = {
-      release_desc: (a, b) => (a.release === b.release ? (a.setCode === b.setCode ? a.no - b.no : a.setCode.localeCompare(b.setCode)) : (a.release < b.release ? 1 : -1)),
-      release_asc: (a, b) => byRelease(a, b, 1),
-      rarity_desc: (a, b) => (b.rarityOrder - a.rarityOrder) || byRelease(a, b, -1),
-      dex: (a, b) => ((Number(a.card.pokedexNumber) || 99999) - (Number(b.card.pokedexNumber) || 99999)) || byRelease(a, b, 1),
-      name: (a, b) => text(a.card.cardName).localeCompare(text(b.card.cardName), 'ko') || byRelease(a, b, 1),
-      added_desc: (a, b) => text(b.card.createdAt).localeCompare(text(a.card.createdAt)) || byRelease(a, b, -1),
-      price_desc: (a, b) => (Number(b.card.price) || 0) - (Number(a.card.price) || 0) || byRelease(a, b, -1),
-      // 가격이 없는 카드는 뒤로 보낸다
-      price_asc: (a, b) => ((Number(a.card.price) || Infinity) - (Number(b.card.price) || Infinity)) || byRelease(a, b, -1),
-      purchase_desc: (a, b) => b.maxPurchase - a.maxPurchase || byRelease(a, b, -1),
-      bought_desc: (a, b) => b.lastBought.localeCompare(a.lastBought) || byRelease(a, b, -1),
-      // 세트 코드(가나다·ABC) → 카드 번호 순
-      set_no: (a, b) => (a.setCode === NONE) - (b.setCode === NONE) || a.setCode.localeCompare(b.setCode) || a.no - b.no,
-      count_desc: (a, b) => b.count - a.count || byRelease(a, b, -1),
-      graded_first: (a, b) => (b.graded > 0) - (a.graded > 0) || b.graded - a.graded || byRelease(a, b, -1),
-    }[sort] || (() => 0);
-    return list.sort(cmp);
+    return sortItems(list, sort.field, sort.dir);
   }, [enriched, query, owned, setFilter, rarityFilter, typeFilter, langFilter, sort]);
 
   // 조건이 바뀌면 처음부터 다시 조금씩 그린다. (조건마다 따로 개수를 기억)
@@ -343,14 +320,7 @@ export default function CardsPage({ appConfig, onViewMarket, isPicker = false, o
             </div>
             <div className="tools">
               <span className="count">{loading ? '불러오는 중' : `${filtered.length.toLocaleString()}장`}</span>
-              <span className="sort-label">정렬</span>
-              <select className="select" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="정렬">
-                {SORT_GROUPS.map(([g, items]) => (
-                  <optgroup key={g} label={g}>
-                    {items.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-                  </optgroup>
-                ))}
-              </select>
+              <SortControl fields={SORT_FIELD_KEYS} value={sort} onChange={setSort} />
               {!isPicker && (
                 <div className="view" role="group" aria-label="보기 방식">
                   <button type="button" className={view === 'grid' ? 'on' : ''} onClick={() => setView('grid')} aria-label="카드로 보기" title="카드로 보기"><Icon name="grid" size={16} /></button>

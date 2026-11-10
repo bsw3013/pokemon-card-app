@@ -4006,3 +4006,8 @@ input, select, textarea, button { font-family: inherit; }
 .cp-table td.down, .kpi strong.down { color: #b91c1c; }
 :root[data-theme="dark"] .cp-table td.up { color: #4ade80; }
 :root[data-theme="dark"] .cp-table td.down { color: #f87171; }
+
+/* 정렬: 기준 + 방향 버튼 */
+.sortctl { display: inline-flex; align-items: center; gap: 6px; }
+.sortctl-dir { white-space: nowrap; }
+.sortctl-dir span { font-weight: 700; }
