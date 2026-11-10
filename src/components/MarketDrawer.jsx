@@ -18,6 +18,7 @@ import { buildLegacyCardKey, cardIdFromKey, isIdCardKey } from '../utils/cardKey
 import { looksLikeBundle } from '../utils/bundleHint';
 import PriceTrendChart from './PriceTrendChart';
 import { invalidateMarketIndex } from '../hooks/useMarketIndex';
+import { invalidateWatchlist } from '../hooks/useWatchlist';
 
 const SOURCE_LABELS = { bunjang: '번개장터', danggeun: '당근마켓', manual: '직접입력' };
 const TOP_GRADES = ['10', '9'];
@@ -130,6 +131,7 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
         addedAt: new Date().toISOString(),
       });
       await loadWatchEntry();
+      invalidateWatchlist();
       onChanged?.();
     } catch (err) {
       console.error('관심카드 추가 실패', err);

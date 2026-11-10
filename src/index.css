@@ -3743,6 +3743,9 @@ input, select, textarea, button { font-family: inherit; }
 .cdv-info { min-width: 0; display: flex; flex-direction: column; gap: 18px; padding-top: 4px; }
 .cdv-title h2 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.025em; padding-right: 48px; }
 .cdv-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.cdv-watch span { color: var(--text-subtle); }
+.cdv-watch.is-on { border-color: var(--rar-gold); background: var(--rar-gold-bg); color: var(--rar-gold); }
+.cdv-watch.is-on span { color: var(--rar-gold); }
 .cdv-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-top: 1px solid var(--border-color); margin: 0; }
 .cdv-rows div { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-color); min-width: 0; }
 .cdv-rows dt { width: 72px; flex: none; color: var(--text-subtle); font-size: 0.85rem; }
