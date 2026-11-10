@@ -11,7 +11,7 @@ import { smartCase } from './imageSources';
 const { krToEn, krToJa } = pokemonMapAll;
 const krNames = Object.keys(krToJa || krToEn || {});
 const dexOf = new Map(krNames.map((n, i) => [n, i + 1]));
-const jaToKr = new Map(Object.entries(krToJa || {}).map(([k, v]) => [String(v), k]));
+const jaToKr = new Map(Object.entries(krToJa || {}).map(([k, v]) => [String(v).normalize('NFKC'), k]));
 const enToKr = new Map(Object.entries(krToEn || {}).map(([k, v]) => [String(v).toLowerCase(), k]));
 
 const text = (v) => String(v ?? '').trim();
@@ -21,7 +21,7 @@ const JA_SUFFIX = /\s*(ex|EX|GX|V|VMAX|VSTAR|V-UNION|BREAK|LV\.X|δ|☆|◇|プ�
 const JA_REGION = [['ヒスイ', '히스이'], ['アローラ', '알로라'], ['ガラル', '가라르'], ['パルデア', '팔데아']];
 // 일본어 포켓몬 카드 이름 → 한글 (트레이너 카드 등 번역표에 없으면 null)
 function translateJa(raw) {
-  let name = String(raw || '').replace(/<[^>]+>/g, '').trim();
+  let name = String(raw || '').replace(/<[^>]+>/g, '').normalize('NFKC').trim();
   const mega = /^メガ|^M(?=[ァ-ヿ])/.test(name);
   name = name.replace(/^メガ|^M(?=[ァ-ヿ])/, '');
   let region = '';

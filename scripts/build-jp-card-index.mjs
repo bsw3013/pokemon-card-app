@@ -48,7 +48,9 @@ const add = (list) => {
     if (!m || seen.has(c.cardID)) return;
     seen.add(c.cardID);
     // [카드 ID, 이름, 세트 코드, 사진 파일 이름] — 파일 크기를 줄이려고 배열로 저장
-    cards.push([String(c.cardID), String(c.cardNameViewText || c.cardNameAltText || '').trim(), m[1], m[2]]);
+    const name = String(c.cardNameViewText || c.cardNameAltText || '').trim()
+      .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+    cards.push([String(c.cardID), name, m[1], m[2]]);
   });
 };
 add(first.cardList);
