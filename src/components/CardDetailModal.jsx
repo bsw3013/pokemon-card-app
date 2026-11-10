@@ -9,7 +9,8 @@ import PossessionEditor from './PossessionEditor';
 import { normalizeStatus } from '../utils/statusUtils';
 import { useOwnedCards } from '../hooks/useOwnedCards';
 import { DEFAULT_SETS, buildSetIndex, findSetForCard } from '../utils/catalog';
-import { koreanImageCandidates, loadJpIndex, loadKrIndex, parseCardCode, searchJpIndex, searchKrIndex, searchTcgdexEn } from '../utils/imageSources';
+import { koreanImageCandidates, loadJpDetail, loadJpIndex, loadKrIndex, parseCardCode, searchJpIndex, searchKrIndex, searchTcgdexEn } from '../utils/imageSources';
+import { AUTOFILL_LABELS, autofillFromMeta } from '../utils/cardAutofill';
 import { statusFromRows } from '../utils/sales';
 
 const { krToEn, krToJa } = pokemonMapAll;
@@ -36,6 +37,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
   const [pickerFailed, setPickerFailed] = useState(() => new Set()); // 사진이 안 열린 후보(한국 탭)
   const [pickerLoaded, setPickerLoaded] = useState(0);
   const [jpSameSet, setJpSameSet] = useState(true);
+  const [autofill, setAutofill] = useState(null); // 사진을 고르며 자동으로 채운 칸 { fields: {...} }
 
   // 📷 직접 업로드 및 URL 입력 상태
   const [uploading, setUploading] = useState(false);
@@ -49,6 +51,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
       }
       if (!Array.isArray(possessions)) possessions = [];
 
+      setAutofill(null);
       setEditData({
         ...card,
         cardName: card.cardName || '',
@@ -240,10 +243,36 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
     runPickerSearch(pickerTab, pickerQuery);
   };
 
-  const selectPickerImage = (imgUrl) => {
-    setEditData((prev) => ({ ...prev, imageUrl: imgUrl }));
+  // 사진 고르기: 사진을 바꾸고, 그 사진의 공식 정보로 "비어 있는 칸만" 채운다
+  const selectPickerImage = async (res) => {
+    setEditData((prev) => ({ ...prev, imageUrl: res.fullImage }));
     closePicker();
+    if (!isAdmin || !res.meta) return;
+    try {
+      const fills = await autofillFromMeta(res.meta, editData, { sets: catalog?.sets || DEFAULT_SETS, loadJpDetail });
+      if (Object.keys(fills).length === 0) { setAutofill(null); return; }
+      setEditData((prev) => {
+        const next = { ...prev };
+        Object.entries(fills).forEach(([k, v]) => { if (!String(prev[k] ?? '').trim()) next[k] = v; });
+        return next;
+      });
+      setAutofill({ fields: fills });
+    } catch (err) {
+      console.warn('카드 정보 자동 입력 실패', err);
+    }
   };
+  const undoAutofill = () => {
+    if (!autofill) return;
+    setEditData((prev) => {
+      const next = { ...prev };
+      Object.entries(autofill.fields).forEach(([k, v]) => { if (next[k] === v) next[k] = ''; });
+      return next;
+    });
+    setAutofill(null);
+  };
+  const filledClass = (k) => (autofill?.fields?.[k] && editData[k] === autofill.fields[k] ? 'autofilled' : '');
+  // 목록에 없는 값(자동으로 채운 새 세트 등)도 고른 값이 보이도록
+  const withCurrent = (options, value) => (value && !options.includes(value) ? [value, ...options] : options);
 
   return (
     <>
@@ -299,30 +328,37 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
               </div>
             </div>
             <form className="modal-form" onSubmit={handleSaveInternal}>
+              {autofill && (
+                <div className="autofill-note" role="status">
+                  <span>사진의 공식 정보로 빈 칸을 채웠어요: <b>{Object.keys(autofill.fields).map((k) => AUTOFILL_LABELS[k]).join(', ')}</b></span>
+                  <button type="button" className="link-btn" onClick={undoAutofill}>되돌리기</button>
+                  <button type="button" className="autofill-x" onClick={() => setAutofill(null)} aria-label="닫기">✕</button>
+                </div>
+              )}
               <div className="dynamic-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', marginBottom: '1.5rem' }}>
                 {appConfig.displayFields.filter(f => f.visible && f.id !== 'price').sort((a, b) => a.order - b.order).map(f => (
                   <div className="sub-group" key={f.id} style={{ display: 'flex', flexDirection: 'column' }}>
                     <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>{f.label}</label>
-                    {f.id === 'cardName' && <input type="text" name="cardName" value={editData.cardName || ''} onChange={handleEditChange} disabled={!isAdmin} />}
-                    {f.id === 'pokedexNumber' && <input type="text" name="pokedexNumber" value={editData.pokedexNumber || ''} onChange={handleEditChange} disabled={!isAdmin} />}
-                    {f.id === 'cardNumber' && <input type="text" name="cardNumber" value={editData.cardNumber || ''} onChange={handleEditChange} disabled={!isAdmin} />}
+                    {f.id === 'cardName' && <input type="text" name="cardName" className={filledClass('cardName')} value={editData.cardName || ''} onChange={handleEditChange} disabled={!isAdmin} />}
+                    {f.id === 'pokedexNumber' && <input type="text" name="pokedexNumber" className={filledClass('pokedexNumber')} value={editData.pokedexNumber || ''} onChange={handleEditChange} disabled={!isAdmin} />}
+                    {f.id === 'cardNumber' && <input type="text" name="cardNumber" className={filledClass('cardNumber')} value={editData.cardNumber || ''} onChange={handleEditChange} disabled={!isAdmin} />}
 
                     {f.id === 'series' && (
-                      <select name="series" value={editData.series || ''} onChange={handleEditChange} disabled={!isAdmin}>
+                      <select name="series" className={filledClass('series')} value={editData.series || ''} onChange={handleEditChange} disabled={!isAdmin}>
                         <option value="">시리즈 직접 선택</option>
-                        {appConfig.seriesOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                        {withCurrent(appConfig.seriesOptions, editData.series).map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     )}
                     {f.id === 'rarity' && (
-                      <select name="rarity" value={editData.rarity || ''} onChange={handleEditChange} disabled={!isAdmin}>
+                      <select name="rarity" className={filledClass('rarity')} value={editData.rarity || ''} onChange={handleEditChange} disabled={!isAdmin}>
                         <option value="">직접 선택</option>
-                        {appConfig.rarityOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                        {withCurrent(appConfig.rarityOptions, editData.rarity).map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     )}
                     {f.id === 'type' && (
-                      <select name="type" value={editData.type || ''} onChange={handleEditChange} disabled={!isAdmin}>
+                      <select name="type" className={filledClass('type')} value={editData.type || ''} onChange={handleEditChange} disabled={!isAdmin}>
                         <option value="">선택</option>
-                        {appConfig.typeOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                        {withCurrent(appConfig.typeOptions, editData.type).map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     )}
                     {f.id === 'status' && (
@@ -436,7 +472,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
                   {pickerTab === 'kr' && pickerLoaded === 0 && parseCardCode(pickerQuery) && <p className="picker-note">공식 사진 주소를 확인하는 중...</p>}
                   <div className="picker-grid">
                     {pickerResults.filter((r) => !pickerFailed.has(r.id)).map((res) => (
-                      <div key={res.id} className="picker-img-wrapper" onClick={() => selectPickerImage(res.fullImage)} title={res.title || res.source}>
+                      <div key={res.id} className="picker-img-wrapper" onClick={() => selectPickerImage(res)} title={res.title || res.source}>
                         <img
                           src={res.thumbnail}
                           alt={res.title || 'card'}
