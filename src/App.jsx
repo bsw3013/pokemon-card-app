@@ -11,6 +11,7 @@ import MarketPrice from './components/MarketPrice';
 import NicknameModal from './components/NicknameModal';
 import HomeDashboard from './components/home/HomeDashboard';
 import TopNav from './components/TopNav';
+import AutoImport from './components/admin/AutoImport';
 import { defaultConfig } from './defaultConfig';
 import { sanitizeStatusOptions } from './utils/statusUtils';
 import { useAuth } from './AuthContext';
@@ -162,6 +163,7 @@ function App() {
   return (
     <>
       <TopNav current={currentView} onEditNickname={() => setShowNicknameEditor(true)} />
+      <AutoImport />
 
       {!appConfig ? (
         <div className="loading-config fade-in">
