@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { storage, db } from '../firebase';
+import { storage } from '../firebase';
 import pokemonMapAll from '../utils/pokemonMapAll.json';
-import { buildCardKey, buildLegacyCardKey } from '../utils/cardKey';
 import { useAuth } from '../AuthContext';
 import CardThumbnail from './CardThumbnail';
 import CardDetailView from './CardDetailView';
@@ -13,7 +11,7 @@ import { statusFromRows } from '../utils/sales';
 
 const { krToEn, krToJa } = pokemonMapAll;
 
-export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = false, onClose, onSave, onDelete, onDuplicate, onViewMarket, onOpenCard, marketVersion = 0, suspendKeys = false }) {
+export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = false, onClose, onSave, onDelete, onDuplicate, onViewMarket, onOpenCard, suspendKeys = false }) {
   const { user, signInWithGoogle } = useAuth();
   // 'view': 카드 보기 화면(기본) / 'edit': 정보·보유 기록 수정. 다른 카드를 열면 다시 기본값부터.
   const cardIdentity = card?.isNew ? 'new' : card?.id;
@@ -22,8 +20,6 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
   const setMode = (next) => setModeState({ id: cardIdentity, mode: next });
   const [editData, setEditData] = useState({});
   // 'loading' 상태는 null, 기록 없음은 'none', 있으면 {count,min,max,avg}
-  const [marketSummary, setMarketSummary] = useState(null);
-  const [summaryBump, setSummaryBump] = useState(0); // 판매를 시세에 기록하면 시세 요약을 다시 읽는다
   const [isSaving, setIsSaving] = useState(false);
 
   // 📸 두 번째 초대형 멀티 언어 이미지 픽커 상태
@@ -75,34 +71,6 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
     return () => window.removeEventListener('keydown', onKey);
   }, [isOpen, mode, cardIdentity, isPickerOpen, suspendKeys, onClose]);
 
-  useEffect(() => {
-    if (!isOpen || !card) { setMarketSummary(null); return; }
-    const cardKey = buildCardKey(card);
-    if (!cardKey) { setMarketSummary('none'); return; }
-    let cancelled = false;
-    setMarketSummary(null);
-    (async () => {
-      try {
-        // 예전 방식 키로 저장된 매물도 같이 읽는다. (시세 창과 같은 기준)
-        const legacyKey = buildLegacyCardKey(card);
-        const keys = legacyKey && legacyKey !== cardKey ? [cardKey, legacyKey] : [cardKey];
-        const snaps = await Promise.all(keys.map((k) => getDocs(query(collection(db, 'marketListings'), where('cardKey', '==', k)))));
-        if (cancelled) return;
-        const byId = new Map();
-        snaps.forEach((snap) => snap.docs.forEach((d) => byId.set(d.id, d.data())));
-        const priced = [...byId.values()]
-          .filter((l) => l.classification === 'normal' && ['active', 'unconfirmed', 'manual'].includes(l.status) && typeof l.price === 'number');
-        if (priced.length === 0) { setMarketSummary('none'); return; }
-        const prices = priced.map((l) => l.price).sort((a, b) => a - b);
-        const avg = Math.round(prices.reduce((s, p) => s + p, 0) / prices.length);
-        setMarketSummary({ count: priced.length, min: prices[0], max: prices[prices.length - 1], avg });
-      } catch (err) {
-        console.error('시세 요약 로드 실패', err);
-        if (!cancelled) setMarketSummary('none');
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [isOpen, card, marketVersion, summaryBump]);
 
   if (!isOpen || !card) return null;
 
@@ -258,11 +226,9 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
             <CardDetailView
               card={card}
               isAdmin={isAdmin}
-              marketSummary={marketSummary}
               onEdit={() => (user ? setMode('edit') : signInWithGoogle())}
               onViewMarket={onViewMarket ? () => onViewMarket({ ...card }) : undefined}
               onOpenCard={onOpenCard}
-              onMarketChanged={() => setSummaryBump((v) => v + 1)}
             />
           ) : (<>
           <div className="modal-edit-head">
@@ -306,7 +272,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
             </div>
             <form className="modal-form" onSubmit={handleSaveInternal}>
               <div className="dynamic-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-                {appConfig.displayFields.filter(f => f.visible).sort((a, b) => a.order - b.order).map(f => (
+                {appConfig.displayFields.filter(f => f.visible && f.id !== 'price').sort((a, b) => a.order - b.order).map(f => (
                   <div className="sub-group" key={f.id} style={{ display: 'flex', flexDirection: 'column' }}>
                     <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>{f.label}</label>
                     {f.id === 'cardName' && <input type="text" name="cardName" value={editData.cardName || ''} onChange={handleEditChange} disabled={!isAdmin} />}
@@ -361,9 +327,6 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
                           </div>
                         </div>
 
-                        <label className="pe-f pe-price">내 평가 가격 (1장, 원)
-                          <input type="number" name="price" min={0} value={editData.price || ''} onChange={handleEditChange} placeholder="지금 이 카드 1장의 가치를 적어 두면 컬렉션 평가액에 합산돼요" />
-                        </label>
                         <PossessionEditor
                           rows={editData.possessions || []}
                           onChange={(rows) => setEditData((prev) => ({ ...prev, possessions: rows }))}
@@ -381,37 +344,12 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
                 ))}
               </div>
 
-              <div className="market-summary-inline">
-                <div className="market-summary-inline-header">
-                  <h4>실시간 시세</h4>
-                  {onViewMarket && !card?.isNew && (
-                    <button type="button" className="btn btn-secondary btn-compact" onClick={() => onViewMarket({ ...card })}>
-                      시세 보기
-                    </button>
-                  )}
-                </div>
-                {marketSummary === null && <p className="market-hint">불러오는 중...</p>}
-                {marketSummary === 'none' && (
-                  <p className="market-hint">아직 기록된 시세가 없습니다. "시세 조회" 탭에서 관심카드로 등록하고 매물을 가져오거나 직접 기록해보세요.</p>
-                )}
-                {marketSummary && marketSummary !== 'none' && (() => {
-                  const myPrice = Number(editData.price) || 0;
-                  const diffPct = myPrice > 0 ? Math.round(((marketSummary.avg - myPrice) / myPrice) * 100) : null;
-                  return (
-                    <div className="market-summary-inline-body">
-                      <span className="market-summary-inline-range">
-                        {marketSummary.min.toLocaleString()}원 ~ {marketSummary.max.toLocaleString()}원
-                        <small> (평균 {marketSummary.avg.toLocaleString()}원 · 매물 {marketSummary.count}건)</small>
-                      </span>
-                      {diffPct !== null && (
-                        <span className={`market-summary-inline-compare ${diffPct > 0 ? 'up' : diffPct < 0 ? 'down' : ''}`}>
-                          내가 적은 가격 {myPrice.toLocaleString()}원 대비 {diffPct > 0 ? '▲' : diffPct < 0 ? '▼' : '-'} {Math.abs(diffPct)}%
-                        </span>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
+              {onViewMarket && !card?.isNew && (
+                <p className="market-hint">
+                  시세는 저장 후 카드 상세에서 종류별(Raw·등급, 언어판)로 볼 수 있어요.{' '}
+                  <button type="button" className="link-btn" onClick={() => onViewMarket({ ...card })}>시세 기록하기</button>
+                </p>
+              )}
 
               <div className="modal-actions">
                 <div style={{ display: 'flex', gap: '0.5rem' }}>

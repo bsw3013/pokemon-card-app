@@ -5,6 +5,8 @@ import { DEFAULT_SETS, buildSetIndex, findSetForCard, parseCardNo } from '../uti
 import { UNKNOWN_GRADER, activeRows, cardLanguage, copyBreakdown, copyGrade, gradeLabel, isForSale, isPulledCopy, langShort, ownedCount, parsePossessions, soldRows } from '../utils/cardStats';
 import { recordSaleToMarket, removeSaleFromMarket, sellCopy, statusFromRows, unsellCopy } from '../utils/sales';
 import SaleForm from './SaleForm';
+import { invalidateMarketIndex, useMarketIndex } from '../hooks/useMarketIndex';
+import { cardListings, copyMarketPrice, copyTypeKey, priceTable, typeLabel } from '../utils/marketPrice';
 import { rarityTone } from '../utils/rarityTone';
 import { navigate } from '../utils/hashRoute';
 import { displayPokedexNumber } from '../utils/numberUtils';
@@ -36,11 +38,12 @@ function baseName(name) {
 }
 
 // 카드 상세 "보기" 화면 (수정은 [수정] 버튼으로)
-export default function CardDetailView({ card, isAdmin, marketSummary, onEdit, onViewMarket, onOpenCard, onMarketChanged }) {
+export default function CardDetailView({ card, isAdmin, onEdit, onViewMarket, onOpenCard }) {
   const { user, nickname } = useAuth();
   const { cards, catalog, saveOwnership } = useOwnedCards();
   const [sellingId, setSellingId] = useState(null); // 판매완료 입력창을 연 보유 기록 줄
   const [busy, setBusy] = useState(false);
+  const marketIndex = useMarketIndex();
   const index = useMemo(() => buildSetIndex(catalog?.sets || DEFAULT_SETS), [catalog]);
   const set = findSetForCard(card, index);
   const no = card.cardNo ?? parseCardNo(card.cardNumber);
@@ -50,6 +53,22 @@ export default function CardDetailView({ card, isAdmin, marketSummary, onEdit, o
   const sold = soldRows(card).sort((a, b) => String(b.soldDate || '').localeCompare(String(a.soldDate || '')));
   const language = cardLanguage(card);
 
+
+  // 종류별 시세 표 (판매완료 평균 우선, 없으면 판매중 평균)
+  const table = useMemo(() => priceTable(cardListings(marketIndex, card)), [marketIndex, card]);
+  const myTypes = new Set(copies.map((p) => copyTypeKey(card, p)).filter(Boolean));
+  const tableRows = [...table.values()].sort((a, b) => {
+    const mine = Number(myTypes.has(b.key)) - Number(myTypes.has(a.key));
+    if (mine) return mine;
+    const [la, ka] = a.key.split('|');
+    const [lb, kb] = b.key.split('|');
+    if ((ka === 'raw') !== (kb === 'raw')) return ka === 'raw' ? -1 : 1;
+    return la.localeCompare(lb) || kb.localeCompare(ka, 'ko', { numeric: true });
+  });
+  const myValue = copies.reduce((sum, p) => {
+    const m = copyMarketPrice(table, card, p);
+    return m ? sum + m.price * (Number(p.count) || 1) : sum;
+  }, 0);
 
   const saveRows = async (rows) => {
     await saveOwnership(card.id, { possessions: rows, status: statusFromRows(rows, card.status || '미보유') });
@@ -70,7 +89,7 @@ export default function CardDetailView({ card, isAdmin, marketSummary, onEdit, o
       }
       await saveRows(sellCopy(parsePossessions(card.possessions), row.id, { ...form, listingId }));
       setSellingId(null);
-      if (listingId) onMarketChanged?.();
+      if (listingId) invalidateMarketIndex();
     } catch (err) {
       console.error(err);
       alert('판매 기록 저장에 실패했어요.');
@@ -87,7 +106,7 @@ export default function CardDetailView({ card, isAdmin, marketSummary, onEdit, o
     setBusy(true);
     try {
       if (row.soldListingId) {
-        try { await removeSaleFromMarket(card, row.soldListingId); onMarketChanged?.(); } catch (err) { console.error('시세 기록 삭제 실패', err); }
+        try { await removeSaleFromMarket(card, row.soldListingId); invalidateMarketIndex(); } catch (err) { console.error('시세 기록 삭제 실패', err); }
       }
       await saveRows(unsellCopy(parsePossessions(card.possessions), row.id));
     } catch (err) {
@@ -174,6 +193,9 @@ export default function CardDetailView({ card, isAdmin, marketSummary, onEdit, o
                     p.notes,
                   ].filter(Boolean).join(' · ');
                   const key = p.id || `row_${i}`;
+                  const m = copyMarketPrice(table, card, p);
+                  const gain = m && !isPulledCopy(p) && Number(p.purchasePrice) > 0 ? (m.price - Number(p.purchasePrice)) * (Number(p.count) || 1) : null;
+                  const unknownGrade = g && (g.company === UNKNOWN_GRADER || !g.grade);
                   return (
                     <li key={key} className={`${g ? 'graded' : 'raw'} ${sellingId === key ? 'open' : ''}`}>
                       <div className="own-copy-row">
@@ -185,6 +207,15 @@ export default function CardDetailView({ card, isAdmin, marketSummary, onEdit, o
                             {isForSale(p) && <span className="sale-pill">판매중{p.askPrice ? ` · 희망 ${won(p.askPrice)}` : ''}</span>}
                           </span>
                           {meta && <span className="own-copy-meta">{meta}</span>}
+                          <span className="own-copy-market">
+                            {m ? (
+                              <>
+                                시세 약 <b>{won(m.price)}</b>
+                                <small> ({m.basis === 'sold' ? `판매완료 평균 ${m.sold.count}건` : `판매중 평균 ${m.active.count}건`})</small>
+                                {gain !== null && <b className={gain >= 0 ? 'up' : 'down'}> · 구매가 대비 {signedWon(gain)}</b>}
+                              </>
+                            ) : unknownGrade ? '등급 업체·점수를 적으면 같은 등급 시세와 연결돼요' : `아직 ${typeLabel(copyTypeKey(card, p) || 'x|raw')} 시세 기록이 없어요`}
+                          </span>
                         </span>
                         {/* 판매완료 버튼은 [판매중]으로 고른 줄에만 */}
                         {sellingId !== key && p.id && isForSale(p) && (
@@ -225,19 +256,31 @@ export default function CardDetailView({ card, isAdmin, marketSummary, onEdit, o
                 </ul>
               </div>
             )}
-            {Number(card.price) > 0 && <p className="cdv-value">내 평가 가격 <b>{won(card.price)}</b>{count > 1 ? ` × ${count}장 = ${won(card.price * count)}` : ''}</p>}
+            {myValue > 0 && <p className="cdv-value">내 카드 시세 합계 <b>{won(myValue)}</b></p>}
           </section>
         )}
 
         <section className="cdv-section">
           <h3>시세</h3>
-          {marketSummary === null && <p className="sub">불러오는 중...</p>}
-          {marketSummary === 'none' && <p className="sub">아직 기록된 시세가 없습니다.</p>}
-          {marketSummary && marketSummary !== 'none' && (
-            <p className="cdv-market">
-              <b>{won(marketSummary.min)} ~ {won(marketSummary.max)}</b>
-              <span className="sub"> 평균 {won(marketSummary.avg)} · 매물 {marketSummary.count}건</span>
-            </p>
+          {marketIndex === null ? <p className="sub">불러오는 중...</p> : tableRows.length === 0 ? (
+            <p className="sub">아직 기록된 시세가 없습니다. [시세 보기]에서 기록할 수 있어요.</p>
+          ) : (
+            <div className="cdv-market-table">
+              <table>
+                <thead><tr><th>종류</th><th className="num">시세</th><th className="num">판매완료</th><th className="num">판매중</th></tr></thead>
+                <tbody>
+                  {tableRows.map((r) => (
+                    <tr key={r.key} className={myTypes.has(r.key) ? 'mine' : ''}>
+                      <td>{typeLabel(r.key)}{myTypes.has(r.key) && <span className="mine-tag">내 카드</span>}</td>
+                      <td className="num"><b>{won(r.price)}</b></td>
+                      <td className="num">{r.sold ? <>{won(r.sold.avg)}<small> · {r.sold.count}건</small></> : '-'}</td>
+                      <td className="num">{r.active ? <>{r.active.min === r.active.max ? won(r.active.min) : `${won(r.active.min)} ~ ${won(r.active.max)}`}<small> · {r.active.count}건</small></> : '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="sub">시세 = 판매완료 평균 (없으면 판매중 평균). 언어판·Raw/등급별로 따로 봐요.</p>
+            </div>
           )}
         </section>
 

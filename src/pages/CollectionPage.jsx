@@ -14,6 +14,8 @@ import { todayStr } from '../utils/sales';
 import CardTile from '../components/CardTile';
 import CardThumbnail from '../components/CardThumbnail';
 import ThumbnailSettings from '../components/ThumbnailSettings';
+import { useMarketIndex } from '../hooks/useMarketIndex';
+import { cardListings, cardMarketValue, copyMarketPrice, priceTable } from '../utils/marketPrice';
 import SortControl from '../components/SortControl';
 import { readSort, sortItems, writeSort } from '../utils/sortCards';
 
@@ -37,8 +39,8 @@ const FILTERS = [
 // 내 컬렉션에서 고를 수 있는 정렬 기준 (방향은 버튼으로 따로 바꾼다)
 const SORT_FIELD_KEYS = ['value', 'price', 'purchase', 'bought', 'pulled', 'release', 'rarity', 'dex', 'name', 'count', 'graded'];
 
-// 카드 한 장의 보유 요약
-function summarize(card) {
+// 카드 한 장의 보유 요약 (평가액·구매가 대비는 내 카드 종류별 시세로 계산)
+function summarize(card, marketIndex) {
   const rows = activeRows(card); // 판매완료한 장은 빼고 계산
 
   const count = ownedCount(card);
@@ -50,19 +52,20 @@ function summarize(card) {
   const purchasedCount = bought.filter((r) => Number(r.purchasePrice) > 0).reduce((s, r) => s + (Number(r.count) || 0), 0);
   const lastBought = rows.map((r) => text(r.purchaseDate)).filter(Boolean).sort().pop() || '';
   const maxPurchase = rows.reduce((m, r) => Math.max(m, Number(r.purchasePrice) || 0), 0);
-  const price = Number(card.price) || 0;
-  const value = price * count;
-  // 손익은 평가 가격과 구매가가 둘 다 있는 장만 비교한다.
-  const paired = price > 0 ? bought.filter((r) => Number(r.purchasePrice) > 0) : [];
-  const pairedCount = paired.reduce((s, r) => s + (Number(r.count) || 0), 0);
-  const pairedCost = paired.reduce((s, r) => s + (Number(r.purchasePrice) || 0) * (Number(r.count) || 0), 0);
-  return { lang: langShort(cardLanguage(card)), count, graded, pulled, trade, purchase, purchasedCount, lastBought, maxPurchase, value, pairedCount, pairedCost, pairedValue: price * pairedCount, hasRows: rows.length > 0 };
+  // 시세: 장마다 같은 종류(언어판 + Raw/등급 업체·점수)의 시세. 손익은 구매가와 시세가 둘 다 있는 장만 비교한다.
+  const mv = cardMarketValue(marketIndex, card);
+  return {
+    lang: langShort(cardLanguage(card)), count, graded, pulled, trade, purchase, purchasedCount, lastBought, maxPurchase,
+    value: mv.value, unit: mv.unit, unpriced: rows.length ? mv.unpriced : count,
+    pairedCount: mv.pairedCount, pairedCost: mv.pairedCost, pairedValue: mv.pairedValue, hasRows: rows.length > 0,
+  };
 }
 
 export default function CollectionPage({ appConfig, onViewMarket }) {
   const { user } = useAuth();
   const { cards, loading, catalog } = useOwnedCards();
   const { settings, toggleSetting, updateSettings } = useThumbnailSettings();
+  const marketIndex = useMarketIndex();
   const detail = useCardDetail({ appConfig, onViewMarket });
   const [tab, setTab] = useState(() => (TABS.some(([k]) => k === parseHash().params.tab) ? parseHash().params.tab : 'cards'));
   const [filter, setFilter] = useState('all');
@@ -79,21 +82,21 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
     .map((card) => {
       const set = findSetForCard(card, setIndex);
       return {
-        card, set, ...summarize(card),
+        card, set, ...summarize(card, marketIndex),
         release: text(set?.releaseDate),
         no: Number(card.cardNo ?? parseCardNo(card.cardNumber)) || 0,
         setCode: text(set?.code) || '~',
         rarityOrder: rarityOrder.get(text(card.rarity)) || 0,
       };
     })
-    .filter((x) => x.count > 0), [cards, setIndex, rarityOrder]);
+    .filter((x) => x.count > 0), [cards, setIndex, rarityOrder, marketIndex]);
 
   const totals = useMemo(() => {
     const t = { kinds: owned.length, count: 0, graded: 0, value: 0, purchase: 0, purchasedCount: 0, unpriced: 0, trade: 0, pullKinds: 0, gradedKinds: 0, pairedCount: 0, pairedCost: 0, pairedValue: 0 };
     owned.forEach((x) => {
       t.count += x.count; t.graded += x.graded; t.value += x.value; t.purchase += x.purchase; t.purchasedCount += x.purchasedCount;
       t.pairedCount += x.pairedCount; t.pairedCost += x.pairedCost; t.pairedValue += x.pairedValue;
-      if (!Number(x.card.price)) t.unpriced += 1;
+      t.unpriced += x.unpriced;
       if (x.trade) t.trade += 1;
       if (x.graded > 0) t.gradedKinds += 1;
       if (x.pulled > 0) t.pullKinds += 1;
@@ -122,9 +125,11 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
     cards.forEach((card) => {
       const lang = cardLanguage(card);
       const set = findSetForCard(card, setIndex);
-      activeRows(card).filter(isForSale).forEach((row) => {
+      const forSale = activeRows(card).filter(isForSale);
+      const table = forSale.length ? priceTable(cardListings(marketIndex, card)) : null;
+      forSale.forEach((row) => {
         const n = Number(row.count) || 1;
-        listed.push({ card, set, row, n, label: possessionLabel({ ...row, count: 1 }, lang) });
+        listed.push({ card, set, row, n, market: copyMarketPrice(table, card, row)?.price ?? null, label: possessionLabel({ ...row, count: 1 }, lang) });
         t.listedCount += n;
         t.askTotal += (Number(row.askPrice) || 0) * n;
       });
@@ -142,7 +147,7 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
     done.sort((a, b) => String(b.row.soldDate || '').localeCompare(String(a.row.soldDate || '')));
     listed.sort((a, b) => (Number(b.row.askPrice) || 0) - (Number(a.row.askPrice) || 0));
     return { listed, done, t };
-  }, [cards, setIndex]);
+  }, [cards, setIndex, marketIndex]);
 
   // 언어판별 보유 종류 수 (한판·일판·영문판·중국판)
   const langCounts = useMemo(() => {
@@ -205,10 +210,10 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
       <section className="kpis">
         <div className="kpi"><span>보유 종류</span><strong>{totals.kinds.toLocaleString()}<em>종</em></strong><small>전체 {cards.length.toLocaleString()}종 중 {cards.length ? Math.round((totals.kinds / cards.length) * 100) : 0}%</small></div>
         <div className="kpi"><span>총 장수</span><strong>{totals.count.toLocaleString()}<em>장</em></strong><small>등급 카드 {totals.graded}장</small></div>
-        <div className="kpi"><span>평가액</span><strong>{won(totals.value)}</strong><small>{totals.unpriced > 0 ? `평가 가격 없는 카드 ${totals.unpriced}종` : '내가 적은 평가 가격 × 장수'}</small></div>
+        <div className="kpi"><span>평가액</span><strong>{won(totals.value)}</strong><small>{marketIndex === null ? '시세 불러오는 중...' : totals.unpriced > 0 ? `시세 기록이 없는 카드 ${totals.unpriced}장은 빠져 있어요` : '내 카드마다 같은 종류 시세로 계산'}</small></div>
         <div className="kpi"><span>구매가 대비</span>
-          {gain === null ? <><strong className="muted">-</strong><small>{totals.purchasedCount > 0 ? '구매가를 적은 카드에 평가 가격도 적으면 손익이 보여요' : '보유 기록에 구매가를 적으면 손익이 보여요'}</small></>
-            : <><strong className={gain >= 0 ? 'up' : 'down'}>{gain >= 0 ? '+' : '-'}{won(Math.abs(gain))}</strong><small>구매가 {won(totals.pairedCost)} → 평가 {won(totals.pairedValue)} ({totals.pairedCount}장 기준)</small></>}
+          {gain === null ? <><strong className="muted">-</strong><small>{totals.purchasedCount > 0 ? '구매가를 적은 카드와 같은 종류의 시세가 아직 없어요' : '보유 기록에 구매가를 적으면 시세와 비교해 보여줘요'}</small></>
+            : <><strong className={gain >= 0 ? 'up' : 'down'}>{gain >= 0 ? '+' : '-'}{won(Math.abs(gain))}</strong><small>구매가 {won(totals.pairedCost)} → 시세 {won(totals.pairedValue)} ({totals.pairedCount}장 기준)</small></>}
         </div>
       </section>
 
@@ -239,7 +244,7 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
               )}
               <span className="count">{list.length.toLocaleString()}종</span>
               <SortControl fields={SORT_FIELD_KEYS} value={sort} onChange={setSort} />
-              <ThumbnailSettings settings={settings} toggleSetting={toggleSetting} updateSettings={updateSettings} hide={['showPrice']} />
+              <ThumbnailSettings settings={settings} toggleSetting={toggleSetting} updateSettings={updateSettings} />
             </div>
           </div>
           {loading ? <div className="cp-empty">불러오는 중...</div> : list.length === 0 ? (
@@ -248,10 +253,10 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
             </div>
           ) : (
             <div className="card-grid ctile-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
-              {list.map(({ card, value, count }) => (
+              {list.map(({ card, value, count, unit }) => (
                 <div key={card.id} className="col-item">
-                  <CardTile card={card} settings={{ ...settings, showPrice: false }} onClick={() => detail.openCard(card)} />
-                  {value > 0 && <div className="col-value">{won(value)}{count > 1 ? <small> ({won(card.price)} × {count})</small> : null}</div>}
+                  <CardTile card={card} settings={settings} onClick={() => detail.openCard(card)} />
+                  {value > 0 && <div className="col-value">시세 {won(value)}{count > 1 && unit ? <small> (약 {won(unit)} × {count})</small> : null}</div>}
                 </div>
               ))}
             </div>
@@ -347,9 +352,9 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
           ) : (
             <div className="cp-table-wrap">
               <table className="cp-table">
-                <thead><tr><th></th><th>카드</th><th>상태</th><th className="num">수량</th><th className="num">희망 가격(1장)</th><th className="num">구매가(1장)</th><th className="num">내 평가 가격</th></tr></thead>
+                <thead><tr><th></th><th>카드</th><th>상태</th><th className="num">수량</th><th className="num">희망 가격(1장)</th><th className="num">구매가(1장)</th><th className="num">시세(1장)</th></tr></thead>
                 <tbody>
-                  {sales.listed.map(({ card, set, row, n, label }) => (
+                  {sales.listed.map(({ card, set, row, n, label, market }) => (
                     <tr key={`${card.id}_${row.id}`} onClick={() => detail.openCard(card)}>
                       <td className="thumb"><CardThumbnail imageUrl={card.imageUrl} alt="" type="table" /></td>
                       <td><span className="name">{card.cardName}</span><div className="mono">{set ? set.code.toUpperCase() : ''} {card.cardNumber || ''}</div></td>
@@ -357,7 +362,7 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
                       <td className="num">{n}</td>
                       <td className="num">{Number(row.askPrice) > 0 ? won(row.askPrice) : '-'}</td>
                       <td className="num">{Number(row.purchasePrice) > 0 ? won(row.purchasePrice) : '-'}</td>
-                      <td className="num">{Number(card.price) > 0 ? won(card.price) : '-'}</td>
+                      <td className="num">{market ? won(market) : '-'}</td>
                     </tr>
                   ))}
                 </tbody>
