@@ -3971,3 +3971,38 @@ input, select, textarea, button { font-family: inherit; }
 .market-drawer-backdrop.over-modal { z-index: 1250; }
 .market-drawer-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 0.2rem 0 0.5rem; }
 .market-watch-on { font-size: 0.82rem; font-weight: 600; color: var(--text-muted); padding: 4px 10px; border: 1px solid var(--border-color); border-radius: 999px; }
+
+/* 판매: 판매중 표시·판매완료 입력·판매 기록 */
+.sale-pill { display: inline-block; margin-left: 8px; font-size: 0.74rem; font-weight: 700; color: #b45309; background: rgba(245, 158, 11, 0.14); border: 1px solid rgba(180, 83, 9, 0.25); border-radius: 999px; padding: 1px 8px; vertical-align: 1px; }
+.own-copies li { flex-direction: column; align-items: stretch; }
+.own-copy-row { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.own-copy-row .own-copy-body { flex: 1; }
+.own-copy-action { flex: none; }
+.sold-block { margin-top: 14px; }
+.sold-block h4 { font-size: 0.85rem; margin: 0 0 8px; color: var(--text-muted); }
+.sold-block h4 em { font-style: normal; color: var(--text-subtle); font-weight: 500; }
+.own-copies li.sold { background: var(--surface-2); border-style: dashed; }
+.own-copies li.sold .own-copy-mark { opacity: 0.55; }
+.own-copies li.sold .own-copy-title { color: var(--text-muted); }
+.own-copy-meta b.up { color: #15803d; }
+.own-copy-meta b.down { color: #b91c1c; }
+.sale-form { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border-color); display: flex; flex-direction: column; gap: 10px; }
+.sale-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px 10px; }
+.sale-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; color: var(--text-muted); }
+.sale-grid label.wide { grid-column: 1 / -1; }
+.sale-grid input, .sale-grid select { padding: 6px 8px; border: 1px solid var(--border-color); border-radius: var(--radius-s); background: var(--bg-color); color: var(--text-main); font-size: 0.88rem; }
+.sale-check { display: flex; align-items: center; gap: 8px; font-size: 0.84rem; cursor: pointer; }
+.sale-actions { display: flex; gap: 8px; }
+.pe-sale { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.pe-type.small { margin-bottom: 0; }
+.pe-type.small button { padding: 4px 12px; font-size: 0.8rem; }
+.pe-row .pe-sale .pe-type button.on.sale { background: #b45309; color: #fff; }
+.pe-ask { display: flex; flex-direction: column; gap: 3px; font-size: 0.78rem; color: var(--text-muted); }
+.pe-ask input { width: 130px; padding: 5px 8px; border: 1px solid var(--border-color); border-radius: var(--radius-s); background: var(--bg-color); color: var(--text-main); }
+:root[data-theme="dark"] .sale-pill { color: #fbbf24; }
+:root[data-theme="dark"] .own-copy-meta b.up { color: #4ade80; }
+:root[data-theme="dark"] .own-copy-meta b.down { color: #f87171; }
+.cp-table td.up, .kpi strong.up { color: #15803d; }
+.cp-table td.down, .kpi strong.down { color: #b91c1c; }
+:root[data-theme="dark"] .cp-table td.up { color: #4ade80; }
+:root[data-theme="dark"] .cp-table td.down { color: #f87171; }

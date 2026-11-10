@@ -9,6 +9,7 @@ import CardThumbnail from './CardThumbnail';
 import CardDetailView from './CardDetailView';
 import PossessionEditor from './PossessionEditor';
 import { normalizeStatus } from '../utils/statusUtils';
+import { statusFromRows } from '../utils/sales';
 
 const { krToEn, krToJa } = pokemonMapAll;
 
@@ -22,6 +23,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
   const [editData, setEditData] = useState({});
   // 'loading' 상태는 null, 기록 없음은 'none', 있으면 {count,min,max,avg}
   const [marketSummary, setMarketSummary] = useState(null);
+  const [summaryBump, setSummaryBump] = useState(0); // 판매를 시세에 기록하면 시세 요약을 다시 읽는다
   const [isSaving, setIsSaving] = useState(false);
 
   // 📸 두 번째 초대형 멀티 언어 이미지 픽커 상태
@@ -100,7 +102,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
       }
     })();
     return () => { cancelled = true; };
-  }, [isOpen, card, marketVersion]);
+  }, [isOpen, card, marketVersion, summaryBump]);
 
   if (!isOpen || !card) return null;
 
@@ -117,9 +119,10 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
     }
     setIsSaving(true);
     try {
-      // 보유 기록이 한 줄이라도 있으면 "보유중". 등급 카드인지는 보유 기록(한 장씩)으로 구분한다.
+      // 보유 기록이 있으면 갖고 있는 장이 있을 때 "보유중", 전부 판매완료면 "미보유".
+      // 등급 카드인지는 보유 기록(한 장씩)으로 구분한다.
       const rows = Array.isArray(editData.possessions) ? editData.possessions.filter((p) => p && Number(p.count ?? 1) > 0) : [];
-      const status = rows.length > 0 ? '보유중' : normalizeStatus(editData.status);
+      const status = statusFromRows(rows, normalizeStatus(editData.status));
       await onSave({ ...editData, possessions: rows, status });
       if (!card?.isNew) setMode('view');
     } finally {
@@ -259,6 +262,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
               onEdit={() => (user ? setMode('edit') : signInWithGoogle())}
               onViewMarket={onViewMarket ? () => onViewMarket({ ...card }) : undefined}
               onOpenCard={onOpenCard}
+              onMarketChanged={() => setSummaryBump((v) => v + 1)}
             />
           ) : (<>
           <div className="modal-edit-head">
@@ -339,7 +343,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
                             <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginRight: '0.4rem' }}>보유여부</label>
                           </div>
                           <div style={{ flex: '0 0 120px' }}>
-                            <select name="status" value={(editData.possessions || []).length > 0 ? '보유중' : normalizeStatus(editData.status)} onChange={handleEditChange} style={{ width: '100%' }} disabled={(editData.possessions || []).length > 0} title={(editData.possessions || []).length > 0 ? '아래 보유 기록을 보고 자동으로 정해집니다' : ''}>
+                            <select name="status" value={statusFromRows(editData.possessions || [], normalizeStatus(editData.status))} onChange={handleEditChange} style={{ width: '100%' }} disabled={(editData.possessions || []).length > 0} title={(editData.possessions || []).length > 0 ? '아래 보유 기록을 보고 자동으로 정해집니다' : ''}>
                               <option value="미보유">미보유</option>
                               <option value="보유중">보유중</option>
                             </select>

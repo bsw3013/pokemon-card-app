@@ -6,10 +6,11 @@ import { useOwnedCards } from '../hooks/useOwnedCards';
 import { useThumbnailSettings } from '../hooks/useThumbnailSettings';
 import { useCardDetail } from '../hooks/useCardDetail';
 import { DEFAULT_RARITIES, DEFAULT_SETS, buildSetIndex, findSetForCard, parseCardNo } from '../utils/catalog';
-import { cardLanguage, gradedInfo, langShort, ownedCount, parsePossessions } from '../utils/cardStats';
+import { activeRows, cardLanguage, gradedInfo, isForSale, langShort, ownedCount, possessionLabel, soldRows } from '../utils/cardStats';
 import { cardIdFromKey, resolveLegacyCardKey } from '../utils/cardKey';
 import { rarityTone } from '../utils/rarityTone';
 import { navigate, parseHash, setHashParams } from '../utils/hashRoute';
+import { todayStr } from '../utils/sales';
 import CardTile from '../components/CardTile';
 import CardThumbnail from '../components/CardThumbnail';
 import ThumbnailSettings from '../components/ThumbnailSettings';
@@ -20,13 +21,14 @@ const TABS = [
   ['cards', '보유 카드'],
   ['sets', '세트 완성률'],
   ['rarity', '레어도별'],
+  ['sales', '판매'],
   ['watch', '관심 카드'],
 ];
 const FILTERS = [
   ['all', '전체'],
   ['multi', '2장 이상'],
   ['graded', '등급 카드'],
-  ['trade', '판매·교환 가능'],
+  ['trade', '판매중'],
   ['nodata', '기록 없음'],
 ];
 // 정렬 목록 (종류별로 묶어서 보여줌)
@@ -42,10 +44,11 @@ const writeLS = (k, v) => { try { localStorage.setItem(k, v); } catch { /* 저�
 
 // 카드 한 장의 보유 요약
 function summarize(card) {
-  const rows = parsePossessions(card.possessions);
+  const rows = activeRows(card); // 판매완료한 장은 빼고 계산
+
   const count = ownedCount(card);
   const graded = gradedInfo(card).count;
-  const trade = rows.some((r) => r.forTrade);
+  const trade = rows.some(isForSale);
   const purchase = rows.reduce((s, r) => s + (Number(r.purchasePrice) || 0) * (Number(r.count) || 0), 0);
   const purchasedCount = rows.filter((r) => Number(r.purchasePrice) > 0).reduce((s, r) => s + (Number(r.count) || 0), 0);
   const lastBought = rows.map((r) => text(r.purchaseDate)).filter(Boolean).sort().pop() || '';
@@ -124,6 +127,38 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
     }[sort] || tie;
     return f.sort(cmp);
   }, [owned, filter, sort, lang]);
+
+  // 판매: 지금 판매중인 장 + 판매완료 기록 (전부 판 카드도 포함하려고 전체 카드에서 모은다)
+  const [salesView, setSalesView] = useState('sold');
+  const sales = useMemo(() => {
+    const listed = [];
+    const done = [];
+    const month = todayStr().slice(0, 7); // 이번 달 (내 컴퓨터 날짜 기준)
+    const t = { listedCount: 0, askTotal: 0, soldCount: 0, soldTotal: 0, profit: 0, profitCount: 0, monthTotal: 0 };
+    cards.forEach((card) => {
+      const lang = cardLanguage(card);
+      const set = findSetForCard(card, setIndex);
+      activeRows(card).filter(isForSale).forEach((row) => {
+        const n = Number(row.count) || 1;
+        listed.push({ card, set, row, n, label: possessionLabel({ ...row, count: 1 }, lang) });
+        t.listedCount += n;
+        t.askTotal += (Number(row.askPrice) || 0) * n;
+      });
+      soldRows(card).forEach((row) => {
+        const n = Number(row.count) || 1;
+        const total = (Number(row.soldPrice) || 0) * n;
+        const profit = Number(row.purchasePrice) > 0 ? total - Number(row.purchasePrice) * n : null;
+        done.push({ card, set, row, n, total, profit, label: possessionLabel({ ...row, count: 1 }, lang) });
+        t.soldCount += n;
+        t.soldTotal += total;
+        if (profit !== null) { t.profit += profit; t.profitCount += n; }
+        if (String(row.soldDate || '').startsWith(month)) t.monthTotal += total;
+      });
+    });
+    done.sort((a, b) => String(b.row.soldDate || '').localeCompare(String(a.row.soldDate || '')));
+    listed.sort((a, b) => (Number(b.row.askPrice) || 0) - (Number(a.row.askPrice) || 0));
+    return { listed, done, t };
+  }, [cards, setIndex]);
 
   // 언어판별 보유 종류 수 (한판·일판·영문판·중국판)
   const langCounts = useMemo(() => {
@@ -285,6 +320,73 @@ export default function CollectionPage({ appConfig, onViewMarket }) {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {tab === 'sales' && (
+        <div className="col-sales">
+          <section className="kpis">
+            <div className="kpi"><span>판매중</span><strong>{sales.t.listedCount}<em>장</em></strong><small>{sales.t.askTotal > 0 ? `희망 가격 합계 ${won(sales.t.askTotal)}` : '수정 화면에서 [판매중]으로 바꾸면 여기에 모여요'}</small></div>
+            <div className="kpi"><span>총 판매액</span><strong>{won(sales.t.soldTotal)}</strong><small>판매완료 {sales.t.soldCount}장</small></div>
+            <div className="kpi"><span>실현 손익</span>
+              {sales.t.profitCount > 0
+                ? <><strong className={sales.t.profit >= 0 ? 'up' : 'down'}>{sales.t.profit >= 0 ? '+' : '-'}{won(Math.abs(sales.t.profit))}</strong><small>구매가를 적은 {sales.t.profitCount}장 기준</small></>
+                : <><strong className="muted">-</strong><small>구매가를 적은 카드를 팔면 손익이 보여요</small></>}
+            </div>
+            <div className="kpi"><span>이번 달 판매액</span><strong>{won(sales.t.monthTotal)}</strong><small>{new Date().getMonth() + 1}월 판매완료 기준</small></div>
+          </section>
+          <div className="cp-toolbar">
+            <div className="seg">
+              <button type="button" className={salesView === 'sold' ? 'on' : ''} onClick={() => setSalesView('sold')}>판매 기록 {sales.done.length}</button>
+              <button type="button" className={salesView === 'listed' ? 'on' : ''} onClick={() => setSalesView('listed')}>판매중 {sales.listed.length}</button>
+            </div>
+            <span className="sub">카드를 누르면 상세에서 [판매완료]·[되돌리기]를 할 수 있어요.</span>
+          </div>
+          {salesView === 'sold' ? (sales.done.length === 0 ? (
+            <div className="cp-empty">아직 판매 기록이 없어요. 카드 상세의 "내 보유"에서 [판매완료]를 눌러 기록해 보세요.</div>
+          ) : (
+            <div className="cp-table-wrap">
+              <table className="cp-table">
+                <thead><tr><th></th><th>카드</th><th>상태</th><th>판매일</th><th>판매처</th><th className="num">수량</th><th className="num">판매가(1장)</th><th className="num">구매가(1장)</th><th className="num">손익</th></tr></thead>
+                <tbody>
+                  {sales.done.map(({ card, set, row, n, profit, label }) => (
+                    <tr key={`${card.id}_${row.id}`} onClick={() => detail.openCard(card)}>
+                      <td className="thumb"><CardThumbnail imageUrl={card.imageUrl} alt="" type="table" /></td>
+                      <td><span className="name">{card.cardName}</span><div className="mono">{set ? set.code.toUpperCase() : ''} {card.cardNumber || ''}</div></td>
+                      <td>{label}</td>
+                      <td className="mono">{row.soldDate || '-'}</td>
+                      <td>{row.soldVia || '-'}</td>
+                      <td className="num">{n}</td>
+                      <td className="num">{won(row.soldPrice)}</td>
+                      <td className="num">{Number(row.purchasePrice) > 0 ? won(row.purchasePrice) : '-'}</td>
+                      <td className={`num ${profit === null ? '' : profit >= 0 ? 'up' : 'down'}`}>{profit === null ? '-' : `${profit >= 0 ? '+' : '-'}${won(Math.abs(profit))}`}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )) : (sales.listed.length === 0 ? (
+            <div className="cp-empty">지금 판매중인 카드가 없어요. 카드 수정 화면의 보유 기록에서 [판매중]을 고르면 여기에 모여요.</div>
+          ) : (
+            <div className="cp-table-wrap">
+              <table className="cp-table">
+                <thead><tr><th></th><th>카드</th><th>상태</th><th className="num">수량</th><th className="num">희망 가격(1장)</th><th className="num">구매가(1장)</th><th className="num">내 평가 가격</th></tr></thead>
+                <tbody>
+                  {sales.listed.map(({ card, set, row, n, label }) => (
+                    <tr key={`${card.id}_${row.id}`} onClick={() => detail.openCard(card)}>
+                      <td className="thumb"><CardThumbnail imageUrl={card.imageUrl} alt="" type="table" /></td>
+                      <td><span className="name">{card.cardName}</span><div className="mono">{set ? set.code.toUpperCase() : ''} {card.cardNumber || ''}</div></td>
+                      <td>{label}</td>
+                      <td className="num">{n}</td>
+                      <td className="num">{Number(row.askPrice) > 0 ? won(row.askPrice) : '-'}</td>
+                      <td className="num">{Number(row.purchasePrice) > 0 ? won(row.purchasePrice) : '-'}</td>
+                      <td className="num">{Number(card.price) > 0 ? won(card.price) : '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
         </div>
       )}
 
