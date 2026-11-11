@@ -1,6 +1,7 @@
 import React from 'react';
 import CardThumbnail from '../CardThumbnail';
 import { DEFAULT_ALBUM_COLOR, slotImage, slotOwned } from './albumUtils';
+import { normalizeImageUrl } from '../../utils/thumbKey';
 
 // 앨범 표지: 바인더 색 + 왼쪽 링 + (첫 페이지 미리보기 | 앨범 속 카드 한 장 | 직접 올린 사진)
 export default function AlbumCover({ album, cardsById, cover: coverOverride, color: colorOverride, className = '' }) {
@@ -14,7 +15,7 @@ export default function AlbumCover({ album, cardsById, cover: coverOverride, col
     body = (
       <img
         className="alb-cover-photo"
-        src={cover.imageUrl}
+        src={normalizeImageUrl(cover.imageUrl)}
         alt=""
         loading="lazy"
         style={{ objectPosition: `center ${cover.position || 'center'}` }}

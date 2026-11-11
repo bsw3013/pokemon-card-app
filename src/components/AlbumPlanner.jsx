@@ -12,6 +12,7 @@ import { useAuth } from '../AuthContext';
 import CardDetailModal from './CardDetailModal';
 import CardThumbnail from './CardThumbnail';
 import CardsPage from '../pages/CardsPage';
+import { normalizeImageUrl } from '../utils/thumbKey';
 
 const ALBUM_COLLECTION = 'album_plans';
 const DRAFT_STORAGE_PREFIX = 'album_draft_';
@@ -814,7 +815,7 @@ export default function AlbumPlanner({ appConfig }) {
                                   >
                                     {!isEmpty && resolvedSlot.imageUrl && (
                                       <img 
-                                        src={resolvedSlot.imageUrl} 
+                                        src={normalizeImageUrl(resolvedSlot.imageUrl)} 
                                         alt={resolvedSlot.cardName} 
                                         style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                                       />

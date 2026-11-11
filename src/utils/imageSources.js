@@ -4,7 +4,7 @@
 //  - 영어: TCGdex (키 없이 쓰는 무료 공개 API), TCGdex에 사진이 없는 카드는 pokemontcg.io 사진
 
 // ---------- 한국: 주소 규칙으로 바로 만들기 ----------
-// 포켓몬코리아 공식: https://cards.image.pokemonkorea.co.kr/data/wmimages/{시대 폴더}/{세트}/{세트}_{번호 3자리}.png
+// 포켓몬코리아 공식: https://cards.image.pokemonkorea.co.kr/data/wmimages/{시대 폴더}/{세트}/{세트}_{번호 3자리}.webp (2026-11-11부터 .png 없음)
 // mtg-kr.com:      https://mtg-kr.com/cardimage/poketcg{세트}-{번호 3자리}.png
 const ERA_FOLDERS = {
   메가: ['MEGA'],
@@ -37,7 +37,7 @@ export function koreanImageCandidates(text, era) {
   const out = [];
   codes.forEach((c) => {
     folders.forEach((f) => {
-      ['png', 'jpg'].forEach((ext) => out.push({ source: '포켓몬코리아 공식', url: `https://cards.image.pokemonkorea.co.kr/data/wmimages/${f}/${c}/${c}_${nnn}.${ext}` }));
+      ['webp', 'jpg'].forEach((ext) => out.push({ source: '포켓몬코리아 공식', url: `https://cards.image.pokemonkorea.co.kr/data/wmimages/${f}/${c}/${c}_${nnn}.${ext}` }));
     });
     out.push({ source: 'mtg-kr.com', url: `https://mtg-kr.com/cardimage/poketcg${c}-${nnn}.png` });
   });
@@ -61,6 +61,7 @@ function fixKrIndex(index) {
   index.cards.forEach((c) => {
     const set = String(c[7] || '').split('/').pop().split('_')[0].replace(/\.[a-z]+$/i, '');
     if (set) c[2] = set;
+    c[7] = String(c[7] || '').replace(/\.png$/i, '.webp'); // 공식 사진 서버는 .webp 만 줌
   });
   Object.values(index.products || {}).forEach((p) => { if (BAD_PRODUCT.test(p?.name || '')) p.name = ''; });
   return index;
@@ -99,7 +100,7 @@ export function searchKrIndex(index, { text = '', setCode = '' }, limit = 1000) 
     }
     if (hit && setHit) {
       const prod = productShort(index.products?.[id.slice(0, 9)]?.name);
-      const full = `${index.imageBase}${img.replace(/\.webp$/i, '.png')}`;
+      const full = `${index.imageBase}${img.replace(/\.png$/i, '.webp')}`; // 공식 사진 서버는 .webp 만 줌
       hits.push({
         id: `krx_${id}`,
         source: `한국 공식 · ${cardSet}${rarity ? ` ${rarity}` : ''}`,

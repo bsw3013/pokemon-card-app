@@ -15,6 +15,7 @@ import { useOwnedCards } from '../hooks/useOwnedCards';
 import { buildCardKey, isIdCardKey, resolveLegacyCardKey } from '../utils/cardKey';
 import MarketDrawer, { LangConditionTable } from './MarketDrawer';
 import { invalidateWatchlist } from '../hooks/useWatchlist';
+import { normalizeImageUrl } from '../utils/thumbKey';
 
 const PICKER_RESULT_LIMIT = 60;
 
@@ -357,7 +358,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
       {pendingAdd && (
         <div className="market-confirm-backdrop" onClick={() => setPendingAdd(null)}>
           <div className="market-confirm-card" onClick={(e) => e.stopPropagation()}>
-            <img src={pendingAdd.imageUrl || '/placeholder.png'} alt={pendingAdd.cardName} />
+            <img src={normalizeImageUrl(pendingAdd.imageUrl) || '/placeholder.png'} alt={pendingAdd.cardName} />
             <div className="market-confirm-body">
               <h4>{pendingAdd.cardName}</h4>
               <p className="market-hint">{cardLabel(pendingAdd) || '시리즈/카드번호 정보 없음'}</p>
@@ -398,7 +399,7 @@ function CardTile({ card, onClick, active, onRemove, subLabel, breakdown }) {
         <button type="button" className="market-tile-remove" onClick={(e) => { e.stopPropagation(); onRemove(); }} title="관심카드에서 삭제">✕</button>
       )}
       <div className="card-image-wrapper">
-        <img src={card.imageUrl || '/placeholder.png'} alt={card.cardName} loading="lazy" />
+        <img src={normalizeImageUrl(card.imageUrl) || '/placeholder.png'} alt={card.cardName} loading="lazy" />
         <div className="market-tile-hover-info">
           <strong>{card.cardName}</strong>
           {(card.series || card.cardNumber) && (

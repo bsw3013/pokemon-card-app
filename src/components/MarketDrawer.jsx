@@ -19,6 +19,7 @@ import { looksLikeBundle } from '../utils/bundleHint';
 import PriceTrendChart from './PriceTrendChart';
 import { invalidateMarketIndex } from '../hooks/useMarketIndex';
 import { invalidateWatchlist } from '../hooks/useWatchlist';
+import { normalizeImageUrl } from '../utils/thumbKey';
 
 const SOURCE_LABELS = { bunjang: '번개장터', danggeun: '당근마켓', manual: '직접입력' };
 const TOP_GRADES = ['10', '9'];
@@ -519,7 +520,7 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
             <div className="market-detail-header">
             <img
               className="market-preview-image"
-              src={card.imageUrl || '/placeholder.png'}
+              src={normalizeImageUrl(card.imageUrl) || '/placeholder.png'}
               alt={card.cardName}
             />
             <div className="market-preview-info">
@@ -774,7 +775,7 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
                         const alreadyImported = listings.some((l) => l.id === importKey);
                         return (
                           <div key={importKey} className="market-search-result">
-                            <img src={r.imageUrl || '/placeholder.png'} alt={r.title} className="market-search-result-image" />
+                            <img src={normalizeImageUrl(r.imageUrl) || '/placeholder.png'} alt={r.title} className="market-search-result-image" />
                             <div className="market-search-result-body">
                               <span className={`badge-source badge-source-${r.source}`}>{SOURCE_LABELS[r.source] || r.source}</span>
                               {looksLikeBundle(r.title) && <span className="badge-classification">묶음의심</span>}

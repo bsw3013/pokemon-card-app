@@ -134,7 +134,7 @@ export function buildKrGroups(index) {
       oid: imageOnly ? `kr:${id}` : `kr:${id}`, lang: 'kr', setKey: key, name: text(name), nameOk: !!text(name), imageOnly,
       num, noText: text(no),
       rarity: text(rarity), type: text(type), dex: dexNo,
-      img: `${index.imageBase}${String(img).replace(/\.webp$/i, '.png')}`, thumb: `${index.imageBase}${img}`,
+      img: `${index.imageBase}${String(img).replace(/\.png$/i, '.webp')}`, thumb: `${index.imageBase}${String(img).replace(/\.png$/i, '.webp')}`,
     });
   }
   return [...groups.values()]
