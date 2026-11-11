@@ -181,7 +181,10 @@ async function scanProduct(prodId, fromNo) {
 }
 
 // 예전 목록 고치기: 세트 코드를 사진 파일 이름으로 다시 정한다 (사진으로 모은 카드는 그대로)
-cardMap.forEach((c) => { if (String(c[0]).startsWith('BS')) { const set = setFromImage(c[7]); if (set) c[2] = set; } });
+cardMap.forEach((c) => {
+  if (String(c[0]).startsWith('BS')) { const set = setFromImage(c[7]); if (set) c[2] = set; }
+  c[7] = String(c[7] || '').replace(/\.png$/i, '.webp'); // 공식 사진 서버는 2026-11-11부터 .webp 만 줌
+});
 
 // 예전 목록에 잘못 들어간 상품 이름은 그 상품 카드 한 장을 다시 읽어서 고친다
 for (const prodId of Object.keys(products)) {
@@ -262,7 +265,7 @@ const recordImageOnly = (set, num, path) => {
   const paths = [];
   bySet.forEach(({ folder, nums }, set) => {
     const max = Math.max(...nums);
-    for (let n = 1; n < max; n += 1) if (!nums.has(n)) paths.push([set, n, `${folder}/${set}_${String(n).padStart(3, '0')}.png`]);
+    for (let n = 1; n < max; n += 1) if (!nums.has(n)) paths.push([set, n, `${folder}/${set}_${String(n).padStart(3, '0')}.webp`]);
   });
   const ok = new Set(await checkImages(paths.map((p) => p[2])));
   paths.filter((p) => ok.has(p[2])).forEach(([set, n, path]) => recordImageOnly(set, n, path));
@@ -284,9 +287,9 @@ for (const [folder, set, name] of PROMO_FOLDERS) {
   while (miss < 20 && n <= 999 && !outOfTime()) {
     const batch = [];
     for (let k = 0; k < conc; k += 1) batch.push(n + k);
-    const res = await Promise.all(batch.map((m) => imageExists(`${folder}/${set}_${String(m).padStart(3, '0')}.png`)));
+    const res = await Promise.all(batch.map((m) => imageExists(`${folder}/${set}_${String(m).padStart(3, '0')}.webp`)));
     batch.forEach((m, k) => {
-      if (res[k]) { recordImageOnly(set, m, `${folder}/${set}_${String(m).padStart(3, '0')}.png`); max = Math.max(max, m); miss = 0; } else miss += 1;
+      if (res[k]) { recordImageOnly(set, m, `${folder}/${set}_${String(m).padStart(3, '0')}.webp`); max = Math.max(max, m); miss = 0; } else miss += 1;
     });
     n += batch.length;
   }
