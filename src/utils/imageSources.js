@@ -50,6 +50,7 @@ export function koreanImageCandidates(text, era) {
 // GitHub Actions(.github/workflows/card-index.yml)가 한국 공식 사이트 카드 상세를 천천히 모아 만든 kr.json
 export const KR_INDEX_URL = 'https://cdn.jsdelivr.net/gh/bsw3013/pokemon-card-app@card-index/kr.json';
 let krIndexPromise = null;
+// cache: 'no-cache' — jsDelivr가 브라우저에 7일 동안 저장하라고 해서, 매번 "바뀌었나?"만 확인하고(안 바뀌었으면 저장해 둔 것 사용) 바뀌었으면 새로 받는다
 
 // 예전에 만든 목록 고치기 (목록을 새로 모으면 처음부터 맞게 들어감)
 //  - 세트 코드: 사진 폴더(S5) 대신 사진 파일 이름 앞부분(S5I·S5R) — 폴더 하나를 두 세트가 같이 쓰는 경우가 있음
@@ -67,7 +68,7 @@ function fixKrIndex(index) {
 
 export function loadKrIndex() {
   if (!krIndexPromise) {
-    krIndexPromise = fetch(KR_INDEX_URL)
+    krIndexPromise = fetch(KR_INDEX_URL, { cache: 'no-cache' })
       .then((res) => {
         if (!res.ok) throw new Error(`한국 공식 카드 목록을 불러오지 못했어요 (${res.status})`);
         return res.json();
@@ -122,14 +123,14 @@ let jpDetailPromise = null;
 // 일본 카드 번호·레어도·도감 번호 (정보 자동 입력용, 없으면 null)
 export function loadJpDetail() {
   if (!jpDetailPromise) {
-    jpDetailPromise = fetch(JP_DETAIL_URL).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    jpDetailPromise = fetch(JP_DETAIL_URL, { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
   }
   return jpDetailPromise;
 }
 
 export function loadJpIndex() {
   if (!jpIndexPromise) {
-    jpIndexPromise = fetch(JP_INDEX_URL)
+    jpIndexPromise = fetch(JP_INDEX_URL, { cache: 'no-cache' })
       .then((res) => {
         if (!res.ok) throw new Error(`일본 공식 카드 목록을 불러오지 못했어요 (${res.status})`);
         return res.json();

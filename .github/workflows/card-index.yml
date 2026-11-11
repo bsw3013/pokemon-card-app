@@ -12,6 +12,7 @@
 #    (이번 실행에서 한 장도 못 늘렸으면 멈춘다 — 사이트가 막았을 때 계속 두드리지 않도록)
 # 만든 파일은 card-index 브랜치에만 올린다. (main 브랜치·사이트 배포와는 상관없음)
 # 사이트는 jsDelivr(무료 CDN)로 불러온다: https://cdn.jsdelivr.net/gh/<저장소>@card-index/<파일>
+# 올린 뒤 jsDelivr에 새로 고침을 요청해서 사이트에 바로 반영되게 한다.
 # 깃허브가 자동으로 주는 임시 토큰(GITHUB_TOKEN)만 쓴다.
 name: Build card image index
 
@@ -174,6 +175,11 @@ jobs:
           git commit -qm "$MSG"
           git push -f origin HEAD:card-index
           echo "$MSG"
+          # 사이트가 새 목록을 바로 쓰도록 jsDelivr(무료 CDN)에 저장해 둔 예전 파일을 지워 달라고 요청한다
+          # (안 하면 jsDelivr가 예전 파일을 최대 반나절 동안 계속 보여준다. 실패해도 목록 올리기는 끝난 것이라 무시)
+          for f in jp.json jp-detail.json kr.json; do
+            curl -s -m 60 "https://purge.jsdelivr.net/gh/${GITHUB_REPOSITORY}@card-index/$f" -o /dev/null -w "jsDelivr 새로 고침 $f: %{http_code}\n" || echo "jsDelivr 새로 고침 $f 실패 (최대 반나절 뒤 반영)"
+          done
 
       # 아직 다 안 모였고 이번에 조금이라도 늘었으면 이어서 모으기를 다시 실행한다
       - name: 다 안 모였으면 이어서 다시 실행
