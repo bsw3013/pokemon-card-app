@@ -54,7 +54,7 @@ let krIndexPromise = null;
 // 예전에 만든 목록 고치기 (목록을 새로 모으면 처음부터 맞게 들어감)
 //  - 세트 코드: 사진 폴더(S5) 대신 사진 파일 이름 앞부분(S5I·S5R) — 폴더 하나를 두 세트가 같이 쓰는 경우가 있음
 //  - 상품 이름: 기술 설명("이 포켓몬의 HP를 「30」회복한다.")이 잘못 들어간 것은 비움
-const BAD_PRODUCT = /(이 포켓몬|자신의|상대의|상대 |데미지|사용할|회복|받지 않는다)/;
+const BAD_PRODUCT = /(이 포켓몬|자신의|상대의|상대 |데미지|사용할|회복|받지 않는다|선택해서|내보낸다|섞는다)|다\.?$/;
 function fixKrIndex(index) {
   if (!index?.cards) return index;
   index.cards.forEach((c) => {

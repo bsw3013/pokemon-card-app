@@ -12,7 +12,7 @@
 //   예) BS2025001001 = 2025년 첫 번째 제품의 001번 카드
 //
 // 공식 사이트에 부담을 주지 않도록
-//   - 한 번에 한 장씩, 요청 사이에 0.7초 쉰다.
+//   - 한 번에 4장씩 동시에, 요청마다 0.25초 쉰다. (바쁘다고 하면 한 장씩 0.7초 간격으로)
 //   - "너무 많다(429)"·"잠시 안 된다(503)" 응답이 오면 1분 쉬고 다시 시도한다. 계속되면 그날은 멈춘다.
 //   - 한 번 다 모은 옛날 제품은 다시 읽지 않는다. 최근 1~2년 제품만 뒤쪽 번호(새로 추가된 카드)를 확인한다.
 // 사진은 복사하지 않고 공식 사진 주소만 기록한다.
@@ -23,7 +23,12 @@ const OUT = process.argv[2] || 'card-index/kr.json';
 const PREV = process.argv[3] || '';
 const BASE = 'https://pokemoncard.co.kr/cards/detail/';
 const IMAGE_BASE = 'https://cards.image.pokemonkorea.co.kr/data/wmimages/';
-const PAUSE_MS = 700;
+// 속도: 한 번에 CONCURRENCY장씩 동시에 읽고, 요청마다 PAUSE_MS 쉰다.
+// 사이트가 "바쁘다(429/503)"고 하면 바로 한 장씩·0.7초 간격(예전 속도)으로 돌아간다.
+const CONCURRENCY = Math.max(1, Number(process.env.KR_CONCURRENCY) || 4);
+let PAUSE_MS = Number(process.env.KR_PAUSE_MS) || 250;
+let conc = CONCURRENCY;
+const slowDown = () => { if (conc > 1 || PAUSE_MS < 700) console.warn('  사이트가 바빠해서 천천히(한 장씩, 0.7초 간격) 읽습니다.'); conc = 1; PAUSE_MS = 700; };
 const FIRST_YEAR = 2012;
 const NOW_YEAR = new Date().getFullYear();
 const BUDGET_MS = (Number(process.env.KR_BUDGET_MIN) || 300) * 60 * 1000;
@@ -59,7 +64,7 @@ const cardMap = new Map((prev?.cards || []).map((c) => [c[0], c]));
 // 세트 코드는 사진 파일 이름 앞부분 (S/S5/S5I_081.webp → S5I). 폴더(S5)는 일격·연격마스터처럼 두 세트가 같이 쓰기도 해서
 const setFromImage = (path) => String(path || '').split('/').pop().split('_')[0].replace(/\.[a-z]+$/i, '');
 // 상품 이름이 제대로인지 (기술 설명이 잘못 들어간 예전 목록 고치기용)
-const goodProductName = (name) => !!String(name || '').trim() && !/(이 포켓몬|자신의|상대의|상대 |데미지|사용할|회복|받지 않는다)/.test(name);
+const goodProductName = (name) => !!String(name || '').trim() && !/(이 포켓몬|자신의|상대의|상대 |데미지|사용할|회복|받지 않는다|선택해서|내보낸다|섞는다)|다\.?$/.test(name);
 const decode = (s) => s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&nbsp;/g, ' ');
 function cardType(kindText) {
   const k = kindText.replace(/^카드 종류\s*:\s*/, '').trim();
@@ -105,8 +110,9 @@ async function fetchDetail(id) {
     await sleep(PAUSE_MS);
     requests += 1;
     try {
-      const res = await fetch(BASE + id, { headers: { 'User-Agent': 'card-index-builder (personal collection app, slow crawl)' } });
+      const res = await fetch(BASE + id, { headers: { 'User-Agent': 'card-index-builder (personal collection app)' } });
       if (res.status === 429 || res.status === 503) {
+        slowDown();
         busyStreak += 1;
         if (busyStreak >= 3) return { ok: false, stop: true };
         console.warn(`  사이트가 바빠요(${res.status}). 1분 쉬었다가 다시 시도합니다.`);
@@ -137,49 +143,41 @@ async function scanProduct(prodId, fromNo) {
   let miss = 0;
   let hit = false;
   let max = products[prodId]?.max || 0;
-  for (let n = fromNo; n <= 999; n += 1) {
-    const pause = (why) => {
-      stopReason = why;
-      // 읽은 데까지 기록해 두고 다음 실행 때 그다음 번호부터 이어서 읽는다
-      if (max) products[prodId] = { name: productNames.get(prodId) || '', max: n - 1, done: false };
-      return 'stopped';
-    };
-    if (outOfTime()) return pause('시간 제한');
-    if (fetchedCards >= MAX_CARDS) return pause('장수 제한(테스트)');
-    const id = `${prodId}${String(n).padStart(3, '0')}`;
-    const r = await fetchDetail(id);
-    if (r.stop) return pause('사이트가 계속 바빠서 멈춤');
-    const c = r.ok ? parse(r.html) : null;
-    if (c) {
-      record(id, c, prodId);
-      hit = true; miss = 0; max = Math.max(max, n); fetchedCards += 1;
-    } else {
-      miss += 1;
-      // 제품 첫머리 3장이 모두 없으면 없는 제품
-      if (!hit && !max && n >= fromNo + 2) return 'absent';
-      if (miss >= MISS_STOP) break;
+  const pause = (why, n) => {
+    stopReason = why;
+    // 읽은 데까지 기록해 두고 다음 실행 때 그다음 번호부터 이어서 읽는다
+    if (max) products[prodId] = { name: productNames.get(prodId) || '', max: n - 1, done: false };
+    return 'stopped';
+  };
+  for (let n = fromNo; n <= 999;) {
+    if (outOfTime()) return pause('시간 제한', n);
+    if (fetchedCards >= MAX_CARDS) return pause('장수 제한(테스트)', n);
+    // 이번에 동시에 읽을 번호들
+    const batch = [];
+    for (let k = 0; k < conc && n + k <= 999; k += 1) batch.push(n + k);
+    const results = await Promise.all(batch.map((m) => fetchDetail(`${prodId}${String(m).padStart(3, '0')}`)));
+    for (let i = 0; i < batch.length; i += 1) {
+      const m = batch[i];
+      const r = results[i];
+      if (r.stop) return pause('사이트가 계속 바빠서 멈춤', m);
+      const c = r.ok ? parse(r.html) : null;
+      if (c) {
+        record(`${prodId}${String(m).padStart(3, '0')}`, c, prodId);
+        hit = true; miss = 0; max = Math.max(max, m); fetchedCards += 1;
+      } else {
+        miss += 1;
+        // 제품 첫머리 3장이 모두 없으면 없는 제품
+        if (!hit && !max && m >= fromNo + 2) return 'absent';
+        if (miss >= MISS_STOP) {
+          products[prodId] = { name: productNames.get(prodId) || products[prodId]?.name || '', max, done: true, scannedAt: new Date().toISOString() };
+          return 'done';
+        }
+      }
     }
+    n += batch.length;
   }
   products[prodId] = { name: productNames.get(prodId) || products[prodId]?.name || '', max, done: true, scannedAt: new Date().toISOString() };
   return 'done';
-}
-
-// 예전 목록 고치기: 세트 코드를 사진 파일 이름으로 다시 정한다
-cardMap.forEach((c) => { const set = setFromImage(c[7]); if (set) c[2] = set; });
-
-// 예전 목록에 잘못 들어간 상품 이름은 그 상품 카드 한 장을 다시 읽어서 고친다
-for (const prodId of Object.keys(products)) {
-  if (goodProductName(productNames.get(prodId))) continue;
-  if (outOfTime()) break;
-  const first = [...cardMap.keys()].filter((id) => id.startsWith(prodId)).sort()[0];
-  if (!first) continue;
-  const r = await fetchDetail(first);
-  if (r.stop) break;
-  const c = r.ok ? parse(r.html) : null;
-  if (c?.product) {
-    productNames.set(prodId, c.product);
-    console.log(`상품 이름 고침: ${prodId} → ${c.product}`);
-  }
 }
 
 let finished = true;
