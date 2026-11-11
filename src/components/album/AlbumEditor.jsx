@@ -200,20 +200,25 @@ export default function AlbumEditor({
     return { added, last };
   };
 
+  // 카드 넣기: 고른 칸(없으면 보고 있는 페이지 첫 칸)부터 뒤쪽 빈 칸에 차례로. 카드가 있는 칸은 건너뛴다 (덮어쓰지 않음)
+  const fillStart = () => sel || { p: curPage, s: 0 };
   const placeCards = (list, target) => {
     if (!list.length) return null;
     let res = null;
-    apply((draft) => { res = fillInto(draft, list.map(cardToSlot), target || { p: curPage, s: 0 }, !!target); return draft; });
+    apply((draft) => { res = fillInto(draft, list.map(cardToSlot), target || fillStart()); return draft; });
     if (res?.added) setToast(`칸이 모자라서 페이지 ${res.added}장을 늘렸어요`);
     return res?.last || null;
   };
-
-  const placeOne = (card) => {
-    const target = sel || nextEmpty(curPage, 0);
-    const last = placeCards([card], target || null);
+  // 넣은 뒤에는 다음 빈 칸을 골라 두어서, 이어서 넣으면 바로 뒤에 들어가게 한다 (빈 칸이 없으면 마지막에 넣은 칸)
+  const selectAfter = (last) => {
     if (!last) return;
     const after = nextEmpty(last.p, last.s + 1);
-    setSelKeys(after && after.p <= last.p + 1 ? [keyOf(after.p, after.s)] : []);
+    setSelKeys([after ? keyOf(after.p, after.s) : keyOf(last.p, last.s)]);
+    anchorRef.current = null;
+  };
+
+  const placeOne = (card) => {
+    selectAfter(placeCards([card], fillStart()));
   };
 
   const removeKeys = (keys) => {
@@ -283,9 +288,11 @@ export default function AlbumEditor({
   const trayAll = () => {
     if (!tray.length) return;
     let res = null;
-    apply((draft) => { res = fillInto(draft, draft.tray.filter(Boolean), { p: curPage, s: 0 }); draft.tray = []; return draft; });
+    const start = fillStart();
+    apply((draft) => { res = fillInto(draft, draft.tray.filter(Boolean), start); draft.tray = []; return draft; });
     setTrayPick(null);
-    setToast(`보관함 카드를 P${curPage + 1}부터 빈 칸에 넣었어요${res?.added ? ` · 페이지 ${res.added}장 추가` : ''}`);
+    selectAfter(res?.last);
+    setToast(`보관함 카드를 P${start.p + 1} · ${start.s + 1}번째 칸부터 빈 칸에 넣었어요${res?.added ? ` · 페이지 ${res.added}장 추가` : ''}`);
   };
   const trayRemove = (i) => {
     apply((draft) => { draft.tray = draft.tray.filter(Boolean).filter((_, j) => j !== i); return draft; });
@@ -438,7 +445,7 @@ export default function AlbumEditor({
     const d = dragRef.current; endDrag();
     if (!d) return;
     if (d.kind === 'slots') moveKeys(d.keys, { p, s });
-    if (d.kind === 'card') { placeCards([d.card], { p, s }); setSelKeys([keyOf(p, s)]); }
+    if (d.kind === 'card') selectAfter(placeCards([d.card], { p, s }));
     if (d.kind === 'tray') placeFromTray(d.i, { p, s });
   };
   const dropOnRail = (e, i) => {
@@ -493,10 +500,11 @@ export default function AlbumEditor({
   const fillAll = () => {
     const list = drawerCards;
     if (!list.length) return;
-    if (list.length > 30 && !window.confirm(`보이는 카드 ${list.length}장을 빈 칸에 순서대로 넣을까요?\n(칸이 모자라면 페이지를 늘려요)`)) return;
-    placeCards(list, null);
-    setToast(`${list.length}장을 넣었어요`);
-    clearSelection();
+    const start = fillStart();
+    const where = `P${start.p + 1} · ${start.s + 1}번째 칸`;
+    if (list.length > 30 && !window.confirm(`보이는 카드 ${list.length}장을 ${where}부터 빈 칸에 순서대로 넣을까요?\n(카드가 있는 칸은 건너뛰고, 칸이 모자라면 페이지를 늘려요)`)) return;
+    selectAfter(placeCards(list, start));
+    setToast(`${list.length}장을 ${where}부터 넣었어요`);
   };
 
   // ── 내보내기 (페이지마다 그림으로 캡처)
@@ -621,7 +629,7 @@ export default function AlbumEditor({
           {isMobile && <button type="button" className="alb-x" onClick={() => setDrawerOpen(false)} aria-label="닫기">✕</button>}
         </div>
         <p className="ae-hint">
-          {sel ? `P${sel.p + 1} · ${sel.s + 1}번째 칸에 넣어요` : `칸을 고르고 카드를 누르세요. 안 고르면 P${curPage + 1}부터 빈 칸에 차례로 들어가요.`}
+          {sel ? `P${sel.p + 1} · ${sel.s + 1}번째 칸부터 빈 칸에 차례로 넣어요 (카드가 있는 칸은 건너뜀)` : `칸을 고르고 카드를 누르세요. 안 고르면 P${curPage + 1}부터 빈 칸에 차례로 들어가요.`}
           {!isMobile && ' 끌어다 놓아도 돼요.'}
         </p>
         <input className="ae-search" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="이름, 번호로 검색" aria-label="카드 검색" />
@@ -789,7 +797,7 @@ export default function AlbumEditor({
                   <div className="ae-tray-head">
                     <b>보관함 {tray.length}장</b>
                     <span className="ae-hint">{trayPick !== null ? '넣을 칸을 누르세요 (카드가 있으면 서로 바꿔요)' : '카드를 고르고 칸을 누르세요'}</span>
-                    <button type="button" className="btn btn-secondary btn-compact" onClick={trayAll}>모두 P{curPage + 1}부터 빈 칸에</button>
+                    <button type="button" className="btn btn-secondary btn-compact" onClick={trayAll}>모두 {sel ? `P${sel.p + 1} · ${sel.s + 1}번째 칸` : `P${curPage + 1}`}부터 빈 칸에</button>
                   </div>
                   <div className="ae-tray-row">
                     {tray.map((t, i) => (
