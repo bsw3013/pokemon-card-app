@@ -3,7 +3,7 @@ import { useAuth } from '../AuthContext';
 import { useOwnedCards } from '../hooks/useOwnedCards';
 import { useThumbnailSettings } from '../hooks/useThumbnailSettings';
 import { useCardDetail } from '../hooks/useCardDetail';
-import { DEFAULT_RARITIES, DEFAULT_SETS, ERA_OPTIONS, buildSetIndex, findSetForCard, parseCardNo } from '../utils/catalog';
+import { DEFAULT_RARITIES, DEFAULT_SETS, ERA_OPTIONS, SET_CATEGORY_LABELS, buildSetIndex, findSetForCard, parseCardNo, setCategoryOf } from '../utils/catalog';
 import { ownedCount } from '../utils/cardStats';
 import { rarityTone } from '../utils/rarityTone';
 import { navigate } from '../utils/hashRoute';
@@ -47,18 +47,38 @@ function SetList() {
   const { user } = useAuth();
   const { bySet } = useSetStats();
   const [onlyCollecting, setOnlyCollecting] = useState(false);
+  // 분류 버튼 (확장팩 / 강화·하이클래스 / 덱·스타터 / 특별·프로모). 고른 것은 이 브라우저에 기억
+  const [cats, setCats] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('sets_categories_v1') || 'null');
+      if (Array.isArray(saved) && saved.length) return new Set(saved);
+    } catch { /* 저장 못 하는 브라우저 */ }
+    return new Set(SET_CATEGORY_LABELS.map(([k]) => k));
+  });
+  const toggleCat = (k) => setCats((prev) => {
+    const n = new Set(prev);
+    if (n.has(k)) { if (n.size > 1) n.delete(k); } else n.add(k);
+    try { localStorage.setItem('sets_categories_v1', JSON.stringify([...n])); } catch { /* 무시 */ }
+    return n;
+  });
+  const catCounts = useMemo(() => {
+    const m = {};
+    bySet.forEach((entry) => { if (entry.cards.length) { const c = setCategoryOf(entry.set); m[c] = (m[c] || 0) + 1; } });
+    return m;
+  }, [bySet]);
   const eras = useMemo(() => {
     const groups = new Map(ERA_OPTIONS.map((e) => [e, []]));
     bySet.forEach((entry) => {
       if (entry.cards.length === 0) return;
       if (onlyCollecting && entry.owned === 0) return;
+      if (!cats.has(setCategoryOf(entry.set))) return;
       const era = groups.has(entry.set.era) ? entry.set.era : '기타';
       groups.get(era).push(entry);
     });
     return [...groups.entries()]
       .map(([era, list]) => [era, list.sort((a, b) => text(b.set.releaseDate).localeCompare(text(a.set.releaseDate)))])
       .filter(([, list]) => list.length);
-  }, [bySet, onlyCollecting]);
+  }, [bySet, onlyCollecting, cats]);
   const total = [...bySet.values()].filter((e) => e.cards.length).length;
 
   return (
@@ -74,6 +94,13 @@ function SetList() {
             <button type="button" className={onlyCollecting ? 'on' : ''} onClick={() => setOnlyCollecting(true)}>모으는 중</button>
           </div>
         )}
+      </div>
+      <div className="sp-cats" role="group" aria-label="세트 분류">
+        {SET_CATEGORY_LABELS.map(([k, label]) => (
+          <button key={k} type="button" className={`sp-cat ${cats.has(k) ? 'on' : ''}`} aria-pressed={cats.has(k)} onClick={() => toggleCat(k)} disabled={!catCounts[k]}>
+            {label}<i>{catCounts[k] || 0}</i>
+          </button>
+        ))}
       </div>
       {eras.map(([era, list]) => (
         <section key={era} className="sp-era">

@@ -102,7 +102,7 @@ export function searchKrIndex(index, { text = '', setCode = '' }, limit = 1000) 
       hits.push({
         id: `krx_${id}`,
         source: `한국 공식 · ${cardSet}${rarity ? ` ${rarity}` : ''}`,
-        title: `${name} · ${prod}${no ? ` ${no}` : ''}`,
+        title: `${name || '사진만 있는 카드'}${prod ? ` · ${prod}` : ''}${no ? ` ${no}` : ''}`,
         thumbnail: `${index.imageBase}${img}`,
         fullImage: full,
         meta: { lang: 'kr', name, set: cardSet, no, rarity, type, dex, product: index.products?.[id.slice(0, 9)]?.name || '' },

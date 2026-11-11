@@ -180,6 +180,121 @@ async function scanProduct(prodId, fromNo) {
   return 'done';
 }
 
+// 예전 목록 고치기: 세트 코드를 사진 파일 이름으로 다시 정한다 (사진으로 모은 카드는 그대로)
+cardMap.forEach((c) => { if (String(c[0]).startsWith('BS')) { const set = setFromImage(c[7]); if (set) c[2] = set; } });
+
+// 예전 목록에 잘못 들어간 상품 이름은 그 상품 카드 한 장을 다시 읽어서 고친다
+for (const prodId of Object.keys(products)) {
+  if (!prodId.startsWith('BS') || goodProductName(productNames.get(prodId))) continue;
+  if (outOfTime()) break;
+  const first = [...cardMap.keys()].filter((id) => id.startsWith(prodId)).sort()[0];
+  if (!first) continue;
+  const r = await fetchDetail(first);
+  if (r.stop) break;
+  const c = r.ok ? parse(r.html) : null;
+  if (c?.product) {
+    productNames.set(prodId, c.product);
+    console.log(`상품 이름 고침: ${prodId} → ${c.product}`);
+  }
+}
+
+// ── 보충 1: 다 읽은 상품 안에서 빠진 번호를 한 번 더 읽어 본다 (잠깐 안 열렸던 카드). 한 번 다시 봐도 없으면 기록해 두고 다음부터는 건너뜀
+{
+  const retry = [];
+  for (const [prodId, info] of Object.entries(products)) {
+    if (!prodId.startsWith('BS') || !info?.done || !info.max) continue;
+    const tried = new Set(info.retried || []);
+    for (let n = 1; n <= info.max; n += 1) {
+      const id = `${prodId}${String(n).padStart(3, '0')}`;
+      if (!cardMap.has(id) && !tried.has(n)) retry.push([prodId, n, id]);
+    }
+  }
+  let found = 0;
+  for (let i = 0; i < retry.length && !outOfTime(); i += conc) {
+    const batch = retry.slice(i, i + conc);
+    const results = await Promise.all(batch.map(([, , id]) => fetchDetail(id)));
+    if (results.some((r) => r.stop)) break;
+    batch.forEach(([prodId, n, id], k) => {
+      const c = results[k].ok ? parse(results[k].html) : null;
+      if (c) { record(id, c, prodId); found += 1; } else {
+        products[prodId] = { ...products[prodId], retried: [...(products[prodId].retried || []), n] };
+      }
+    });
+  }
+  if (retry.length) console.log(`빠진 번호 다시 읽기: ${retry.length}장 중 ${found}장 찾음`);
+}
+
+// 사진 서버에 사진이 있는지만 확인 (사진 서버는 공식 사이트 카드 페이지와 따로라서 가볍다)
+async function imageExists(path) {
+  await sleep(PAUSE_MS);
+  requests += 1;
+  try {
+    const res = await fetch(IMAGE_BASE + path, { method: 'HEAD' });
+    return res.ok;
+  } catch { return false; }
+}
+async function checkImages(paths) {
+  const ok = [];
+  for (let i = 0; i < paths.length && !outOfTime(); i += conc) {
+    const batch = paths.slice(i, i + conc);
+    const res = await Promise.all(batch.map(imageExists));
+    batch.forEach((p, k) => { if (res[k]) ok.push(p); });
+  }
+  return ok;
+}
+// 사진만 있는 카드 기록: 이름·레어도 등은 비워 둔다 (등록한 뒤 사진을 보고 입력)
+const recordImageOnly = (set, num, path) => {
+  const no = String(num).padStart(3, '0');
+  cardMap.set(`IMG_${set}_${no}`, [`IMG_${set}_${no}`, '', set, no, '', '', 0, path]);
+};
+
+// ── 보충 2: 세트 안에서 번호가 빈 카드는 공식 사진 서버에 사진이 있는지 확인해서, 있으면 "사진만 있는 카드"로 넣는다
+{
+  const bySet = new Map();
+  cardMap.forEach((c) => {
+    const file = String(c[7]).split('/').pop();
+    const m = file.match(/^(.+?)_(\d{3})\.(?:webp|png)$/i);
+    if (!m) return;
+    const folder = String(c[7]).split('/').slice(0, -1).join('/');
+    if (!bySet.has(m[1])) bySet.set(m[1], { folder, nums: new Set() });
+    bySet.get(m[1]).nums.add(Number(m[2]));
+  });
+  const paths = [];
+  bySet.forEach(({ folder, nums }, set) => {
+    const max = Math.max(...nums);
+    for (let n = 1; n < max; n += 1) if (!nums.has(n)) paths.push([set, n, `${folder}/${set}_${String(n).padStart(3, '0')}.png`]);
+  });
+  const ok = new Set(await checkImages(paths.map((p) => p[2])));
+  paths.filter((p) => ok.has(p[2])).forEach(([set, n, path]) => recordImageOnly(set, n, path));
+  if (paths.length) console.log(`빈 번호 사진 확인: ${paths.length}개 중 ${ok.size}장 사진 있음`);
+}
+
+// ── 보충 3: 프로모는 상품 목록(BS…)에 없어서, 공식 사진 서버에서 번호를 차례로 확인해 모은다 (이름은 비어 있음)
+const PROMO_FOLDERS = [
+  ['MEGA/M-P', 'M-P', 'MEGA 프로모'],
+  ['SV/SV-P', 'SV-P', '스칼렛&바이올렛 프로모'],
+  ['S/S-P', 'S-P', '소드&실드 프로모'],
+];
+for (const [folder, set, name] of PROMO_FOLDERS) {
+  if (outOfTime()) break;
+  const key = `IMG_${set}`;
+  let n = (products[key]?.max || 0) + 1;
+  let miss = 0;
+  let max = products[key]?.max || 0;
+  while (miss < 20 && n <= 999 && !outOfTime()) {
+    const batch = [];
+    for (let k = 0; k < conc; k += 1) batch.push(n + k);
+    const res = await Promise.all(batch.map((m) => imageExists(`${folder}/${set}_${String(m).padStart(3, '0')}.png`)));
+    batch.forEach((m, k) => {
+      if (res[k]) { recordImageOnly(set, m, `${folder}/${set}_${String(m).padStart(3, '0')}.png`); max = Math.max(max, m); miss = 0; } else miss += 1;
+    });
+    n += batch.length;
+  }
+  products[key] = { name, max, done: true, scannedAt: new Date().toISOString(), imageOnly: true };
+  productNames.set(key, name);
+  console.log(`${name}: 사진 ${max}번까지`);
+}
+
 let finished = true;
 outer:
 for (let year = years.to; year >= years.from; year -= 1) {

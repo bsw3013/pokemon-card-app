@@ -4609,3 +4609,18 @@ body:has(.ae) .scroll-to-top-btn { display: none !important; }
   .oi-bar-sticky { flex-wrap: wrap; gap: 8px; bottom: calc(68px + env(safe-area-inset-bottom)); }
   .oi-bar-sticky small { width: 100%; order: 3; }
 }
+.oi-cats { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--border-color); }
+.oi-cat { font: 600 0.78rem var(--font-sans); padding: 6px 11px; border-radius: 999px; border: 0; background: var(--surface-2); color: var(--text-main); cursor: pointer; white-space: nowrap; }
+.oi-cat i { font-style: normal; font-weight: 500; opacity: 0.55; margin-left: 4px; }
+.oi-cat.on { background: var(--text-main); color: var(--surface-color); }
+.oi-cat:disabled { opacity: 0.4; cursor: default; }
+.oi-era { display: flex; justify-content: space-between; padding: 8px 14px 6px; font-size: 0.72rem; font-weight: 700; color: var(--text-subtle); background: var(--bg-color); border-bottom: 1px solid var(--overlay-soft); position: sticky; top: 0; z-index: 1; }
+.oi-era span { font-weight: 500; }
+.oi-set .l1 code { font: 700 0.74rem var(--font-mono); color: var(--oi-sel); flex: none; min-width: 44px; }
+.oi-tag.img { background: #e0e7ff; color: #3730a3; }
+/* 세트 탭 분류 버튼 */
+.sp-cats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.sp-cat { font: 600 0.82rem var(--font-sans); padding: 7px 13px; border-radius: 999px; border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-muted); cursor: pointer; white-space: nowrap; }
+.sp-cat i { font-style: normal; font-weight: 500; opacity: 0.6; margin-left: 5px; }
+.sp-cat.on { background: var(--text-main); border-color: var(--text-main); color: var(--surface-color); }
+.sp-cat:disabled { opacity: 0.4; cursor: default; }

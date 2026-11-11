@@ -18,6 +18,16 @@ export const ERA_OPTIONS = ['메가', '스칼렛&바이올렛', '소드&실드',
 export const KIND_OPTIONS = ['확장팩', '강화 확장팩', '하이클래스팩', '스타터 덱', '프로모', '기타'];
 export const RARITY_GROUPS = ['일반', '힛카드', '기타'];
 
+// 세트 분류 (세트 탭·공식 목록 가져오기에서 같이 씀): 세트 표의 "종류" 칸으로 정한다
+export const SET_CATEGORY_LABELS = [['main', '확장팩'], ['boost', '강화·하이클래스'], ['deck', '덱·스타터'], ['special', '특별·프로모']];
+export function setCategoryOf(set) {
+  const kind = String(set?.kind ?? '').trim();
+  if (kind === '확장팩') return 'main';
+  if (kind === '강화 확장팩' || kind === '하이클래스팩') return 'boost';
+  if (kind === '스타터 덱') return 'deck';
+  return 'special';
+}
+
 // 레어도를 화면에 늘어놓을 때 쓰는 비교 함수: 힛카드(높은 것부터) → 일반(높은 것부터) → 기타 → 미분류
 export function makeRarityCompare(rarities) {
   const info = new Map((rarities || []).map((r) => [String(r.code || '').trim(), r]));
