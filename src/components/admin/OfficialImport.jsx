@@ -3,7 +3,7 @@ import { useOwnedCards } from '../../hooks/useOwnedCards';
 import { DEFAULT_RARITIES, DEFAULT_SETS } from '../../utils/catalog';
 import { loadJpDetail, loadJpIndex, loadKrIndex } from '../../utils/imageSources';
 import {
-  LANGS, buildJpGroups, buildKrGroups, buildRegistry, enCatalogCode, isRegistered, jpDetailPatches,
+  LANGS, SET_CATEGORIES, buildJpGroups, buildKrGroups, buildRegistry, enCatalogCode, isRegistered, jpDetailPatches,
   langKeyOf, loadEnSetCards, loadEnSets, missingRarities, targetSet, toCardPayload,
 } from '../../utils/officialImport';
 
@@ -32,6 +32,8 @@ export default function OfficialImport() {
   const [setKey, setSetKey] = useState('');
   const [setQuery, setSetQuery] = useState('');
   const [onlyMissing, setOnlyMissing] = useState(false);
+  // 세트 분류 버튼 (처음에는 확장팩 + 강화·하이클래스만)
+  const [cats, setCats] = useState(() => new Set(['main', 'boost']));
   const [selected, setSelected] = useState(() => new Set());
   const [rarityFilter, setRarityFilter] = useState('');
   const [nameFilter, setNameFilter] = useState(''); // '' | 'ok' | 'pokemon'
@@ -84,11 +86,26 @@ export default function OfficialImport() {
     return { group: g, target, total, registered: Math.min(registered, total), missing: Math.max(0, total - registered) };
   }), [groups, sets, registry, enCards, enRegCount]);
 
+  const catCounts = useMemo(() => {
+    const m = {};
+    summaries.forEach((x) => { const c = x.group.category || 'special'; m[c] = (m[c] || 0) + 1; });
+    return m;
+  }, [summaries]);
   const visibleSets = useMemo(() => {
     const q = setQuery.trim().toLowerCase();
+    // 찾기 글자가 있으면 분류와 상관없이 전부에서 찾는다
     return summaries.filter((s) => (!onlyMissing || s.missing > 0)
-      && (!q || `${s.group.key} ${s.group.name} ${s.target.name}`.toLowerCase().includes(q)));
-  }, [summaries, setQuery, onlyMissing]);
+      && (q ? `${s.group.key} ${s.group.name} ${s.target.name}`.toLowerCase().includes(q) : cats.has(s.group.category || 'special')));
+  }, [summaries, setQuery, onlyMissing, cats]);
+  // 시대별로 묶기 (메가 → 스칼렛&바이올렛 → 소드&실드 → … 순, 안에서는 최신 먼저)
+  const ERA_ORDER = ['메가', '스칼렛&바이올렛', '소드&실드', '썬&문', 'XY', '블랙&화이트', '기타'];
+  const eraGroups = useMemo(() => {
+    const m = new Map();
+    visibleSets.forEach((x) => { const e = ERA_ORDER.includes(x.group.era) ? x.group.era : '기타'; if (!m.has(e)) m.set(e, []); m.get(e).push(x); });
+    return ERA_ORDER.filter((e) => m.has(e)).map((e) => [e, m.get(e)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleSets]);
+  const toggleCat = (c) => setCats((prev) => { const n = new Set(prev); if (n.has(c)) { if (n.size > 1) n.delete(c); } else n.add(c); return n; });
 
   const current = summaries.find((s) => s.group.key === setKey) || null;
 
@@ -108,10 +125,10 @@ export default function OfficialImport() {
 
   // 언어를 바꾸면 그 언어의 첫 세트를 고른다
   useEffect(() => {
-    if (!groups.length) return;
-    if (!groups.some((g) => g.key === setKey)) pickSet(groups[0].key);
+    if (!visibleSets.length) return;
+    if (!visibleSets.some((x) => x.group.key === setKey)) pickSet(eraGroups[0]?.[1]?.[0]?.group.key || visibleSets[0].group.key);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groups]);
+  }, [visibleSets]);
 
   const switchLang = (k) => {
     if (k === lang) return;
@@ -260,25 +277,41 @@ export default function OfficialImport() {
               <b>{lang === 'en' ? '영문 세트 (TCGdex)' : `${LANGS[lang].label.replace('판', '')} 공식 세트`}</b>
               {statusTag}
             </div>
+            <div className="oi-cats">
+              {SET_CATEGORIES.map(([k, label]) => (
+                <button key={k} type="button" className={`oi-cat ${cats.has(k) ? 'on' : ''}`} aria-pressed={cats.has(k)} onClick={() => toggleCat(k)} disabled={!catCounts[k]}>
+                  {label}<i>{catCounts[k] || 0}</i>
+                </button>
+              ))}
+            </div>
             <div className="oi-sets-tools">
               <input type="search" placeholder="세트 찾기 (코드·이름)" value={setQuery} onChange={(e) => setSetQuery(e.target.value)} />
               <label><input type="checkbox" checked={onlyMissing} onChange={(e) => setOnlyMissing(e.target.checked)} /> 미등록 있는 세트만</label>
             </div>
             <div className="oi-set-list">
-              {visibleSets.map((s) => {
-                const pct = s.total ? (s.registered / s.total) * 100 : 0;
-                return (
-                  <button key={s.group.key} type="button" className={`oi-set ${s.group.key === setKey ? 'on' : ''}`} onClick={() => pickSet(s.group.key)}>
-                    <span className="l1">
-                      <b>{s.group.key}{(s.target.name || s.group.name) && (s.target.name || s.group.name) !== s.group.key ? ` · ${s.target.isNew ? s.group.name : s.target.name}` : ''}</b>
-                      {s.total > 0 && s.missing === 0 && <span className="oi-tag done">다 등록</span>}
-                      {s.target.isNew && <span className="oi-tag">새 세트</span>}
-                    </span>
-                    <span className="oi-bar"><span className="r" style={{ width: `${pct}%` }} /><span className="m" style={{ width: `${100 - pct}%` }} /></span>
-                    <span className="l2">공식 {s.total}장 · 등록 {s.registered}장{s.missing > 0 && <> · <em>미등록 {s.missing}장</em></>}</span>
-                  </button>
-                );
-              })}
+              {eraGroups.map(([era, list]) => (
+                <React.Fragment key={era}>
+                  <div className="oi-era">{era}<span>{list.length}개 세트</span></div>
+                  {list.map((s) => {
+                    const pct = s.total ? (s.registered / s.total) * 100 : 0;
+                    const title = s.target.isNew ? s.group.name : (s.target.name || s.group.name);
+                    return (
+                      <button key={s.group.key} type="button" className={`oi-set ${s.group.key === setKey ? 'on' : ''}`} onClick={() => pickSet(s.group.key)}>
+                        <span className="l1">
+                          <code>{s.group.key}</code>
+                          <b>{title && title !== s.group.key ? title : (lang === 'kr' ? '(세트 이름 모으는 중)' : s.group.key)}</b>
+                          {s.group.imageOnly && <span className="oi-tag img">사진으로 모음</span>}
+                          {s.group.gaps > 0 && <span className="oi-tag" title="한국 공식에 없는 번호예요 (빠진 번호는 매일 다시 확인해요)">빈 번호 {s.group.gaps}</span>}
+                          {s.total > 0 && s.missing === 0 && <span className="oi-tag done">다 등록</span>}
+                          {s.target.isNew && s.missing > 0 && <span className="oi-tag">새 세트</span>}
+                        </span>
+                        <span className="oi-bar"><span className="r" style={{ width: `${pct}%` }} /><span className="m" style={{ width: `${100 - pct}%` }} /></span>
+                        <span className="l2">공식 {s.total}장 · 등록 {s.registered}장{s.missing > 0 && <> · <em>미등록 {s.missing}장</em></>}</span>
+                      </button>
+                    );
+                  })}
+                </React.Fragment>
+              ))}
               {visibleSets.length === 0 && <div className="oi-none">맞는 세트가 없어요.</div>}
             </div>
           </aside>
@@ -294,6 +327,8 @@ export default function OfficialImport() {
                   <button type="button" className="btn btn-secondary btn-compact" onClick={selectAllShown} disabled={pickable.length === 0}>보이는 미등록 {pickable.length}장 전체 선택</button>
                 </div>
                 <div className="oi-info">{INFO[lang]}</div>
+                {current.group.imageOnly && <div className="oi-info">이 세트는 공식 사이트의 상품 목록에 없어서, <b>공식 사진 서버에서 번호로 사진이 있는 카드</b>를 모았어요. 사진만 있어서 <b>이름·레어도는 비어 있어요</b> — 등록한 뒤 카드 상세에서 사진을 보고 입력해 주세요. (세트·번호·사진은 채워져요)</div>}
+                {current.group.category === 'deck' && <div className="oi-info">덱·스타터 상품의 카드는 대부분 확장팩 카드를 다시 찍은 것이라 여러 세트 카드가 섞여 보여요.</div>}
                 <div className="oi-filters">
                   <button type="button" className={`oi-chip ${rarityFilter ? '' : 'on'}`} onClick={() => setRarityFilter('')}>전체<i>{missingRows.length}</i></button>
                   {rarityChips.map(([r, n]) => (
@@ -327,9 +362,9 @@ export default function OfficialImport() {
                                 <span className="oi-im"><img src={card.thumb || card.img} alt={card.name} loading="lazy" /></span>
                                 {reg ? <span className="oi-badge">등록됨</span> : <span className="oi-ck">{sel ? '✓' : ''}</span>}
                                 {LANGS[lang].badge && <span className="oi-lb">{LANGS[lang].badge}</span>}
-                                <span className={`oi-t ${card.nameOk ? '' : 'raw'}`}>{card.name}</span>
+                                <span className={`oi-t ${card.nameOk ? '' : 'raw'}`}>{card.name || '이름 없음'}</span>
                                 <span className="oi-s">
-                                  {!card.nameOk ? '번역 안 됨 · 원래 이름으로'
+                                  {card.imageOnly ? `사진만 · ${card.noText}` : !card.nameOk ? '번역 안 됨 · 원래 이름으로'
                                     : [card.original && card.original !== card.name ? card.original : '', card.noText || (card.num != null ? String(card.num) : ''), card.rarity].filter(Boolean).join(' · ')}
                                 </span>
                               </button>

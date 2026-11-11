@@ -53,9 +53,49 @@ const JP_SET_NAMES = {
 };
 const isJpPromo = (code) => /-P$/i.test(code) || ['XYP', 'SMP', 'BWP', 'DPP', 'DPtP', 'LP', 'PPP', 'WCP', 'SVJP', 'SMSMP'].includes(code);
 
-const KIND_WORDS = [['하이클래스팩', '하이클래스팩'], ['강화 확장팩', '강화 확장팩'], ['스타트', '스타터 덱'], ['스타터', '스타터 덱'], ['덱', '스타터 덱'], ['프로모', '프로모'], ['확장팩', '확장팩']];
-const kindOf = (productName) => (KIND_WORDS.find(([w]) => text(productName).includes(w)) || [null, '기타'])[1];
 const shortName = (productName) => { const m = text(productName).match(/「(.+?)」/); return m ? m[1] : text(productName); };
+
+// ---------- 세트 분류: 확장팩 / 강화·하이클래스 / 덱·스타터 / 특별·프로모 ----------
+export const SET_CATEGORIES = [['main', '확장팩'], ['boost', '강화·하이클래스'], ['deck', '덱·스타터'], ['special', '특별·프로모']];
+const CATEGORY_KIND = { main: '확장팩', boost: '강화 확장팩', deck: '스타터 덱', special: '기타' };
+// 한국: 상품 이름으로 (예: "스칼렛&바이올렛 확장팩 「배틀파트너즈」" → 확장팩)
+export function krCategory(productName) {
+  const n = text(productName);
+  if (!n) return 'special';
+  if (/덱|스타터|스타트/.test(n)) return 'deck';
+  if (/BOX|박스|스페셜|GOLDEN|프로모|기념|세트/i.test(n)) return 'special';
+  if (/강화 확장팩|하이클래스팩/.test(n)) return 'boost';
+  if (/확장팩/.test(n)) return 'main';
+  return 'special';
+}
+// 일본: 세트 코드로 (SV9·M3·S5I → 확장팩, SV2a·S8b → 강화, -P → 프로모, 나머지 → 덱·기타)
+export function jpCategory(code) {
+  const c = text(code);
+  if (/-P$/i.test(c) || /^(XYP|SMP|BWP|DPP|DPtP|LP|PPP|WCP|SVJP|SMSMP)$/.test(c)) return 'special';
+  if (/^(M|SV|S|SM|XY|BW)\d+[a-z]$/.test(c)) return 'boost';
+  if (/^(M|SV|S|SM|XY|BW)\d+[A-Z]?$/.test(c)) return 'main';
+  return 'deck';
+}
+// 영문(TCGdex): 세트 ID로 (sv09 → 확장팩, sv03.5 → 강화, svp·mep → 프로모, tk-… → 덱)
+export function enCategory(id) {
+  const c = text(id).toLowerCase();
+  if (/^tk-|mfb|^fut/.test(c)) return 'deck';
+  if (/p$|^20\d\d|^mcd|^misc|^jumbo|^wp$|^np$|^cel|^sp$|^si\d|tg$|gg$/.test(c)) return 'special';
+  if (/\.5|^sma$|^dv1$|^g1$|^dc1$|^rc$/.test(c)) return 'boost';
+  return 'main';
+}
+// 한국 상품 이름으로 시대 (없으면 세트 코드로)
+function krEra(productName, code) {
+  const n = text(productName);
+  if (/MEGA|메가/.test(n)) return '메가';
+  if (/스칼렛\s*&\s*바이올렛/.test(n)) return '스칼렛&바이올렛';
+  if (/소드\s*&\s*실드/.test(n)) return '소드&실드';
+  if (/썬\s*&\s*문/.test(n)) return '썬&문';
+  if (/^XY|\bXY\b/.test(n)) return 'XY';
+  return eraOf(code);
+}
+// 덱·특별 상품은 이름 앞의 시리즈 글자를 빼고 보여준다 ("스칼렛&바이올렛 배틀 강화 BOX 「…」" → "배틀 강화 BOX 「…」")
+const productLabel = (n) => text(n).replace(/^(포켓몬 카드 게임\s*)?(스칼렛\s*&\s*바이올렛|소드\s*&\s*실드|썬\s*&\s*문|MEGA)\s*/, '').replace(/\s+/g, ' ');
 
 // 영문 레어도 → 세트 표 레어도 코드 (모르는 건 영어 그대로)
 const EN_RARITY = {
@@ -68,30 +108,51 @@ const EN_TYPE = { Supporter: '서포트', Item: '도구', Tool: '도구', 'Poké
 // ---------- 공식 카드 한 장의 공통 모양 ----------
 // { oid, lang, setKey, name, nameOk, num, noText, rarity, type, dex, img, thumb }
 
-// 한국판: 세트(폴더)별로 묶는다. 최신 상품부터.
+// 한국판: 세트(사진 파일 이름 앞부분)별로 묶는다. 최신 상품부터.
+// IMG_… 카드는 상세 페이지 없이 공식 사진 서버에서 사진만 찾은 카드 (프로모 등, 이름은 비어 있음)
+const krProductId = (id) => (String(id).startsWith('IMG_') ? String(id).replace(/_\d+$/, '') : String(id).slice(0, 9));
 export function buildKrGroups(index) {
   if (!index?.cards) return [];
   const groups = new Map();
+  const realKeys = new Set();
+  index.cards.forEach((c) => { if (!String(c[0]).startsWith('IMG_')) realKeys.add(`${text(c[2])}|${parseCardNo(text(c[3]).split('/')[0])}`); });
   for (const [id, name, folder, no, rarity, type, dex, img] of index.cards) {
     const key = text(folder);
     if (!key) continue;
-    const productId = String(id).slice(0, 9);
-    const product = index.products?.[productId]?.name || '';
-    if (!groups.has(key)) groups.set(key, { key, lang: 'kr', raw: key, name: shortName(product), kind: kindOf(product), order: productId, cards: [] });
-    const g = groups.get(key);
-    if (productId > g.order) g.order = productId;
-    if (!g.name && product) { g.name = shortName(product); g.kind = kindOf(product); }
+    const imageOnly = String(id).startsWith('IMG_');
     const first = text(no).split('/')[0];
+    const num = /^\d+$/.test(first) ? Number(first) : parseCardNo(first);
+    if (imageOnly && realKeys.has(`${key}|${num}`)) continue; // 나중에 상세 페이지가 생긴 카드는 그쪽을 쓴다
+    const productId = krProductId(id);
+    const product = index.products?.[productId]?.name || '';
+    if (!groups.has(key)) groups.set(key, { key, lang: 'kr', raw: key, name: '', product: '', kind: '기타', order: '', cards: [] });
+    const g = groups.get(key);
+    if (!imageOnly && productId > g.order) g.order = productId;
+    if (!g.product && product) g.product = product;
     const dexNo = Number(dex) || (type === '포켓몬' ? koDexFromName(name) : 0);
     g.cards.push({
-      oid: `kr:${id}`, lang: 'kr', setKey: key, name: text(name), nameOk: true,
-      num: /^\d+$/.test(first) ? Number(first) : parseCardNo(first), noText: text(no),
+      oid: imageOnly ? `kr:${id}` : `kr:${id}`, lang: 'kr', setKey: key, name: text(name), nameOk: !!text(name), imageOnly,
+      num, noText: text(no),
       rarity: text(rarity), type: text(type), dex: dexNo,
       img: `${index.imageBase}${String(img).replace(/\.webp$/i, '.png')}`, thumb: `${index.imageBase}${img}`,
     });
   }
   return [...groups.values()]
-    .map((g) => ({ ...g, cards: g.cards.sort((a, b) => (a.num ?? 9999) - (b.num ?? 9999)), total: g.cards.length }))
+    .map((g) => {
+      const category = krCategory(g.product);
+      const cards = g.cards.sort((a, b) => (a.num ?? 9999) - (b.num ?? 9999));
+      const nums = new Set(cards.map((c) => c.num).filter((n) => n != null));
+      const max = Math.max(0, ...nums);
+      let gaps = 0;
+      for (let n = 1; n < max; n += 1) if (!nums.has(n)) gaps += 1;
+      return {
+        ...g, cards, total: cards.length, category, kind: /하이클래스팩/.test(g.product) ? '하이클래스팩' : CATEGORY_KIND[category],
+        // 사진으로 모은 프로모는 시리즈를 남겨 이름을 구분한다 (SV 프로모 / 소드&실드 프로모 / 메가 프로모)
+        name: g.cards.every((c) => c.imageOnly) ? (JP_SET_NAMES[g.key] || text(g.product)) : category === 'main' || category === 'boost' ? shortName(g.product) : productLabel(g.product),
+        era: krEra(g.product, catalogCode(g.key)), imageOnly: cards.length > 0 && cards.every((c) => c.imageOnly), gaps,
+        order: g.order || 'BS0000',
+      };
+    })
     .sort((a, b) => b.order.localeCompare(a.order));
 }
 
@@ -117,7 +178,10 @@ export function buildJpGroups(index, detail) {
     });
   }
   return [...groups.values()]
-    .map((g) => ({ ...g, cards: g.cards.sort((a, b) => (a.num ?? 9999) - (b.num ?? 9999) || Number(a.oid.slice(3)) - Number(b.oid.slice(3))), total: g.cards.length }))
+    .map((g) => {
+      const category = jpCategory(g.key);
+      return { ...g, cards: g.cards.sort((a, b) => (a.num ?? 9999) - (b.num ?? 9999) || Number(a.oid.slice(3)) - Number(b.oid.slice(3))), total: g.cards.length, category, kind: category === 'special' ? '프로모' : CATEGORY_KIND[category], era: eraOf(g.key), gaps: 0 };
+    })
     .sort((a, b) => b.order - a.order);
 }
 
@@ -138,7 +202,7 @@ export function loadEnSets() {
     enSetsPromise = gql('{ sets { id name releaseDate cardCount { official total } serie { id } } }')
       .then((d) => (d.sets || [])
         .filter((s) => s.serie?.id !== 'tcgp' && !/^(?:[AB]\d+[a-z]?|P-[AB])$/.test(s.id))
-        .map((s) => ({ key: s.id, lang: 'en', raw: s.id, name: s.name, kind: /p$/.test(s.id) ? '프로모' : '확장팩', releaseDate: text(s.releaseDate), printedTotal: s.cardCount?.official || null, total: s.cardCount?.total || 0, cards: null }))
+        .map((s) => ({ key: s.id, lang: 'en', raw: s.id, name: s.name, category: enCategory(s.id), kind: enCategory(s.id) === 'special' ? '프로모' : CATEGORY_KIND[enCategory(s.id)], era: eraOf(s.id), gaps: 0, releaseDate: text(s.releaseDate), printedTotal: s.cardCount?.official || null, total: s.cardCount?.total || 0, cards: null }))
         .sort((a, b) => b.releaseDate.localeCompare(a.releaseDate)))
       .catch((err) => { enSetsPromise = null; throw err; });
   }
@@ -184,7 +248,7 @@ export function targetSet(group, sets) {
   if (found) return found;
   const code = catalogCode(group.key);
   const name = group.name || code;
-  return { isNew: true, code, name, era: eraOf(code), kind: group.kind || '기타', releaseDate: '', printedTotal: null, label: `${code} -「${name}」` };
+  return { isNew: true, code, name, era: group.era || eraOf(code), kind: group.kind || '기타', releaseDate: '', printedTotal: null, label: `${code} -「${name}」` };
 }
 
 // ---------- 이미 등록된 카드 ----------
@@ -198,6 +262,9 @@ export function buildRegistry(cards, sets) {
     const set = findSetForCard(c, index);
     const no = c.cardNo ?? parseCardNo(c.cardNumber);
     if (set && no != null) keys.add(`${langKeyOf(c)}|${text(set.code).toLowerCase()}|${no}`);
+    // 카드 번호 앞부분으로도 (예: 세트가 "PROMO"여도 번호가 SV-P-163 이면 SV-P 163번으로 본다)
+    const m = text(c.cardNumber).match(/^([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)?)-(\d+)$/);
+    if (m) keys.add(`${langKeyOf(c)}|${m[1].toLowerCase()}|${Number(m[2])}`);
   });
   return { ids, keys };
 }
