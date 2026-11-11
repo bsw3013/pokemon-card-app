@@ -80,6 +80,7 @@ export function buildKrGroups(index) {
     if (!groups.has(key)) groups.set(key, { key, lang: 'kr', raw: key, name: shortName(product), kind: kindOf(product), order: productId, cards: [] });
     const g = groups.get(key);
     if (productId > g.order) g.order = productId;
+    if (!g.name && product) { g.name = shortName(product); g.kind = kindOf(product); }
     const first = text(no).split('/')[0];
     const dexNo = Number(dex) || (type === '포켓몬' ? koDexFromName(name) : 0);
     g.cards.push({

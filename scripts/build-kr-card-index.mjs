@@ -56,6 +56,10 @@ if (prev && process.env.KR_ONLY_IF_INCOMPLETE === '1' && prev.complete) {
 const products = { ...(prev?.products || {}) }; // { BS2025001: { name, max, done, scannedAt } }
 const cardMap = new Map((prev?.cards || []).map((c) => [c[0], c]));
 
+// 세트 코드는 사진 파일 이름 앞부분 (S/S5/S5I_081.webp → S5I). 폴더(S5)는 일격·연격마스터처럼 두 세트가 같이 쓰기도 해서
+const setFromImage = (path) => String(path || '').split('/').pop().split('_')[0].replace(/\.[a-z]+$/i, '');
+// 상품 이름이 제대로인지 (기술 설명이 잘못 들어간 예전 목록 고치기용)
+const goodProductName = (name) => !!String(name || '').trim() && !/(이 포켓몬|자신의|상대의|상대 |데미지|사용할|회복|받지 않는다)/.test(name);
 const decode = (s) => s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&nbsp;/g, ' ');
 function cardType(kindText) {
   const k = kindText.replace(/^카드 종류\s*:\s*/, '').trim();
@@ -77,7 +81,10 @@ function parse(htmlText) {
   const no = i >= 0 ? lines[i] : '';
   const rarity = i >= 0 && /^[A-Za-z★☆]{1,5}$/.test(lines[i + 1] || '') ? lines[i + 1] : '';
   const kind = lines.find((l) => l.startsWith('카드 종류')) || '';
-  const product = lines.find((l) => /「.+」/.test(l) && l.length < 80) || '';
+  // 상품 이름: 카드 아래 상품 링크 (예: <a class="search_href">소드&실드 확장팩 「퓨전아츠」</a>)
+  // (예전에는 「」가 들어간 첫 줄을 썼는데, 기술 설명 "이 포켓몬의 HP를 「30」회복한다." 가 잡히는 문제가 있었음)
+  const link = htmlText.match(/class="search_href"[^>]*>([^<]+)</);
+  const product = link ? decode(link[1]).trim() : '';
   const dex = body.match(/No\.\s*(\d{1,4})/);
   const path = img[1];
   return {
@@ -87,7 +94,7 @@ function parse(htmlText) {
     type: cardType(kind),
     dex: dex ? Number(dex[1]) : 0,
     product,
-    set: path.split('/')[1] || '',
+    set: setFromImage(path),
     img: path,
   };
 }
@@ -120,8 +127,8 @@ async function fetchDetail(id) {
 
 const productNames = new Map(Object.entries(products).map(([k, v]) => [k, v.name || '']));
 function record(id, c, prodId) {
-  if (c.product && !productNames.get(prodId)) productNames.set(prodId, c.product);
-  // [상세 ID, 이름, 세트(사진 폴더), 번호, 레어도, 종류, 도감 번호, 사진 경로]
+  if (c.product && !goodProductName(productNames.get(prodId))) productNames.set(prodId, c.product);
+  // [상세 ID, 이름, 세트(사진 파일 이름 앞부분), 번호, 레어도, 종류, 도감 번호, 사진 경로]
   cardMap.set(id, [id, c.name, c.set, c.no, c.rarity, c.type, c.dex, c.img]);
 }
 
@@ -155,6 +162,24 @@ async function scanProduct(prodId, fromNo) {
   }
   products[prodId] = { name: productNames.get(prodId) || products[prodId]?.name || '', max, done: true, scannedAt: new Date().toISOString() };
   return 'done';
+}
+
+// 예전 목록 고치기: 세트 코드를 사진 파일 이름으로 다시 정한다
+cardMap.forEach((c) => { const set = setFromImage(c[7]); if (set) c[2] = set; });
+
+// 예전 목록에 잘못 들어간 상품 이름은 그 상품 카드 한 장을 다시 읽어서 고친다
+for (const prodId of Object.keys(products)) {
+  if (goodProductName(productNames.get(prodId))) continue;
+  if (outOfTime()) break;
+  const first = [...cardMap.keys()].filter((id) => id.startsWith(prodId)).sort()[0];
+  if (!first) continue;
+  const r = await fetchDetail(first);
+  if (r.stop) break;
+  const c = r.ok ? parse(r.html) : null;
+  if (c?.product) {
+    productNames.set(prodId, c.product);
+    console.log(`상품 이름 고침: ${prodId} → ${c.product}`);
+  }
 }
 
 let finished = true;

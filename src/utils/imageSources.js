@@ -51,6 +51,20 @@ export function koreanImageCandidates(text, era) {
 export const KR_INDEX_URL = 'https://cdn.jsdelivr.net/gh/bsw3013/pokemon-card-app@card-index/kr.json';
 let krIndexPromise = null;
 
+// 예전에 만든 목록 고치기 (목록을 새로 모으면 처음부터 맞게 들어감)
+//  - 세트 코드: 사진 폴더(S5) 대신 사진 파일 이름 앞부분(S5I·S5R) — 폴더 하나를 두 세트가 같이 쓰는 경우가 있음
+//  - 상품 이름: 기술 설명("이 포켓몬의 HP를 「30」회복한다.")이 잘못 들어간 것은 비움
+const BAD_PRODUCT = /(이 포켓몬|자신의|상대의|상대 |데미지|사용할|회복|받지 않는다)/;
+function fixKrIndex(index) {
+  if (!index?.cards) return index;
+  index.cards.forEach((c) => {
+    const set = String(c[7] || '').split('/').pop().split('_')[0].replace(/\.[a-z]+$/i, '');
+    if (set) c[2] = set;
+  });
+  Object.values(index.products || {}).forEach((p) => { if (BAD_PRODUCT.test(p?.name || '')) p.name = ''; });
+  return index;
+}
+
 export function loadKrIndex() {
   if (!krIndexPromise) {
     krIndexPromise = fetch(KR_INDEX_URL)
@@ -58,6 +72,7 @@ export function loadKrIndex() {
         if (!res.ok) throw new Error(`한국 공식 카드 목록을 불러오지 못했어요 (${res.status})`);
         return res.json();
       })
+      .then(fixKrIndex)
       .catch((err) => { krIndexPromise = null; throw err; });
   }
   return krIndexPromise;
