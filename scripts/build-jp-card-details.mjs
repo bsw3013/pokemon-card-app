@@ -9,7 +9,7 @@
 //     JPD_ONLY_IF_INCOMPLETE=1  이미 다 모았으면 아무것도 하지 않는다 (매일 이어 모으기용)
 //
 // 공식 사이트에 부담을 주지 않도록
-//   - 한 번에 한 장씩, 요청 사이에 0.7초 쉰다. 최신 카드부터 읽는다.
+//   - 한 번에 4장씩 동시에, 요청마다 0.25초 쉰다. 최신 카드부터 읽는다. (바쁘다고 하면 한 장씩 0.7초 간격으로)
 //   - "너무 많다(429)"·"잠시 안 된다(503)"면 1분 쉬고, 3번 계속되면 그날은 멈춘다.
 //   - 한 번 읽은 카드는 다시 읽지 않는다. (새로 나온 카드만 읽음)
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -19,7 +19,12 @@ const LIST = process.argv[2];
 const OUT = process.argv[3] || 'card-index/jp-detail.json';
 const PREV = process.argv[4] || '';
 const BASE = 'https://www.pokemon-card.com/card-search/details.php/card/';
-const PAUSE_MS = 700;
+// 속도: 한 번에 CONCURRENCY장씩 동시에 읽고, 요청마다 PAUSE_MS 쉰다.
+// 사이트가 "바쁘다(429/503)"고 하면 바로 한 장씩·0.7초 간격(예전 속도)으로 돌아간다.
+const CONCURRENCY = Math.max(1, Number(process.env.JPD_CONCURRENCY) || 4);
+let PAUSE_MS = Number(process.env.JPD_PAUSE_MS) || 250;
+let conc = CONCURRENCY;
+const slowDown = () => { if (conc > 1 || PAUSE_MS < 700) console.warn('  사이트가 바빠해서 천천히(한 장씩, 0.7초 간격) 읽습니다.'); conc = 1; PAUSE_MS = 700; };
 const BUDGET_MS = (Number(process.env.JPD_BUDGET_MIN) || 290) * 60 * 1000;
 const MAX_CARDS = Number(process.env.JPD_MAX_CARDS) || Infinity;
 
@@ -58,6 +63,7 @@ async function fetchDetail(id) {
     try {
       const res = await fetch(`${BASE}${id}/regu/all`, { headers: { 'User-Agent': 'card-index-builder (personal collection app, slow crawl)' } });
       if (res.status === 429 || res.status === 503) {
+        slowDown();
         busyStreak += 1;
         if (busyStreak >= 3) return { stop: true };
         console.warn(`  사이트가 바빠요(${res.status}). 1분 쉬었다가 다시 시도합니다.`);
@@ -76,15 +82,21 @@ async function fetchDetail(id) {
 }
 
 console.log(`일본 카드 ${ids.length}장 중 상세를 안 읽은 카드 ${todo.length}장`);
-for (const id of todo) {
+for (let i = 0; i < todo.length;) {
   if (Date.now() - startedAt > BUDGET_MS) { stopReason = '시간 제한'; break; }
   if (fetched >= MAX_CARDS) { stopReason = '장수 제한(테스트)'; break; }
-  const r = await fetchDetail(id);
-  if (r.stop) { stopReason = '사이트가 계속 바빠서 멈춤'; break; }
-  // 못 읽은 카드도 빈 값으로 기록해 두어 같은 카드를 계속 다시 읽지 않는다
-  details[id] = r.html ? parse(r.html) : ['', '', 0];
-  fetched += 1;
-  if (fetched % 500 === 0) console.log(`  ${fetched}장 읽음`);
+  const batch = todo.slice(i, i + conc);
+  const results = await Promise.all(batch.map((id) => fetchDetail(id)));
+  let stopped = false;
+  for (let k = 0; k < batch.length; k += 1) {
+    if (results[k].stop) { stopped = true; break; }
+    // 못 읽은 카드도 빈 값으로 기록해 두어 같은 카드를 계속 다시 읽지 않는다
+    details[batch[k]] = results[k].html ? parse(results[k].html) : ['', '', 0];
+    fetched += 1;
+    if (fetched % 500 === 0) console.log(`  ${fetched}장 읽음`);
+  }
+  if (stopped) { stopReason = '사이트가 계속 바빠서 멈춤'; break; }
+  i += batch.length;
 }
 
 const left = ids.filter((id) => !details[id]).length;
