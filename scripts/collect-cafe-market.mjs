@@ -13,6 +13,7 @@
 //
 // 사용법: node scripts/collect-cafe-market.mjs <이전 cafe.json 경로(없어도 됨)> <저장할 경로>
 //   TARGETS_FILE=파일.json 을 주면 Firestore 대신 그 파일에서 관심 카드 목록을 읽는다(시험용).
+//   ONLY_CARD_KEY(+ ONLY_CARD_NAME, ONLY_QUERIES)를 주면 그 카드 하나만 검색한다(사이트의 카드별 "시세 업데이트" 버튼).
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -123,6 +124,7 @@ async function main() {
   const now = new Date().toISOString();
   const prev = loadPrev();
   const candidates = prev.candidates || {};
+  const cardRuns = prev.cardRuns || {}; // 카드별 마지막 검색 시각
   const run = { at: now, calls: 0, targets: 0, newCandidates: 0, updated: 0, errors: [] };
   // 지난번까지 본 가장 큰 글 번호. 이보다 작은(=예전) 글을 처음 보면 "오늘 발견"이 아니라 추정 날짜로 적는다.
   const knownMax = Math.max(0, ...Object.values(candidates).map((c) => Number(c.articleId) || 0));
@@ -139,18 +141,30 @@ async function main() {
       cfg = { targets: [] };
     }
     const cafes = (cfg.cafes && cfg.cafes.length ? cfg.cafes : DEFAULT_CAFES).map((c) => String(c).toLowerCase());
-    const targets = (cfg.targets || []).filter((t) => t && t.cardKey && t.cardName);
+    let targets = (cfg.targets || []).filter((t) => t && t.cardKey && t.cardName);
+    const only = String(process.env.ONLY_CARD_KEY || '').trim();
+    if (only) {
+      run.only = only;
+      targets = targets.filter((t) => t.cardKey === only);
+      // 관심 카드가 아니어도 이름을 같이 주면 그 카드만 검색한다
+      if (!targets.length && process.env.ONLY_CARD_NAME) {
+        const queries = String(process.env.ONLY_QUERIES || '').split(',').map((q) => q.trim()).filter(Boolean);
+        targets = [{ cardKey: only, cardName: String(process.env.ONLY_CARD_NAME).trim(), queries }];
+      }
+    }
     run.targets = targets.length;
 
     outer:
     for (const t of targets) {
       const queries = cleanQueries(t);
+      let cardOk = true;
       for (const q of queries) {
         let items;
         try {
           items = await search(q);
         } catch (err) {
           run.errors.push(`${t.cardName} / ${q}: ${err.message}`);
+          cardOk = false;
           if (err.fatal || calls >= MAX_CALLS) break outer;
           continue;
         } finally {
@@ -201,6 +215,7 @@ async function main() {
           candidates[id] = next;
         }
       }
+      if (cardOk) cardRuns[t.cardKey] = now;
     }
     run.calls = calls;
   }
@@ -227,7 +242,7 @@ async function main() {
 
   run.newCandidates = fresh.filter((id) => candidates[id] && !candidates[id].dateEstimated && !candidates[id].hidden).length;
   const runs = [run, ...(prev.runs || [])].slice(0, 14);
-  save({ version: 1, updatedAt: now, runs, candidates });
+  save({ version: 1, updatedAt: now, runs, cardRuns, candidates });
   console.log(`카페 후보: 카드 ${run.targets}장 · 검색 ${run.calls}번 · 새 후보 ${run.newCandidates} · 바뀐 후보 ${run.updated} · 전체 ${Object.keys(candidates).length}`);
   if (run.errors.length) console.log('문제:', run.errors.slice(0, 10).join(' / '));
 }

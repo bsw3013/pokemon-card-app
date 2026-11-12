@@ -23,8 +23,9 @@ import { invalidateWatchlist } from '../hooks/useWatchlist';
 import { normalizeImageUrl } from '../utils/thumbKey';
 import CafeCandidates from './market/CafeCandidates';
 import AuctionSection from './market/AuctionSection';
+import MarketUpdateButton from './market/MarketUpdateButton';
 import {
-  CAFE_MARKETPLACE, isEnded, loadCafeData, loadCafeDecisions, setCafeDecisions, splitCandidates,
+  CAFE_MARKETPLACE, isEnded, lastUpdateAt, loadCafeData, loadCafeDecisions, setCafeDecisions, splitCandidates, subscribeCafeData,
 } from '../utils/cafeMarket';
 
 const SOURCE_LABELS = { bunjang: '번개장터', danggeun: '당근마켓', manual: '직접입력', cafe: 'MVP 카페' };
@@ -103,6 +104,7 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
   // MVP 카페 후보 (관리자만)
   const [cafeAll, setCafeAll] = useState({});
   const [cafeRuns, setCafeRuns] = useState([]);
+  const [cafeCardRuns, setCafeCardRuns] = useState({});
   const [cafeDecisions, setCafeDecisionsState] = useState({});
   const [cafeOpen, setCafeOpen] = useState(true);
   const [cafeBusy, setCafeBusy] = useState(false);
@@ -139,6 +141,13 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, [editingListing, onClose]);
+
+  // "시세 업데이트"로 새 결과를 받으면 바로 반영
+  useEffect(() => subscribeCafeData((d) => {
+    setCafeAll(d.candidates);
+    setCafeRuns(d.runs);
+    setCafeCardRuns(d.cardRuns || {});
+  }), []);
 
   async function loadWatchEntry() {
     if (!user) { setWatchEntry(null); return; }
@@ -197,6 +206,7 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
         const [cafe, decisions] = await Promise.all([loadCafeData(), loadCafeDecisions()]);
         setCafeAll(cafe.candidates);
         setCafeRuns(cafe.runs);
+        setCafeCardRuns(cafe.cardRuns || {});
         setCafeDecisionsState(decisions);
         markCafeSold(listingDocs, cafe.candidates);
       }
@@ -694,6 +704,15 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
                   <button type="button" className="btn btn-secondary btn-compact" onClick={onOpenMarketPage}>시세 페이지에서 보기 →</button>
                 )}
               </div>
+              {isAdmin && (
+                <MarketUpdateButton
+                  compact
+                  card={{ cardKey: watchEntry?.cardKey || card.cardKey, cardName: watchEntry?.cardName || card.cardName, queries: watchEntry?.queries || [] }}
+                  lastAt={lastUpdateAt({ runs: cafeRuns, cardRuns: cafeCardRuns }, watchEntry?.cardKey || card.cardKey)}
+                  countFor={(d) => Object.values((d || { candidates: cafeAll }).candidates || {}).filter((c) => cardKeys.has(c.cardKey)).length}
+                  onDone={() => setCafeOpen(true)}
+                />
+              )}
               {isAdmin && watchEntry && (
                 <div className="cafe-alias">
                   <span className="market-hint">카페 검색어: <b>{[watchEntry.cardName, ...(watchEntry.queries || [])].join(', ')}</b></span>

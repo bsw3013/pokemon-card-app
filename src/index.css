@@ -4689,3 +4689,27 @@ body:has(.ae) .scroll-to-top-btn { display: none !important; }
   .auction-result { margin-left: 0; }
   .cafe-alias-edit input { min-width: 0; flex: 1; }
 }
+
+/* ── 시세 업데이트 버튼 ── */
+.market-gallery-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: flex-start; justify-content: flex-end; }
+.market-update { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 0.3rem; max-width: 100%; }
+.market-update.compact { align-items: flex-start; margin-top: 0.5rem; }
+.market-update-row { display: inline-flex; align-items: center; gap: 0.4rem; }
+.market-update-btn { display: inline-flex; align-items: center; gap: 0.5rem; text-align: left; line-height: 1.2; padding-top: 0.35rem; padding-bottom: 0.35rem; }
+.market-update-text { display: inline-flex; flex-direction: column; }
+.market-update-text small { font-size: 0.72rem; font-weight: 500; color: var(--text-muted); }
+.market-update-icon { font-size: 1.1rem; display: inline-block; }
+.market-update-icon.spin { animation: market-spin 1s linear infinite; }
+@keyframes market-spin { to { transform: rotate(360deg); } }
+.market-update-step, .market-update-msg { font-size: 0.78rem; color: var(--text-muted); }
+.market-update-msg.ok { color: #15803d; }
+.market-update-msg.err { color: var(--primary-color); }
+.market-update-setup { display: flex; flex-direction: column; gap: 0.4rem; width: min(30rem, 100%); padding: 0.8rem; border: 1px solid var(--border-color); border-radius: 10px; background: var(--surface-color); text-align: left; font-size: 0.85rem; }
+.market-update-setup small { color: var(--text-muted); }
+.market-update-setup ol { margin: 0; padding-left: 1.2rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 0.2rem; }
+.market-update-token { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.market-update-token input { flex: 1; min-width: 12rem; padding: 0.35rem 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--surface-color); color: var(--text-main); font: inherit; }
+@media (max-width: 640px) {
+  .market-gallery-actions { justify-content: flex-start; width: 100%; }
+  .market-update { align-items: flex-start; }
+}

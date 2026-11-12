@@ -17,7 +17,8 @@ import MarketDrawer, { LangConditionTable } from './MarketDrawer';
 import { invalidateWatchlist } from '../hooks/useWatchlist';
 import { normalizeImageUrl } from '../utils/thumbKey';
 import { useMarketIndex } from '../hooks/useMarketIndex';
-import { ageDays, isEnded, loadCafeData, loadCafeDecisions, splitCandidates } from '../utils/cafeMarket';
+import { ageDays, fmtUpdatedAt, isEnded, lastUpdateAt, loadCafeData, loadCafeDecisions, splitCandidates, subscribeCafeData } from '../utils/cafeMarket';
+import MarketUpdateButton from './market/MarketUpdateButton';
 
 const PICKER_RESULT_LIMIT = 60;
 
@@ -50,6 +51,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
       .then(([data, decisions]) => setCafe({ data, decisions }))
       .catch(() => {});
   }, [isAdmin, selectedCard]);
+  useEffect(() => subscribeCafeData((data) => setCafe((c) => ({ decisions: c?.decisions || {}, data }))), []);
   const cafeTodo = useMemo(() => {
     const todo = { byKey: {}, nNew: 0, nAuction: 0, oldestDays: 0, lastRun: cafe?.data?.runs?.[0] || null };
     if (!cafe || !marketIndex) return todo;
@@ -289,7 +291,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
               {cafeTodo.oldestDays > 0 && <span className="muted"> (가장 오래된 것 {cafeTodo.oldestDays}일 전)</span>}
             </strong>
             <small>
-              {cafeTodo.lastRun ? `${new Date(cafeTodo.lastRun.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} 자동 수집` : '매일 새벽 자동 수집'}
+              {`마지막 업데이트 ${fmtUpdatedAt(lastUpdateAt(cafe?.data))}`}
               {' · '}빨간 숫자가 붙은 관심 카드를 눌러 확인하세요
             </small>
           </div>
@@ -309,9 +311,17 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
         <>
           <div className="market-gallery-header">
             <p className="market-hint" style={{ marginTop: 0 }}>팔로우만 해둔 목록이에요. 시세 기록 여부와 무관합니다. 카드에 마우스를 올리면 이름/가격이 보여요.</p>
-            <button type="button" className="btn btn-primary" onClick={() => setPickerOpen((p) => !p)}>
-              {pickerOpen ? '닫기' : '+ 카드 추가'}
-            </button>
+            <div className="market-gallery-actions">
+              {isAdmin && (
+                <MarketUpdateButton
+                  lastAt={lastUpdateAt(cafe?.data)}
+                  countFor={(d) => Object.keys((d || cafe?.data)?.candidates || {}).length}
+                />
+              )}
+              <button type="button" className="btn btn-primary" onClick={() => setPickerOpen((p) => !p)}>
+                {pickerOpen ? '닫기' : '+ 카드 추가'}
+              </button>
+            </div>
           </div>
 
           <div className="market-card-grid">
