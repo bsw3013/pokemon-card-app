@@ -16,6 +16,8 @@ import { buildCardKey, isIdCardKey, resolveLegacyCardKey } from '../utils/cardKe
 import MarketDrawer, { LangConditionTable } from './MarketDrawer';
 import { invalidateWatchlist } from '../hooks/useWatchlist';
 import { normalizeImageUrl } from '../utils/thumbKey';
+import { useMarketIndex } from '../hooks/useMarketIndex';
+import { ageDays, isEnded, loadCafeData, loadCafeDecisions, splitCandidates } from '../utils/cafeMarket';
 
 const PICKER_RESULT_LIMIT = 60;
 
@@ -24,7 +26,7 @@ function cardLabel(c) {
 }
 
 export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
-  const { user, signInWithGoogle } = useAuth();
+  const { user, signInWithGoogle, isAdmin } = useAuth();
   const { cards: myCards, loading: myCardsLoading } = useOwnedCards(); // 로그인한 본인의 보유현황이 합쳐진 카드 목록
   const [watchlist, setWatchlist] = useState([]);
   const [recordedCards, setRecordedCards] = useState([]); // 관심 등록 여부와 무관하게, 실제 시세 기록이 있는 카드들
@@ -38,6 +40,37 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
   const [manualAddForm, setManualAddForm] = useState({ cardName: '', series: '', cardNumber: '' });
 
   const [selectedCard, setSelectedCard] = useState(null); // {cardKey, cardName, series, cardNumber, imageUrl}
+
+  // MVP 카페 할 일(관리자만): 카드별 새 후보 수 + 낙찰가를 넣어야 하는 마감된 경매 수
+  const marketIndex = useMarketIndex();
+  const [cafe, setCafe] = useState(null);
+  useEffect(() => {
+    if (!isAdmin || selectedCard) return;
+    Promise.all([loadCafeData(), loadCafeDecisions(true)])
+      .then(([data, decisions]) => setCafe({ data, decisions }))
+      .catch(() => {});
+  }, [isAdmin, selectedCard]);
+  const cafeTodo = useMemo(() => {
+    const todo = { byKey: {}, nNew: 0, nAuction: 0, oldestDays: 0, lastRun: cafe?.data?.runs?.[0] || null };
+    if (!cafe || !marketIndex) return todo;
+    const handled = new Set();
+    marketIndex.forEach((list, key) => list.forEach((l) => {
+      if (l.source !== 'cafe') return;
+      handled.add(`${key}|${l.externalId}`);
+      if (l.status === 'auction' && isEnded(l.auctionEndsAt)) {
+        todo.byKey[key] = (todo.byKey[key] || 0) + 1;
+        todo.nAuction += 1;
+      }
+    }));
+    const groups = splitCandidates(cafe.data.candidates, { decisions: cafe.decisions, isHandled: (c) => handled.has(`${c.cardKey}|${c.articleId}`) });
+    groups.active.forEach((c) => {
+      todo.byKey[c.cardKey] = (todo.byKey[c.cardKey] || 0) + 1;
+      if (c.kind === 'auction' && isEnded(c.endsAt)) todo.nAuction += 1;
+      else todo.nNew += 1;
+      todo.oldestDays = Math.max(todo.oldestDays, ageDays(c.foundAt));
+    });
+    return todo;
+  }, [cafe, marketIndex]);
 
   const appliedPresetRef = useRef(null);
 
@@ -244,8 +277,24 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
     <main className="market-page fade-in">
       <div className="market-header">
         <h2>시세 조회</h2>
-        <p className="subtitle">번개장터 · 당근마켓 실시간 시세 + 직접 기록한 시세를 한 번에 확인하세요.</p>
+        <p className="subtitle">번개장터 · 당근마켓 · MVP 카페 시세 + 직접 기록한 시세를 한 번에 확인하세요.</p>
       </div>
+
+      {isAdmin && (cafeTodo.nNew > 0 || cafeTodo.nAuction > 0) && (
+        <div className="market-cafe-banner">
+          <div>
+            <strong>
+              {cafeTodo.nNew > 0 && <>MVP 카페 새 후보 {cafeTodo.nNew}건</>}
+              {cafeTodo.nAuction > 0 && <span className="auction">{cafeTodo.nNew > 0 ? ' · ' : 'MVP 카페 '}낙찰가 입력 {cafeTodo.nAuction}건</span>}
+              {cafeTodo.oldestDays > 0 && <span className="muted"> (가장 오래된 것 {cafeTodo.oldestDays}일 전)</span>}
+            </strong>
+            <small>
+              {cafeTodo.lastRun ? `${new Date(cafeTodo.lastRun.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} 자동 수집` : '매일 새벽 자동 수집'}
+              {' · '}빨간 숫자가 붙은 관심 카드를 눌러 확인하세요
+            </small>
+          </div>
+        </div>
+      )}
 
       <div className="market-tabs">
         <button type="button" className={`market-tab ${activeTab === 'watchlist' ? 'active' : ''}`} onClick={() => setActiveTab('watchlist')}>
@@ -276,6 +325,7 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
                   onClick={() => selectCard(w)}
                   onRemove={() => handleRemoveWatchlist(w.id)}
                   breakdown={recorded?.breakdown}
+                  todo={isAdmin ? cafeTodo.byKey[w.cardKey] || 0 : 0}
                 />
               );
             })}
@@ -391,13 +441,14 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
   );
 }
 
-function CardTile({ card, onClick, active, onRemove, subLabel, breakdown }) {
+function CardTile({ card, onClick, active, onRemove, subLabel, breakdown, todo }) {
   const hasBreakdown = breakdown && Object.keys(breakdown).length > 0;
   return (
     <div className={`market-tile ${active ? 'active' : ''}`} onClick={onClick}>
       {onRemove && (
         <button type="button" className="market-tile-remove" onClick={(e) => { e.stopPropagation(); onRemove(); }} title="관심카드에서 삭제">✕</button>
       )}
+      {todo > 0 && <span className="market-tile-todo" title="확인할 MVP 카페 후보·낙찰가">{todo}</span>}
       <div className="card-image-wrapper">
         <img src={normalizeImageUrl(card.imageUrl) || '/placeholder.png'} alt={card.cardName} loading="lazy" />
         <div className="market-tile-hover-info">

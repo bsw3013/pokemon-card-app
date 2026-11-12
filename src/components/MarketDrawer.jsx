@@ -10,6 +10,7 @@ import {
   setDoc,
   updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../AuthContext';
@@ -20,8 +21,13 @@ import PriceTrendChart from './PriceTrendChart';
 import { invalidateMarketIndex } from '../hooks/useMarketIndex';
 import { invalidateWatchlist } from '../hooks/useWatchlist';
 import { normalizeImageUrl } from '../utils/thumbKey';
+import CafeCandidates from './market/CafeCandidates';
+import AuctionSection from './market/AuctionSection';
+import {
+  CAFE_MARKETPLACE, isEnded, loadCafeData, loadCafeDecisions, setCafeDecisions, splitCandidates,
+} from '../utils/cafeMarket';
 
-const SOURCE_LABELS = { bunjang: '번개장터', danggeun: '당근마켓', manual: '직접입력' };
+const SOURCE_LABELS = { bunjang: '번개장터', danggeun: '당근마켓', manual: '직접입력', cafe: 'MVP 카페' };
 const TOP_GRADES = ['10', '9'];
 const MARKET_SERVER_URL = 'http://localhost:5175';
 const LANGUAGE_OPTIONS = ['한국', '일본', '미국', '중국'];
@@ -39,6 +45,13 @@ function MarketplaceSelect({ options, value, onChange }) {
       {list.map((m) => <option key={m} value={m}>{m}</option>)}
     </select>
   );
+}
+
+// 카페 글을 매물로 저장할 때 쓰는 문서 id (같은 글을 같은 카드에 두 번 저장하지 않게)
+function cafeListingId(articleId, cardKey) {
+  let h = 5381;
+  for (const ch of String(cardKey)) h = ((h * 33) ^ ch.charCodeAt(0)) >>> 0;
+  return `cafe_${articleId}_${h.toString(36)}`;
 }
 
 function fmtPrice(p) {
@@ -59,7 +72,7 @@ function cardLabel(c) {
 //  onOpenMarketPage: 있으면 "시세 페이지에서 보기" 버튼을 보여준다
 //  overModal: 카드 상세 창 위에 띄울 때 true
 export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOpenMarketPage, overModal = false }) {
-  const { user, nickname, signInWithGoogle } = useAuth();
+  const { user, nickname, signInWithGoogle, isAdmin } = useAuth();
   const { cards: myCards } = useOwnedCards();
   const [editingListing, setEditingListing] = useState(null); // {id, price, url, memo, language, conditionType, gradingCompany, grade}
   const [listings, setListings] = useState([]);
@@ -87,6 +100,14 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
   const [marketSearchError, setMarketSearchError] = useState('');
   const [importingId, setImportingId] = useState(null);
 
+  // MVP 카페 후보 (관리자만)
+  const [cafeAll, setCafeAll] = useState({});
+  const [cafeRuns, setCafeRuns] = useState([]);
+  const [cafeDecisions, setCafeDecisionsState] = useState({});
+  const [cafeOpen, setCafeOpen] = useState(true);
+  const [cafeBusy, setCafeBusy] = useState(false);
+  const [aliasText, setAliasText] = useState('');
+  const [aliasOpen, setAliasOpen] = useState(false);
   const [nicknameByUid, setNicknameByUid] = useState({}); // uid -> 현재 닉네임(실시간). 없으면 null로 캐싱.
 
   const [watchEntry, setWatchEntry] = useState(null); // 내 관심카드에 있으면 그 문서
@@ -172,6 +193,13 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
       const [listingDocs, historyDocs] = await Promise.all([readAll('marketListings'), readAll('marketPriceHistory')]);
       setListings(listingDocs);
       setHistory(historyDocs);
+      if (isAdmin) {
+        const [cafe, decisions] = await Promise.all([loadCafeData(), loadCafeDecisions()]);
+        setCafeAll(cafe.candidates);
+        setCafeRuns(cafe.runs);
+        setCafeDecisionsState(decisions);
+        markCafeSold(listingDocs, cafe.candidates);
+      }
     } catch (err) {
       console.error('시세 데이터 로드 실패', err);
       setListings([]);
@@ -447,6 +475,134 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
     }
   }
 
+  // ── MVP 카페 후보 ──
+  const cardKeys = useMemo(() => {
+    const ks = new Set([card.cardKey]);
+    if (watchEntry?.cardKey) ks.add(watchEntry.cardKey);
+    if (watchEntry?.legacyCardKey) ks.add(watchEntry.legacyCardKey);
+    return ks;
+  }, [card.cardKey, watchEntry]);
+  const cafeGroups = useMemo(() => {
+    const handled = new Set(listings.filter((l) => l.source === 'cafe').map((l) => String(l.externalId)));
+    const mine = Object.fromEntries(Object.entries(cafeAll).filter(([, c]) => cardKeys.has(c.cardKey)));
+    return splitCandidates(mine, { decisions: cafeDecisions, isHandled: (c) => handled.has(String(c.articleId)) });
+  }, [cafeAll, cafeDecisions, listings, cardKeys]);
+  const auctions = useMemo(() => listings.filter((l) => l.status === 'auction'), [listings]);
+  const auctionsEnded = auctions.filter((l) => isEnded(l.auctionEndsAt)).length
+    + cafeGroups.active.filter((c) => c.kind === 'auction' && isEnded(c.endsAt)).length;
+  const newCafeCount = cafeGroups.active.filter((c) => !(c.kind === 'auction' && isEnded(c.endsAt))).length;
+
+  // 판매자가 제목에 "판매완료"를 붙인 글은, 이미 판매중으로 저장해 둔 매물을 판매완료로 바꾼다
+  async function markCafeSold(listingDocs, all) {
+    if (!user) return;
+    const soldByArticle = new Map();
+    Object.values(all || {}).forEach((c) => { if (c.soldMark) soldByArticle.set(String(c.articleId), c.soldSeenAt || c.lastSeen); });
+    const targets = listingDocs.filter((l) => l.source === 'cafe' && l.status === 'active' && soldByArticle.has(String(l.externalId)));
+    if (!targets.length) return;
+    await Promise.all(targets.map((l) => updateDoc(doc(db, 'marketListings', l.id), {
+      status: 'sold_estimated', missedCount: 2, removedAt: soldByArticle.get(String(l.externalId)) || new Date().toISOString(),
+    })));
+    loadCardData(card.cardKey);
+    invalidateMarketIndex();
+  }
+
+  function cafeBase(c, v) {
+    return {
+      cardKey: card.cardKey, cardName: card.cardName, series: card.series || '', cardNumber: card.cardNumber || '',
+      source: 'cafe', marketplace: CAFE_MARKETPLACE, externalId: String(c.articleId), cafeCandidateId: c.id,
+      title: c.title, url: c.url || null, imageUrl: null, region: null,
+      classification: 'normal', classificationOverride: true, missedCount: 0, recordedBy: buildRecordedBy(),
+      language: v.language || '한국', conditionType: v.conditionType || 'raw',
+      gradingCompany: v.conditionType === 'graded' ? (v.gradingCompany || '') : '',
+      grade: v.conditionType === 'graded' ? (v.grade || '') : '',
+    };
+  }
+  function historyOf(base, price, recordedAt, saleType) {
+    return {
+      cardKey: base.cardKey, source: 'cafe', marketplace: CAFE_MARKETPLACE, externalId: base.externalId, price, recordedAt, saleType,
+      language: base.language, conditionType: base.conditionType, gradingCompany: base.gradingCompany, grade: base.grade, recordedBy: base.recordedBy,
+    };
+  }
+  async function withCafeBusy(fn) {
+    if (!user) { signInWithGoogle(); return; }
+    setCafeBusy(true);
+    try { await fn(); refresh(); } catch (err) { console.error('카페 후보 처리 실패', err); alert('저장에 실패했어요. 잠시 뒤 다시 해 주세요.'); } finally { setCafeBusy(false); }
+  }
+  // 판매글 저장(한 건 또는 여러 건)
+  function handleCafeSave(items) {
+    return withCafeBusy(async () => {
+      const batch = writeBatch(db);
+      items.forEach(({ c, v }) => {
+        const base = cafeBase(c, v);
+        const at = c.foundAt || new Date().toISOString();
+        const soldAt = c.soldSeenAt || at;
+        batch.set(doc(db, 'marketListings', cafeListingId(c.articleId, card.cardKey)), {
+          ...base, price: v.price, saleType: 'sale', status: v.sold ? 'sold_estimated' : 'active',
+          firstSeen: at, lastSeen: c.lastSeen || at, removedAt: v.sold ? soldAt : null,
+        });
+        batch.set(doc(collection(db, 'marketPriceHistory')), historyOf(base, v.price, at, 'sale'));
+      });
+      await batch.commit();
+    });
+  }
+  function handleCafeTrack(c, v) {
+    return withCafeBusy(async () => {
+      const at = c.foundAt || new Date().toISOString();
+      await setDoc(doc(db, 'marketListings', cafeListingId(c.articleId, card.cardKey)), {
+        ...cafeBase(c, v), price: null, startPrice: c.startPrice ?? null, saleType: 'auction', status: 'auction',
+        auctionEndsAt: c.endsAt, firstSeen: at, lastSeen: c.lastSeen || at, removedAt: null,
+      });
+    });
+  }
+  // 이미 마감된 경매 후보에 바로 낙찰가를 넣을 때
+  function handleCafeAuctionDirect(c, v, won) {
+    return withCafeBusy(async () => {
+      const base = cafeBase(c, v);
+      await setDoc(doc(db, 'marketListings', cafeListingId(c.articleId, card.cardKey)), {
+        ...base, price: won, startPrice: c.startPrice ?? null, saleType: 'auction', status: 'sold_estimated',
+        auctionEndsAt: c.endsAt, firstSeen: c.endsAt, lastSeen: c.endsAt, removedAt: c.endsAt,
+      });
+      await addDoc(collection(db, 'marketPriceHistory'), historyOf(base, won, c.endsAt, 'auction'));
+    });
+  }
+  function handleCafeDismiss(ids) {
+    return withCafeBusy(async () => {
+      setCafeDecisionsState(await setCafeDecisions(Object.fromEntries(ids.map((id) => [id, 'dismissed']))));
+    });
+  }
+  function handleCafeRestore(c) {
+    return withCafeBusy(async () => {
+      setCafeDecisionsState(await setCafeDecisions({ [c.id]: 'restored' }));
+    });
+  }
+  function handleAuctionResult(l, won) {
+    return withCafeBusy(async () => {
+      await updateDoc(doc(db, 'marketListings', l.id), { price: won, status: 'sold_estimated', firstSeen: l.auctionEndsAt, lastSeen: l.auctionEndsAt, removedAt: l.auctionEndsAt });
+      await addDoc(collection(db, 'marketPriceHistory'), historyOf(l, won, l.auctionEndsAt, 'auction'));
+    });
+  }
+  // 유찰: 시세에서 빼고, 같은 글이 다시 후보로 뜨지 않게 버린 것으로 남긴다
+  function handleAuctionUnsold(l) {
+    return withCafeBusy(async () => {
+      await deleteDoc(doc(db, 'marketListings', l.id));
+      if (l.cafeCandidateId) setCafeDecisionsState(await setCafeDecisions({ [l.cafeCandidateId]: 'dismissed' }));
+    });
+  }
+  // 카페 검색어(별명) 저장 → 다음 새벽 수집부터 같이 찾는다
+  async function handleSaveAliases() {
+    if (!watchEntry) return;
+    const queries = [...new Set(aliasText.split(/[,\n]/).map((q) => q.trim()).filter((q) => q.length >= 2 && q !== watchEntry.cardName))].slice(0, 5);
+    await updateDoc(doc(db, 'marketWatchlist', watchEntry.id), { queries });
+    setWatchEntry({ ...watchEntry, queries });
+    setAliasOpen(false);
+    invalidateWatchlist();
+  }
+  const saleTypeCount = (list) => {
+    const a = list.filter((l) => l.saleType === 'auction').length;
+    return a ? ` · 판매 ${list.length - a} · 경매 ${a}` : '';
+  };
+  const lastRun = cafeRuns[0] || null;
+
   function openEditListing(listing) {
     if (!user) { signInWithGoogle(); return; }
     setEditingListing({
@@ -538,6 +694,20 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
                   <button type="button" className="btn btn-secondary btn-compact" onClick={onOpenMarketPage}>시세 페이지에서 보기 →</button>
                 )}
               </div>
+              {isAdmin && watchEntry && (
+                <div className="cafe-alias">
+                  <span className="market-hint">카페 검색어: <b>{[watchEntry.cardName, ...(watchEntry.queries || [])].join(', ')}</b></span>
+                  {!aliasOpen ? (
+                    <button type="button" className="link-btn" onClick={() => { setAliasText((watchEntry.queries || []).join(', ')); setAliasOpen(true); }}>별명 추가·수정</button>
+                  ) : (
+                    <span className="cafe-alias-edit">
+                      <input value={aliasText} onChange={(e) => setAliasText(e.target.value)} placeholder="예: 흑자몽, 110/063 (쉼표로 여러 개)" />
+                      <button type="button" className="btn btn-primary btn-compact" onClick={handleSaveAliases}>저장</button>
+                      <button type="button" className="btn btn-compact" onClick={() => setAliasOpen(false)}>취소</button>
+                    </span>
+                  )}
+                </div>
+              )}
               {loading && <span className="market-hint">불러오는 중...</span>}
               {!loading && conditionFilter === 'raw' && rawActiveStats && (
                 <span className="market-preview-range">
@@ -551,6 +721,13 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
                 </span>
               )}
               {!loading && conditionFilter === 'graded' && gradedActiveGroups.length === 0 && <span className="market-hint">아직 10등급/9등급 판매중 매물이 없습니다.</span>}
+              {!loading && isAdmin && (newCafeCount > 0 || auctionsEnded > 0) && (
+                <button type="button" className="market-cafe-alert" onClick={() => { setCafeOpen(true); setTimeout(() => document.getElementById(newCafeCount ? 'cafe-candidates' : 'cafe-auctions')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); }}>
+                  {newCafeCount > 0 && <span>MVP 카페 새 후보 <b>{newCafeCount}</b>건</span>}
+                  {auctionsEnded > 0 && <span className="auction">낙찰가 입력 <b>{auctionsEnded}</b>건</span>}
+                  <span className="arrow">확인하기 →</span>
+                </button>
+              )}
             </div>
             {!loading && (
               <LangConditionTable
@@ -602,7 +779,7 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
                     ) : <p className="market-hint">판매중인 매물이 없습니다.</p>}
                   </div>
                   <div className="market-summary-group">
-                    <h5>판매완료 기준</h5>
+                    <h5>판매완료 기준<small className="sale-type-split">{saleTypeCount(soldEstimated)}</small></h5>
                     {rawSoldStats ? (
                       <div className="market-summary-cards">
                         <div className="market-summary-card"><span className="label">매물건수</span><span className="value">{rawSoldStats.count}건</span></div>
@@ -639,7 +816,7 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
                     ) : <p className="market-hint">10등급/9등급 판매중 매물이 없습니다.</p>}
                   </div>
                   <div className="market-summary-group">
-                    <h5>판매완료 기준 (10등급/9등급)</h5>
+                    <h5>판매완료 기준 (10등급/9등급)<small className="sale-type-split">{saleTypeCount(soldEstimated)}</small></h5>
                     {gradedSoldGroups.length > 0 ? (
                       <div className="market-grade-stat-table-wrap">
                       <table className="market-grade-stat-table">
@@ -667,6 +844,11 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
               <PriceTrendChart history={filteredHistory} />
 
               <div className="market-add-row">
+                {isAdmin && (
+                  <button type="button" className={`btn ${cafeOpen ? 'btn-secondary' : 'btn-primary'}`} onClick={() => setCafeOpen((o) => !o)}>
+                    MVP 카페 후보{cafeGroups.active.length > 0 && <span className="cafe-count">{cafeGroups.active.length}</span>}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn btn-primary"
@@ -727,6 +909,24 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
                   </form>
                 )}
               </div>
+
+              {isAdmin && cafeOpen && (
+                <CafeCandidates
+                  key={card.cardKey}
+                  groups={cafeGroups}
+                  gradingCompanies={gradingCompanies}
+                  gradingScale={gradingScale}
+                  busy={cafeBusy}
+                  lastRun={lastRun}
+                  onSave={handleCafeSave}
+                  onTrack={handleCafeTrack}
+                  onDismiss={handleCafeDismiss}
+                  onRestore={handleCafeRestore}
+                  onAuctionDirect={handleCafeAuctionDirect}
+                />
+              )}
+
+              <AuctionSection auctions={auctions} busy={cafeBusy} onResult={handleAuctionResult} onUnsold={handleAuctionUnsold} />
 
               {marketSearchOpen && (
                 <div className="market-search-panel">
@@ -819,6 +1019,7 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
                 onDelete={handleDeleteListing}
                 statusActionLabel="판매중으로 되돌리기"
                 nicknameByUid={nicknameByUid}
+                showSaleType
               />
 
           </div>
@@ -900,7 +1101,7 @@ export function LangConditionTable({ counts, className = '', compact = false, on
   );
 }
 
-function ListingSection({ title, listings, emptyText, onEdit, onToggleStatus, onDelete, statusActionLabel, dateField = 'firstSeen', nicknameByUid }) {
+function ListingSection({ title, listings, emptyText, onEdit, onToggleStatus, onDelete, statusActionLabel, dateField = 'firstSeen', nicknameByUid, showSaleType }) {
   return (
     <div className="market-section">
       {title && <h4>{title} ({listings.length})</h4>}
@@ -911,6 +1112,7 @@ function ListingSection({ title, listings, emptyText, onEdit, onToggleStatus, on
             return (
               <div key={l.id} className="market-listing-row">
                 <span className={`badge-source badge-source-${l.source}`}>{l.marketplace || SOURCE_LABELS[l.source] || l.source}</span>
+                {showSaleType && <span className={`badge-kind ${l.saleType === 'auction' ? 'auction' : 'sale'}`}>{l.saleType === 'auction' ? '경매 낙찰' : '판매'}</span>}
                 {l.language && <span className="badge-classification">{l.language}판</span>}
                 {l.conditionType === 'graded' && (
                   <span className="badge-classification">{[l.gradingCompany, l.grade].filter(Boolean).join(' ') || '등급카드'}</span>
