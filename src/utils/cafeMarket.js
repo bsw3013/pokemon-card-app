@@ -6,7 +6,9 @@ import { db } from '../firebase';
 // - 저장/버리기 같은 결정은 Firestore settings/marketCafeDecisions 에 남긴다(관리자만).
 // - 관리자의 관심 카드 목록은 settings/marketTargets 에 옮겨 적어서, 수집 작업이 그 카드들을 검색한다.
 
-export const CAFE_DATA_URL = 'https://cdn.jsdelivr.net/gh/bsw3013/pokemon-card-app@market-data/cafe.json';
+// GitHub 원본 주소는 새 파일이 몇 분 안에 반영된다(jsDelivr는 예전 파일을 오래 붙잡고 있을 때가 있어서 예비로만 쓴다).
+export const CAFE_DATA_URL = 'https://raw.githubusercontent.com/bsw3013/pokemon-card-app/market-data/cafe.json';
+const CAFE_DATA_FALLBACK_URL = 'https://cdn.jsdelivr.net/gh/bsw3013/pokemon-card-app@market-data/cafe.json';
 export const CAFE_MARKETPLACE = 'MVP';
 export const CAFE_IDS = ['cardmvk'];
 export const OLD_CANDIDATE_DAYS = 30;
@@ -20,8 +22,9 @@ let dataPending = null;
 export async function loadCafeData(force = false) {
   if (dataCache && !force) return dataCache;
   if (!dataPending || force) {
-    dataPending = fetch(CAFE_DATA_URL, { cache: 'no-cache' })
-      .then((r) => (r.ok ? r.json() : { candidates: {}, runs: [] }))
+    const get = (url) => fetch(url, { cache: 'no-cache' }).then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); });
+    dataPending = get(CAFE_DATA_URL)
+      .catch(() => get(CAFE_DATA_FALLBACK_URL))
       .catch(() => ({ candidates: {}, runs: [] }))
       .then((d) => { dataCache = { candidates: d.candidates || {}, runs: d.runs || [], updatedAt: d.updatedAt || null }; return dataCache; })
       .finally(() => { dataPending = null; });
