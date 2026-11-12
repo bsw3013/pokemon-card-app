@@ -1,83 +1,72 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useAuth } from '../../AuthContext';
 import { fmtUpdatedAt } from '../../utils/cafeMarket';
-import { getUpdateToken, runMarketUpdate, setUpdateToken } from '../../utils/marketUpdate';
+import { checkPendingUpdates, pendingFor, requestMarketUpdate, subscribeMarketUpdate } from '../../utils/marketUpdate';
 
-const TOKEN_PAGE = 'https://github.com/settings/personal-access-tokens/new';
+function minutesAgo(iso) {
+  const m = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
+  return m === 0 ? '방금' : `${m}분 전`;
+}
 
-// "시세 업데이트" 버튼 (관리자만). card를 주면 그 카드만, 안 주면 관심 카드 전체를 MVP 카페에서 바로 검색한다.
-// 버튼 안에 마지막 업데이트 날짜·시간을 같이 보여준다.
-export default function MarketUpdateButton({ card, lastAt, countFor, onDone, compact = false }) {
-  const [busy, setBusy] = useState(false);
-  const [step, setStep] = useState('');
+// "시세 업데이트" 버튼 (로그인한 사용자 누구나). card를 주면 그 카드만, 안 주면 관심 카드 전체.
+// 누르면 업데이트 요청이 남고, GitHub가 5분마다 확인해서 MVP 카페를 검색한다. 버튼 안에 마지막 업데이트 시각을 보여준다.
+export default function MarketUpdateButton({ card, lastAt, countFor, compact = false }) {
+  const { user, signInWithGoogle } = useAuth();
+  const [st, setSt] = useState({ pending: [] });
+  const [sending, setSending] = useState(false);
   const [msg, setMsg] = useState(null); // { ok, text }
-  const [setupOpen, setSetupOpen] = useState(false);
-  const [tokenText, setTokenText] = useState('');
+  const startCount = useRef(null);
+  const wasPending = useRef(false);
+  const cardKey = card?.cardKey || null;
+
+  useEffect(() => { checkPendingUpdates(); return subscribeMarketUpdate(setSt); }, []);
+
+  const mine = pendingFor(st, cardKey);
+  const pending = mine.length > 0;
+
+  // 대기 중이던 요청이 처리되면 결과를 알려준다
+  useEffect(() => {
+    if (pending) { wasPending.current = true; return; }
+    if (!wasPending.current) return;
+    wasPending.current = false;
+    const after = countFor ? countFor() : null;
+    const added = startCount.current != null && after != null ? Math.max(0, after - startCount.current) : null;
+    startCount.current = null;
+    setMsg({ ok: true, text: added ? `업데이트 완료 · 새로 찾은 글 ${added}건` : '업데이트 완료' });
+  }, [pending, countFor]);
 
   async function start() {
-    if (!getUpdateToken()) { setSetupOpen(true); return; }
-    const before = countFor ? countFor() : null;
-    setBusy(true); setMsg(null); setStep('시작하는 중…');
+    if (!user) { signInWithGoogle(); return; }
+    setSending(true); setMsg(null);
     try {
-      const data = await runMarketUpdate({ card, onStep: setStep });
-      const after = countFor ? countFor(data) : null;
-      const added = before != null && after != null ? Math.max(0, after - before) : null;
-      setMsg({ ok: true, text: added == null ? '업데이트했어요.' : added > 0 ? `새로 찾은 글 ${added}건` : '새로 찾은 글은 없어요.' });
-      onDone?.(data);
+      startCount.current = countFor ? countFor() : null;
+      await requestMarketUpdate({ card, uid: user.uid });
     } catch (err) {
-      if (err.needToken) setSetupOpen(true);
-      else setMsg({ ok: false, text: err.message });
+      console.error('시세 업데이트 요청 실패', err);
+      setMsg({ ok: false, text: '요청을 못 보냈어요. 잠시 뒤 다시 눌러 주세요.' });
     } finally {
-      setBusy(false); setStep('');
+      setSending(false);
     }
   }
 
-  function saveToken() {
-    const t = tokenText.trim();
-    if (!t) return;
-    setUpdateToken(t);
-    setTokenText('');
-    setSetupOpen(false);
-    start();
-  }
-
+  const oldest = pending ? mine.reduce((m, p) => (p.at < m ? p.at : m), mine[0].at) : null;
   return (
     <span className={`market-update ${compact ? 'compact' : ''}`}>
-      <span className="market-update-row">
-        <button type="button" className="btn btn-secondary market-update-btn" onClick={start} disabled={busy} title={card ? '이 카드만 MVP 카페에서 지금 검색해요' : '관심 카드 전체를 MVP 카페에서 지금 검색해요'}>
-          <span className={`market-update-icon ${busy ? 'spin' : ''}`} aria-hidden>↻</span>
-          <span className="market-update-text">
-            <b>{busy ? '시세 업데이트 중…' : '시세 업데이트'}</b>
-            <small>마지막 업데이트 {fmtUpdatedAt(lastAt)}</small>
-          </span>
-        </button>
-        {getUpdateToken() && !busy && (
-          <button type="button" className="link-btn market-update-gear" onClick={() => setSetupOpen((o) => !o)} title="GitHub 토큰 바꾸기">토큰</button>
-        )}
-      </span>
-      {busy && step && <small className="market-update-step">{step}</small>}
-      {!busy && msg && <small className={`market-update-msg ${msg.ok ? 'ok' : 'err'}`}>{msg.text}</small>}
-      {setupOpen && (
-        <span className="market-update-setup">
-          <b>처음 한 번만: GitHub 토큰 넣기</b>
-          <small>
-            시세 업데이트는 GitHub의 수집 작업을 바로 실행해요. 아래 순서로 토큰을 만들어 붙여넣으세요.
-            토큰은 <b>이 기기의 브라우저에만</b> 저장돼요(휴대폰·PC 각각 한 번).
-          </small>
-          <ol>
-            <li><a href={TOKEN_PAGE} target="_blank" rel="noopener noreferrer">GitHub 토큰 만들기 페이지</a>를 열어요.</li>
-            <li>Token name은 아무거나(예: 시세 업데이트), Expiration은 원하는 기간(최대 1년).</li>
-            <li>Repository access → <b>Only select repositories</b> → <b>pokemon-card-app</b> 선택.</li>
-            <li>Permissions → Repository permissions에서 <b>Actions: Read and write</b>, <b>Contents: Read-only</b>.</li>
-            <li>맨 아래 <b>Generate token</b> → 나온 토큰(github_pat_…)을 복사해서 아래에 붙여넣기.</li>
-          </ol>
-          <span className="market-update-token">
-            <input type="password" value={tokenText} onChange={(e) => setTokenText(e.target.value)} placeholder="github_pat_로 시작하는 토큰" autoComplete="off" />
-            <button type="button" className="btn btn-primary btn-compact" onClick={saveToken} disabled={!tokenText.trim()}>저장하고 업데이트</button>
-            <button type="button" className="btn btn-compact" onClick={() => setSetupOpen(false)}>닫기</button>
-            {getUpdateToken() && <button type="button" className="link-btn" onClick={() => { setUpdateToken(''); setSetupOpen(false); }}>이 기기에서 토큰 지우기</button>}
-          </span>
+      <button
+        type="button"
+        className="btn btn-secondary market-update-btn"
+        onClick={start}
+        disabled={sending || pending}
+        title={card ? '이 카드만 MVP 카페에서 다시 검색해요' : '관심 카드 전체를 MVP 카페에서 다시 검색해요'}
+      >
+        <span className={`market-update-icon ${pending || sending ? 'spin' : ''}`} aria-hidden>↻</span>
+        <span className="market-update-text">
+          <b>{pending ? '시세 업데이트 대기 중…' : '시세 업데이트'}</b>
+          <small>마지막 업데이트 {fmtUpdatedAt(lastAt)}</small>
         </span>
-      )}
+      </button>
+      {pending && <small className="market-update-step">{minutesAgo(oldest)} 요청 · 보통 5~15분 뒤 반영돼요 (이 화면을 닫아도 진행돼요)</small>}
+      {!pending && msg && <small className={`market-update-msg ${msg.ok ? 'ok' : 'err'}`}>{msg.text}</small>}
     </span>
   );
 }

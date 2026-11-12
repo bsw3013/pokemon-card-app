@@ -46,8 +46,8 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
   const marketIndex = useMarketIndex();
   const [cafe, setCafe] = useState(null);
   useEffect(() => {
-    if (!isAdmin || selectedCard) return;
-    Promise.all([loadCafeData(), loadCafeDecisions(true)])
+    if (selectedCard) return;
+    Promise.all([loadCafeData(), isAdmin ? loadCafeDecisions(true) : {}])
       .then(([data, decisions]) => setCafe({ data, decisions }))
       .catch(() => {});
   }, [isAdmin, selectedCard]);
@@ -312,12 +312,10 @@ export default function MarketPrice({ appConfig, presetCard, clearPreset }) {
           <div className="market-gallery-header">
             <p className="market-hint" style={{ marginTop: 0 }}>팔로우만 해둔 목록이에요. 시세 기록 여부와 무관합니다. 카드에 마우스를 올리면 이름/가격이 보여요.</p>
             <div className="market-gallery-actions">
-              {isAdmin && (
-                <MarketUpdateButton
-                  lastAt={lastUpdateAt(cafe?.data)}
-                  countFor={(d) => Object.keys((d || cafe?.data)?.candidates || {}).length}
-                />
-              )}
+              <MarketUpdateButton
+                lastAt={lastUpdateAt(cafe?.data)}
+                countFor={() => Object.keys(cafe?.data?.candidates || {}).length}
+              />
               <button type="button" className="btn btn-primary" onClick={() => setPickerOpen((p) => !p)}>
                 {pickerOpen ? '닫기' : '+ 카드 추가'}
               </button>

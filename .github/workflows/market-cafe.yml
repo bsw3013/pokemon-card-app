@@ -2,8 +2,10 @@
 # - 관리자의 관심 카드마다 네이버 공식 "카페글 검색 API"로 MVP 카페 판매글·경매글을 찾는다.
 # - 결과(cafe.json)는 market-data 브랜치에 올리고, 사이트의 시세 창이 "MVP 카페 후보"로 보여준다.
 #   (저장/버리기는 사이트에서 사람이 고른다. 여기서는 Firestore에 아무것도 쓰지 않는다)
-# - 매일 새벽 4시 7분(한국 시간)에 자동 실행. 사이트의 "시세 업데이트" 버튼이나
-#   Actions 탭 → "Collect MVP cafe prices" → "Run workflow"로 바로 실행 가능.
+# - 매일 새벽 4시 7분(한국 시간)에 관심 카드 전체를 자동 검색.
+# - 사이트의 "시세 업데이트" 버튼(로그인한 사용자 누구나)은 Firestore에 "업데이트 요청"만 남기고,
+#   이 작업이 5분마다 요청이 있는지 확인해서 있으면 그 카드(또는 전체)를 검색한다. 요청이 없으면 몇 초 만에 끝난다.
+# - Actions 탭 → "Collect MVP cafe prices" → "Run workflow"로 손으로 바로 실행할 수도 있다.
 # - 필요한 키: 저장소 Settings → Secrets and variables → Actions 에
 #     NAVER_HUB_CLIENT_ID, NAVER_HUB_CLIENT_SECRET (네이버 클라우드 NAVER API HUB 인증 정보)
 #   키가 없으면 "키 없음"만 기록하고 끝난다.
@@ -11,8 +13,9 @@ name: Collect MVP cafe prices
 
 on:
   schedule:
-    - cron: '7 19 * * *'
-  # 사이트의 "시세 업데이트" 버튼도 이 작업을 바로 실행한다 (카드 하나만 할 때는 card_key를 넘김)
+    - cron: '7 19 * * *'      # 매일 새벽 4시 7분(한국 시간) 전체 검색
+    - cron: '*/5 * * * *'     # 5분마다 "시세 업데이트" 요청 확인
+  # Actions 탭에서 손으로 실행 (카드 하나만 할 때는 card_key를 넣음)
   workflow_dispatch:
     inputs:
       card_key:
@@ -51,16 +54,24 @@ jobs:
           fi
           ls -la "$RUNNER_TEMP" | grep prev.json || echo "지난번 결과 없음 (처음 실행)"
 
+      - name: 업데이트 요청 확인
+        id: plan
+        run: node scripts/check-market-requests.mjs "$RUNNER_TEMP/prev.json"
+
       - name: MVP 카페 검색
+        if: github.event.schedule != '*/5 * * * *' || steps.plan.outputs.run != 'none'
         env:
           NAVER_HUB_CLIENT_ID: ${{ secrets.NAVER_HUB_CLIENT_ID }}
           NAVER_HUB_CLIENT_SECRET: ${{ secrets.NAVER_HUB_CLIENT_SECRET }}
           ONLY_CARD_KEY: ${{ inputs.card_key }}
           ONLY_CARD_NAME: ${{ inputs.card_name }}
           ONLY_QUERIES: ${{ inputs.queries }}
+          ONLY_CARDS: ${{ github.event.schedule == '*/5 * * * *' && steps.plan.outputs.run == 'cards' && steps.plan.outputs.cards || '' }}
+          REQUESTS_UNTIL: ${{ (github.event_name == 'schedule' || inputs.card_key == '') && steps.plan.outputs.until || '' }}
         run: node scripts/collect-cafe-market.mjs "$RUNNER_TEMP/prev.json" "$RUNNER_TEMP/out/cafe.json"
 
       - name: market-data 브랜치에 올리기
+        if: github.event.schedule != '*/5 * * * *' || steps.plan.outputs.run != 'none'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898699+github-actions[bot]@users.noreply.github.com"

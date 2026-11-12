@@ -13,7 +13,9 @@
 //
 // 사용법: node scripts/collect-cafe-market.mjs <이전 cafe.json 경로(없어도 됨)> <저장할 경로>
 //   TARGETS_FILE=파일.json 을 주면 Firestore 대신 그 파일에서 관심 카드 목록을 읽는다(시험용).
-//   ONLY_CARD_KEY(+ ONLY_CARD_NAME, ONLY_QUERIES)를 주면 그 카드 하나만 검색한다(사이트의 카드별 "시세 업데이트" 버튼).
+//   ONLY_CARD_KEY(+ ONLY_CARD_NAME, ONLY_QUERIES)를 주면 그 카드 하나만 검색한다(Actions 탭에서 손으로 실행할 때).
+//   ONLY_CARDS='[{"cardKey","cardName","queries"}]' 를 주면 그 카드들만 검색한다(사이트의 "시세 업데이트" 요청).
+//   REQUESTS_UNTIL=시각 을 주면 그때까지의 업데이트 요청을 처리한 것으로 기록한다.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -142,15 +144,27 @@ async function main() {
     }
     const cafes = (cfg.cafes && cfg.cafes.length ? cfg.cafes : DEFAULT_CAFES).map((c) => String(c).toLowerCase());
     let targets = (cfg.targets || []).filter((t) => t && t.cardKey && t.cardName);
-    const only = String(process.env.ONLY_CARD_KEY || '').trim();
-    if (only) {
-      run.only = only;
-      targets = targets.filter((t) => t.cardKey === only);
-      // 관심 카드가 아니어도 이름을 같이 주면 그 카드만 검색한다
-      if (!targets.length && process.env.ONLY_CARD_NAME) {
-        const queries = String(process.env.ONLY_QUERIES || '').split(',').map((q) => q.trim()).filter(Boolean);
-        targets = [{ cardKey: only, cardName: String(process.env.ONLY_CARD_NAME).trim(), queries }];
-      }
+    // 특정 카드만 검색 (관심 카드가 아니어도 이름을 같이 주면 그 이름으로 검색)
+    let onlyCards = [];
+    try { onlyCards = JSON.parse(process.env.ONLY_CARDS || '[]'); } catch { onlyCards = []; }
+    const onlyKey = String(process.env.ONLY_CARD_KEY || '').trim();
+    if (onlyKey) {
+      onlyCards.push({
+        cardKey: onlyKey,
+        cardName: String(process.env.ONLY_CARD_NAME || '').trim(),
+        queries: String(process.env.ONLY_QUERIES || '').split(',').map((q) => q.trim()).filter(Boolean),
+      });
+    }
+    if (onlyCards.length) {
+      const byKey = new Map(targets.map((t) => [t.cardKey, t]));
+      targets = onlyCards
+        .map((c) => {
+          const t = byKey.get(c.cardKey);
+          if (t) return { ...t, queries: [...new Set([...(t.queries || []), ...(c.queries || [])])] };
+          return c.cardName ? { cardKey: c.cardKey, cardName: c.cardName, queries: c.queries || [] } : null;
+        })
+        .filter(Boolean);
+      run.only = onlyCards.map((c) => c.cardKey).join(',');
     }
     run.targets = targets.length;
 
@@ -242,7 +256,9 @@ async function main() {
 
   run.newCandidates = fresh.filter((id) => candidates[id] && !candidates[id].dateEstimated && !candidates[id].hidden).length;
   const runs = [run, ...(prev.runs || [])].slice(0, 14);
-  save({ version: 1, updatedAt: now, runs, cardRuns, candidates });
+  const requestsHandledUntil = process.env.REQUESTS_UNTIL && process.env.REQUESTS_UNTIL > (prev.requestsHandledUntil || '')
+    ? process.env.REQUESTS_UNTIL : (prev.requestsHandledUntil || '');
+  save({ version: 1, updatedAt: now, runs, cardRuns, requestsHandledUntil, candidates });
   console.log(`카페 후보: 카드 ${run.targets}장 · 검색 ${run.calls}번 · 새 후보 ${run.newCandidates} · 바뀐 후보 ${run.updated} · 전체 ${Object.keys(candidates).length}`);
   if (run.errors.length) console.log('문제:', run.errors.slice(0, 10).join(' / '));
 }

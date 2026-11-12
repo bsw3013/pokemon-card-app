@@ -4704,11 +4704,6 @@ body:has(.ae) .scroll-to-top-btn { display: none !important; }
 .market-update-step, .market-update-msg { font-size: 0.78rem; color: var(--text-muted); }
 .market-update-msg.ok { color: #15803d; }
 .market-update-msg.err { color: var(--primary-color); }
-.market-update-setup { display: flex; flex-direction: column; gap: 0.4rem; width: min(30rem, 100%); padding: 0.8rem; border: 1px solid var(--border-color); border-radius: 10px; background: var(--surface-color); text-align: left; font-size: 0.85rem; }
-.market-update-setup small { color: var(--text-muted); }
-.market-update-setup ol { margin: 0; padding-left: 1.2rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 0.2rem; }
-.market-update-token { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
-.market-update-token input { flex: 1; min-width: 12rem; padding: 0.35rem 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--surface-color); color: var(--text-main); font: inherit; }
 @media (max-width: 640px) {
   .market-gallery-actions { justify-content: flex-start; width: 100%; }
   .market-update { align-items: flex-start; }
