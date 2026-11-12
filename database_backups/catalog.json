@@ -732,7 +732,115 @@
       "name": "30th CELEBRATION",
       "printedTotal": 103,
       "releaseDate": "2026-09-16"
+    },
+    {
+      "code": "s6K",
+      "era": "소드&실드",
+      "kind": "확장팩",
+      "label": "s6K -「칠흑의 가이스트」",
+      "name": "칠흑의 가이스트",
+      "printedTotal": null,
+      "releaseDate": ""
+    },
+    {
+      "code": "s6H",
+      "era": "소드&실드",
+      "kind": "확장팩",
+      "label": "s6H -「백은의 랜스」",
+      "name": "백은의 랜스",
+      "printedTotal": null,
+      "releaseDate": ""
+    },
+    {
+      "code": "s4a",
+      "era": "소드&실드",
+      "kind": "하이클래스팩",
+      "label": "s4a -「샤이니스타 V」",
+      "name": "샤이니스타 V",
+      "printedTotal": null,
+      "releaseDate": ""
+    },
+    {
+      "code": "s10D",
+      "era": "소드&실드",
+      "kind": "확장팩",
+      "label": "s10D -「타임게이저」",
+      "name": "타임게이저",
+      "printedTotal": null,
+      "releaseDate": ""
+    },
+    {
+      "code": "sm12",
+      "era": "썬&문",
+      "kind": "확장팩",
+      "label": "sm12 -「얼터제네시스」",
+      "name": "얼터제네시스",
+      "printedTotal": null,
+      "releaseDate": ""
+    },
+    {
+      "code": "sm10a",
+      "era": "썬&문",
+      "kind": "강화 확장팩",
+      "label": "sm10a -「GG엔드」",
+      "name": "GG엔드",
+      "printedTotal": null,
+      "releaseDate": ""
+    },
+    {
+      "code": "sm9a",
+      "era": "썬&문",
+      "kind": "강화 확장팩",
+      "label": "sm9a -「나이트유니슨」",
+      "name": "나이트유니슨",
+      "printedTotal": null,
+      "releaseDate": ""
+    },
+    {
+      "code": "sm9",
+      "era": "썬&문",
+      "kind": "확장팩",
+      "label": "sm9 -「태그볼트」",
+      "name": "태그볼트",
+      "printedTotal": null,
+      "releaseDate": ""
+    },
+    {
+      "code": "sm8",
+      "era": "썬&문",
+      "kind": "확장팩",
+      "label": "sm8 -「버스트임팩트」",
+      "name": "버스트임팩트",
+      "printedTotal": null,
+      "releaseDate": ""
+    },
+    {
+      "code": "sm7B",
+      "era": "썬&문",
+      "kind": "강화 확장팩",
+      "label": "sm7B -「페어리라이즈」",
+      "name": "페어리라이즈",
+      "printedTotal": null,
+      "releaseDate": ""
+    },
+    {
+      "code": "sm7",
+      "era": "썬&문",
+      "kind": "확장팩",
+      "label": "sm7 -「창공의 카리스마」",
+      "name": "창공의 카리스마",
+      "printedTotal": null,
+      "releaseDate": ""
+    },
+    {
+      "code": "sm5S",
+      "era": "썬&문",
+      "kind": "확장팩",
+      "label": "sm5S -「울트라썬」",
+      "name": "울트라썬",
+      "printedTotal": null,
+      "releaseDate": ""
     }
   ],
-  "updatedAt": "2026-11-10T06:01:44.888Z"
+  "updatedAt": "2026-11-12T15:56:36.433Z"
 }
