@@ -2,7 +2,8 @@
 # - 관리자의 관심 카드마다 네이버 공식 "카페글 검색 API"로 MVP 카페 판매글·경매글을 찾는다.
 # - 결과(cafe.json)는 market-data 브랜치에 올리고, 사이트의 시세 창이 "MVP 카페 후보"로 보여준다.
 #   (저장/버리기는 사이트에서 사람이 고른다. 여기서는 Firestore에 아무것도 쓰지 않는다)
-# - 매일 새벽 4시 7분(한국 시간)에 자동 실행. Actions 탭 → "Collect MVP cafe prices" → "Run workflow"로 바로 실행 가능.
+# - 매일 새벽 4시 7분(한국 시간)에 자동 실행. 사이트의 "시세 업데이트" 버튼이나
+#   Actions 탭 → "Collect MVP cafe prices" → "Run workflow"로 바로 실행 가능.
 # - 필요한 키: 저장소 Settings → Secrets and variables → Actions 에
 #     NAVER_HUB_CLIENT_ID, NAVER_HUB_CLIENT_SECRET (네이버 클라우드 NAVER API HUB 인증 정보)
 #   키가 없으면 "키 없음"만 기록하고 끝난다.
@@ -11,7 +12,21 @@ name: Collect MVP cafe prices
 on:
   schedule:
     - cron: '7 19 * * *'
+  # 사이트의 "시세 업데이트" 버튼도 이 작업을 바로 실행한다 (카드 하나만 할 때는 card_key를 넘김)
   workflow_dispatch:
+    inputs:
+      card_key:
+        description: '이 카드만 검색 (비우면 관심 카드 전체)'
+        required: false
+        default: ''
+      card_name:
+        description: '관심 카드가 아닐 때 검색할 카드 이름'
+        required: false
+        default: ''
+      queries:
+        description: '같이 검색할 별명 (쉼표로 구분)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -40,6 +55,9 @@ jobs:
         env:
           NAVER_HUB_CLIENT_ID: ${{ secrets.NAVER_HUB_CLIENT_ID }}
           NAVER_HUB_CLIENT_SECRET: ${{ secrets.NAVER_HUB_CLIENT_SECRET }}
+          ONLY_CARD_KEY: ${{ inputs.card_key }}
+          ONLY_CARD_NAME: ${{ inputs.card_name }}
+          ONLY_QUERIES: ${{ inputs.queries }}
         run: node scripts/collect-cafe-market.mjs "$RUNNER_TEMP/prev.json" "$RUNNER_TEMP/out/cafe.json"
 
       - name: market-data 브랜치에 올리기

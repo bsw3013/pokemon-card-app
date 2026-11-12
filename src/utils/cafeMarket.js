@@ -26,10 +26,41 @@ export async function loadCafeData(force = false) {
     dataPending = get(CAFE_DATA_URL)
       .catch(() => get(CAFE_DATA_FALLBACK_URL))
       .catch(() => ({ candidates: {}, runs: [] }))
-      .then((d) => { dataCache = { candidates: d.candidates || {}, runs: d.runs || [], updatedAt: d.updatedAt || null }; return dataCache; })
+      .then((d) => { dataCache = { candidates: d.candidates || {}, runs: d.runs || [], cardRuns: d.cardRuns || {}, updatedAt: d.updatedAt || null }; return dataCache; })
       .finally(() => { dataPending = null; });
   }
   return dataPending;
+}
+
+// "시세 업데이트" 버튼으로 새로 받은 결과를 모든 화면에 바로 알린다
+const dataListeners = new Set();
+export function setCafeData(d) {
+  dataCache = { candidates: d?.candidates || {}, runs: d?.runs || [], cardRuns: d?.cardRuns || {}, updatedAt: d?.updatedAt || null };
+  dataListeners.forEach((fn) => fn(dataCache));
+}
+export function subscribeCafeData(fn) {
+  dataListeners.add(fn);
+  return () => dataListeners.delete(fn);
+}
+
+// 마지막 업데이트 시각: 카드를 주면 그 카드를 마지막으로 검색한 때, 없으면 관심 카드 전체를 검색한 때
+export function lastUpdateAt(data, cardKey) {
+  if (!data) return null;
+  const full = (data.runs || []).find((r) => !r.only && r.targets > 0 && !(r.errors || []).some((e) => /키/.test(e)));
+  if (cardKey) {
+    const one = data.cardRuns?.[cardKey] || null;
+    const f = full?.at || null;
+    if (one && f) return one > f ? one : f;
+    return one || f;
+  }
+  return full?.at || null;
+}
+
+export function fmtUpdatedAt(iso) {
+  if (!iso) return '아직 없음';
+  const d = new Date(iso);
+  const w = '일월화수목금토'[d.getDay()];
+  return `${d.getMonth() + 1}/${d.getDate()}(${w}) ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 // ── 관리자의 결정(버리기·되살리기) ──
