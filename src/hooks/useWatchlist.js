@@ -144,3 +144,12 @@ export function useWatchEntry(cardKey) {
 
   return { entry, busy, add, remove, signedIn: !!uid };
 }
+
+// 다른 곳(시세 수집 대상 옮겨 적기 등)에서 관심 카드 목록을 읽고, 바뀔 때 알림을 받기 위한 함수
+export function getWatchlist(uid) {
+  return load(uid);
+}
+export function subscribeWatchlist(fn) {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}

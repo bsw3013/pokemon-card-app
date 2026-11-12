@@ -1,0 +1,59 @@
+# MVP 카페(네이버 카페) 시세 후보를 매일 모으는 자동 작업
+# - 관리자의 관심 카드마다 네이버 공식 "카페글 검색 API"로 MVP 카페 판매글·경매글을 찾는다.
+# - 결과(cafe.json)는 market-data 브랜치에 올리고, 사이트의 시세 창이 "MVP 카페 후보"로 보여준다.
+#   (저장/버리기는 사이트에서 사람이 고른다. 여기서는 Firestore에 아무것도 쓰지 않는다)
+# - 매일 새벽 4시 7분(한국 시간)에 자동 실행. Actions 탭 → "Collect MVP cafe prices" → "Run workflow"로 바로 실행 가능.
+# - 필요한 키: 저장소 Settings → Secrets and variables → Actions 에
+#     NAVER_HUB_CLIENT_ID, NAVER_HUB_CLIENT_SECRET (네이버 클라우드 NAVER API HUB 인증 정보)
+#   키가 없으면 "키 없음"만 기록하고 끝난다.
+name: Collect MVP cafe prices
+
+on:
+  schedule:
+    - cron: '7 19 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: market-cafe
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 지난번 결과 가져오기
+        run: |
+          if git fetch -q --depth 1 origin market-data 2>/dev/null; then
+            git show FETCH_HEAD:cafe.json > "$RUNNER_TEMP/prev.json" 2>/dev/null || true
+          fi
+          ls -la "$RUNNER_TEMP" | grep prev.json || echo "지난번 결과 없음 (처음 실행)"
+
+      - name: MVP 카페 검색
+        env:
+          NAVER_HUB_CLIENT_ID: ${{ secrets.NAVER_HUB_CLIENT_ID }}
+          NAVER_HUB_CLIENT_SECRET: ${{ secrets.NAVER_HUB_CLIENT_SECRET }}
+        run: node scripts/collect-cafe-market.mjs "$RUNNER_TEMP/prev.json" "$RUNNER_TEMP/out/cafe.json"
+
+      - name: market-data 브랜치에 올리기
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898699+github-actions[bot]@users.noreply.github.com"
+          git checkout -q --orphan market-data-build
+          git rm -rq --cached . || true
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp "$RUNNER_TEMP/out/cafe.json" .
+          printf '# market-data\n\n시세 창의 "MVP 카페 후보"에 쓰는 파일만 두는 브랜치예요. GitHub Actions가 매일 새로 만들어요.\n' > README.md
+          git add cafe.json README.md
+          MSG="$(node -e "const d=require('./cafe.json');const r=d.runs[0]||{};console.log('MVP 카페 후보: 새 '+(r.newCandidates||0)+'건 · 전체 '+Object.keys(d.candidates).length+'건'+(r.errors&&r.errors.length?' · 문제 '+r.errors.length+'건':''))")"
+          git commit -qm "$MSG"
+          git push -f origin HEAD:market-data
+          echo "$MSG"
+          curl -s -m 60 "https://purge.jsdelivr.net/gh/${GITHUB_REPOSITORY}@market-data/cafe.json" -o /dev/null -w "jsDelivr 새로 고침: %{http_code}\n" || echo "jsDelivr 새로 고침 실패 (최대 반나절 뒤 반영)"

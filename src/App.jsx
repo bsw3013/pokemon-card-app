@@ -18,6 +18,7 @@ import { useAuth } from './AuthContext';
 import { useOwnedCards } from './hooks/useOwnedCards';
 import { applyCatalogToConfig } from './utils/catalog';
 import { navigate, parseHash } from './utils/hashRoute';
+import { useCafeTargetSync } from './hooks/useCafeTargetSync';
 
 const VIEWS = ['home', 'cards', 'sets', 'collection', 'market', 'album', 'admin'];
 // 예전 주소로 들어와도 새 화면으로 연결한다.
@@ -39,6 +40,7 @@ function readRoute() {
 
 function App() {
   const { user, loading: authLoading, isAdmin, needsNickname, signInWithGoogle } = useAuth();
+  useCafeTargetSync();
   const [showNicknameEditor, setShowNicknameEditor] = useState(false);
   const [route, setRoute] = useState(readRoute);
   const [rawAppConfig, setAppConfig] = useState(null);
