@@ -19,7 +19,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { stripTags, findName, analyzePost, articleIdFromLink } from './lib/cafeParse.mjs';
+import { stripTags, findName, analyzePost, articleIdFromLink, buildSetIndex, cardMatchInfo, judgeCard } from './lib/cafeParse.mjs';
 
 const PROJECT_ID = 'pokemoncard-0319';
 const API = 'https://naverapihub.apigw.ntruss.com/search/v1/cafearticle';
@@ -47,6 +47,42 @@ function fromRest(value) {
     return out;
   }
   return null;
+}
+
+async function fetchDoc(docPath) {
+  const res = await fetch(`https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/${docPath}`);
+  if (!res.ok) return null;
+  const json = await res.json();
+  const data = {};
+  for (const [k, v] of Object.entries(json.fields || {})) data[k] = fromRest(v);
+  return data;
+}
+
+// 같은 카드인지 판단하려고 도감의 카드 정보(세트·희귀도·번호)와 세트 목록을 읽는다
+async function loadMatchInfo(targets) {
+  const catalog = await fetchDoc('settings/catalog').catch(() => null);
+  const setIndex = buildSetIndex(catalog?.sets || []);
+  const infoByKey = new Map();
+  for (const t of targets) {
+    const id = String(t.cardKey).startsWith('id:') ? String(t.cardKey).slice(3) : '';
+    if (!id) continue;
+    const card = await fetchDoc(`pokemon_cards/${encodeURIComponent(id)}`).catch(() => null);
+    if (card) infoByKey.set(t.cardKey, cardMatchInfo(card, setIndex));
+  }
+  return { setIndex, infoByKey };
+}
+
+// 후보 하나를 다시 판단: 다른 카드로 보이면 "다른 카드"로 숨긴다(구매글·잡담으로 숨긴 것은 그대로)
+function applyJudge(c, names, match) {
+  const info = match.infoByKey.get(c.cardKey);
+  if (!info) return;
+  const j = judgeCard({ title: c.title, snippet: c.snippet }, names, info, match.setIndex);
+  const postHidden = c.postHidden !== undefined ? c.postHidden : (c.hidden === 'card' ? null : c.hidden || null);
+  c.postHidden = postHidden;
+  c.match = j.match;
+  c.matchWhy = j.why;
+  c.matchConflict = j.conflict;
+  c.hidden = postHidden || (j.match === 'no' ? 'card' : null);
 }
 
 async function loadTargets() {
@@ -167,6 +203,7 @@ async function main() {
       run.only = onlyCards.map((c) => c.cardKey).join(',');
     }
     run.targets = targets.length;
+    const match = await loadMatchInfo(targets);
 
     outer:
     for (const t of targets) {
@@ -199,6 +236,7 @@ async function main() {
           if (!old) fresh.push(id);
           const a = analyzePost({ title, snippet, foundAt }, queries);
           const hidden = a.kind === 'buy' || a.kind === 'other' ? a.kind : null;
+          const postHidden = hidden;
           const next = {
             id,
             articleId,
@@ -213,6 +251,7 @@ async function main() {
             lastSeen: now,
             kind: hidden ? 'sale' : a.kind,
             hidden,
+            postHidden,
             price: a.price ?? (old?.title === title ? old?.price ?? null : null),
             startPrice: a.startPrice,
             endsAt: a.endsAt,
@@ -225,12 +264,19 @@ async function main() {
             soldSeenAt: a.soldMark ? (old?.soldSeenAt || now) : null,
             dateEstimated: old?.dateEstimated || false,
           };
+          applyJudge(next, queries, match);
           if (old && (old.title !== next.title || old.price !== next.price)) run.updated += 1;
           candidates[id] = next;
         }
       }
       if (cardOk) cardRuns[t.cardKey] = now;
     }
+    // 예전에 모아 둔 후보도 새 기준으로 다시 판단
+    const targetByKey = new Map(targets.map((t) => [t.cardKey, t]));
+    Object.values(candidates).forEach((c) => {
+      const t = targetByKey.get(c.cardKey);
+      if (t) applyJudge(c, cleanQueries(t), match);
+    });
     run.calls = calls;
   }
 

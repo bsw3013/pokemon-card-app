@@ -58,7 +58,8 @@ function CandidateRow({ c, v, set, checked, onCheck, busy, gradingCompanies, gra
   const [pasteOpen, setPasteOpen] = useState(false);
   const full = withPrice(v);
   const won = parseKrw(v.priceText);
-  const canBulk = !auction && isComplete(full);
+  const sure = c.match === 'yes';
+  const canBulk = !auction && sure && isComplete(full);
   return (
     <div className={`market-search-result cafe-cand ${auction ? 'is-auction' : ''}`}>
       {!auction && (
@@ -68,7 +69,7 @@ function CandidateRow({ c, v, set, checked, onCheck, busy, gradingCompanies, gra
           checked={checked}
           disabled={!canBulk}
           onChange={(e) => onCheck(e.target.checked)}
-          title={canBulk ? '한 번에 저장할 후보로 고르기' : '언어·가격·등급을 다 채워야 고를 수 있어요'}
+          title={canBulk ? '한 번에 저장할 후보로 고르기' : sure ? '언어·가격·등급을 다 채워야 고를 수 있어요' : '확인 필요 글은 하나씩 확인하고 저장해 주세요'}
         />
       )}
       <div className="market-search-result-body">
@@ -76,6 +77,7 @@ function CandidateRow({ c, v, set, checked, onCheck, busy, gradingCompanies, gra
         <span className={`badge-kind ${auction ? 'auction' : 'sale'}`}>{auction ? '경매글' : '판매글'}</span>
         {auction && <span className={`cafe-deadline ${ended ? 'ended' : ''}`}>{ended ? `${fmtDeadline(c.endsAt)} 마감됨` : `⏰ ${fmtDeadline(c.endsAt)} 마감`}</span>}
         <span className="market-listing-region">{fmtFound(c)}</span>
+        {sure && <span className="badge-classification cafe-sure" title="글에 이 카드의 희귀도·세트·번호·별명이 적혀 있어요">✓ {(c.matchWhy || []).join('·')} 확인</span>}
         {c.flags?.includes('bundle') && <span className="badge-classification cafe-warn">여러 장 글</span>}
         {!auction && !full.price && <span className="badge-classification cafe-warn">가격 확인 필요</span>}
         {(c.soldMark || c.flags?.includes('itemSold')) && <span className="badge-classification">판매완료 표시된 글</span>}
@@ -136,7 +138,11 @@ export default function CafeCandidates({ groups, gradingCompanies, gradingScale,
       return sort === 'new' ? d : -d;
     }), [pool, kind, sort]);
   const nSale = pool.filter((c) => c.kind === 'sale').length;
-  const picked = shown.filter((c) => checked[c.id] && c.kind === 'sale' && isComplete(withPrice(valOf(c))));
+  const picked = shown.filter((c) => checked[c.id] && c.kind === 'sale' && c.match === 'yes' && isComplete(withPrice(valOf(c))));
+  // 같은 카드로 확인된 글을 위에, 이름만 있고 세부 정보가 없는 글은 아래 "확인 필요"로
+  const sureList = shown.filter((c) => c.match === 'yes');
+  const checkList = shown.filter((c) => c.match !== 'yes');
+  const nSure = pool.filter((c) => c.match === 'yes').length;
   const rest = shown.filter((c) => !checked[c.id]);
 
   const saveBulk = () => {
@@ -153,7 +159,7 @@ export default function CafeCandidates({ groups, gradingCompanies, gradingScale,
   return (
     <div className="market-search-panel cafe-panel" id="cafe-candidates">
       <div className="cafe-panel-head">
-        <h4>MVP 카페 후보 ({groups.active.length})</h4>
+        <h4>MVP 카페 후보 <small className="cafe-head-count">맞는 카드 {nSure} · 확인 필요 {pool.length - nSure}</small></h4>
         <div className="cafe-head-controls">
           <div className="view-toggle">
             <button type="button" className={`btn-toggle ${kind === 'all' ? 'active' : ''}`} onClick={() => setKind('all')}>전체</button>
@@ -180,8 +186,15 @@ export default function CafeCandidates({ groups, gradingCompanies, gradingScale,
       )}
 
       {shown.length === 0 && <div className="empty-results">확인할 후보가 없어요.</div>}
+      {[['sure', sureList], ['check', checkList]].filter(([, list]) => list.length).map(([key, list]) => (
+      <div key={key} className={`cafe-group cafe-group-${key}`}>
+        <div className="cafe-group-head">
+          {key === 'sure'
+            ? <><b>✅ 맞는 카드 {list.length}</b><small>글에 이 카드의 희귀도·세트·카드 번호·별명이 적혀 있어요</small></>
+            : <><b>❓ 확인 필요 {list.length}</b><small>이름만 있고 희귀도·세트가 안 적힌 글이에요. 원글을 보고 판단해 주세요</small></>}
+        </div>
       <div className="market-search-results">
-        {shown.map((c) => (
+        {list.map((c) => (
           <CandidateRow
             key={c.id}
             c={c}
@@ -199,6 +212,8 @@ export default function CafeCandidates({ groups, gradingCompanies, gradingScale,
           />
         ))}
       </div>
+      </div>
+      ))}
 
       <div className="cafe-more">
         {groups.old.length > 0 && (
@@ -208,7 +223,7 @@ export default function CafeCandidates({ groups, gradingCompanies, gradingScale,
         )}
         {groups.hidden.length > 0 && (
           <button type="button" className="link-btn" onClick={() => setShowHidden((o) => !o)}>
-            {showHidden ? '숨긴 글 접기' : `자동으로 숨긴 글 ${groups.hidden.length}건 보기 (구합니다·잡담 등)`}
+            {showHidden ? '숨긴 글 접기' : `자동으로 숨긴 글 ${groups.hidden.length}건 보기 (다른 카드 ${groups.hidden.filter((c) => c.hidden === 'card').length}·구합니다·잡담)`}
           </button>
         )}
       </div>
@@ -216,7 +231,7 @@ export default function CafeCandidates({ groups, gradingCompanies, gradingScale,
         <div className="cafe-hidden-list">
           {groups.hidden.map((c) => (
             <div key={c.id} className="cafe-hidden-row">
-              <span className="badge-classification">{c.hidden === 'buy' ? '구매글' : '기타'}</span>
+              <span className="badge-classification">{c.hidden === 'buy' ? '구매글' : c.hidden === 'card' ? `다른 카드${c.matchConflict?.length ? ` (${c.matchConflict.join('·')})` : ''}` : '기타'}</span>
               <a href={c.url} target="_blank" rel="noopener noreferrer">{c.title}</a>
               <span className="market-listing-region">{fmtFound(c)}</span>
               <button type="button" className="btn btn-compact" disabled={busy} onClick={() => onRestore(c)}>후보로 올리기</button>
