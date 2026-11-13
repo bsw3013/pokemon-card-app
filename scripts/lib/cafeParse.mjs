@@ -196,3 +196,131 @@ export function articleIdFromLink(link) {
   const m = String(link || '').match(/\/(\d+)(?:[?#].*)?$/) || String(link || '').match(/articleid=(\d+)/i);
   return m ? m[1] : '';
 }
+
+// ── 같은 카드인지 판단 ──
+// 관심 카드는 보통 "특정 세트의 특정 희귀도 한 장"이라, 이름만 같은 다른 카드(같은 포켓몬의 RR·SR·MA·프로모, 다른 세트)를 걸러낸다.
+// 글에서 카드 이름 바로 주변과 경매 양식의 "박스 시리즈" 칸을 읽어
+//   yes(희귀도·세트·카드번호 중 하나 이상 일치, 어긋남 없음) / unknown(세부 정보 없음) / no(다른 희귀도나 다른 세트) 로 나눈다.
+
+// 사람들이 줄여 부르는 세트 이름 (세트 코드 → 별칭)
+const SET_ALIASES = {
+  sv8a: ['테라스탈', '테라페스타', '테라스탈페스타'],
+  sv4a: ['샤이니트레저', '샤이니트레져', '샤트'],
+  sv2a: ['151'],
+  sv3: ['흑염'],
+  m6a: ['30주년', '30th'],
+  's8a-p': ['25주년', '25th'],
+  s8b: ['브맥클', '클라이맥스'],
+  s12a: ['브이유니', 'vstar유니버스'],
+  sm12a: ['태그올스타즈', '태올'],
+  cp3: ['심쿵', '포켓심쿵'],
+  m2: ['인페르노'],
+  s6a: ['이브이히어로즈', '이히'],
+  mc: ['배틀컬렉션'],
+  xy20th: ['20주년', '20th'],
+};
+// 희귀도 표기 (긴 것부터). '특일'처럼 뜻이 애매한 말은 판단에 쓰지 않는다.
+const RARITY_WORDS = ['sar', 'sir', 'chr', 'csr', 'ssr', 'mur', 'bwr', 'fur', 'rrr', 'sr', 'ar', 'ur', 'hr', 'rr', 'ma', 'ir', 'promo', '프로모', '마스터볼', '몬스터볼', '마볼', '몬볼'];
+const RARITY_SAME = { sar: ['sar', 'sir'], promo: ['promo', '프로모'], 프로모: ['promo', '프로모'] };
+const RARITY_NORM = { sir: 'sar', 프로모: 'promo', 마볼: '마스터볼', 몬볼: '몬스터볼' };
+
+// 세트 이름에 들어 있어도 혼자서는 세트를 뜻하지 않는 말
+const GENERIC_WORDS = new Set(['포켓몬', '포켓몬카드', 'mega', '메가', 'tagteam', 'vmax', 'vstar', '프로모', 'base']);
+
+const nospace = (s) => String(s || '').normalize('NFKC').toLowerCase().replace(/\s+/g, '');
+
+export function buildSetIndex(catalogSets) {
+  const sets = (catalogSets || []).map((x) => {
+    const code = String(x.code || '').toLowerCase();
+    const name = nospace(x.name).replace(/(ex|v)$/, '');
+    const words = new Set([name, ...(SET_ALIASES[code] || []).map(nospace)]);
+    // "테라스탈 페스타 ex" → "테라스탈"처럼 앞 단어만 쓰는 경우
+    const first = nospace(String(x.name || '').split(/\s+/)[0]);
+    if (first.length >= 4 && first !== name && !GENERIC_WORDS.has(first)) words.add(first);
+    return { code, words: [...words].filter((w) => w.length >= 2) };
+  }).filter((s) => s.code);
+  return sets;
+}
+
+// 도감 카드 정보 → 판단에 쓸 정보
+export function cardMatchInfo(card, setIndex) {
+  const code = String(card?.series || '').trim().split(/[\s-「]/)[0].toLowerCase();
+  const rarity = String(card?.rarity || '').toLowerCase();
+  const num = (String(card?.cardNumber || '').match(/(\d+)\s*$/) || [])[1] || '';
+  const mine = setIndex.find((s) => s.code === code);
+  return {
+    code,
+    rarity: RARITY_NORM[rarity] || rarity,
+    number: num.replace(/^0+/, ''),
+    setWords: mine ? mine.words : [],
+  };
+}
+
+function codeRe(code) {
+  return new RegExp(`(?<![a-z0-9])${code.replace(/[.*+?^${}()|[\]\\/-]/g, '\\$&')}(?![a-z0-9])`, 'i');
+}
+
+function raritiesIn(s) {
+  const t = String(s || '').normalize('NFKC').toLowerCase();
+  const found = new Set();
+  for (const w of RARITY_WORDS) {
+    const re = /^[a-z]+$/.test(w) ? new RegExp(`(?<![a-z])${w}(?![a-z])`) : new RegExp(w);
+    if (re.test(t)) found.add(RARITY_NORM[w] || w);
+  }
+  if (found.has('rrr')) found.delete('rr');
+  return found;
+}
+
+export function judgeCard({ title, snippet }, names, info, setIndex) {
+  if (!info || (!info.rarity && !info.code)) return { match: 'unknown', why: [], conflict: [] };
+  const clean = (s) => String(s || '').normalize('NFKC').replace(/\(\s*예\s*:?\s*s4a\s*\)/gi, ' ');
+  const parts = [clean(title), clean(snippet)];
+  const want = new Set(RARITY_SAME[info.rarity] || [info.rarity]);
+  // 글 전체(이름이 여러 번 나오면 모두)를 모아서 판단한다
+  const agg = { rarOk: false, rarBad: new Set(), mySet: false, otherSets: new Set(), numOk: false, alias: false, hits: 0 };
+  // names[0]은 카드 이름, 나머지는 사용자가 넣은 별명(예: 버블뮤). 별명으로 찾은 글은 그 카드로 본다.
+  const aliasNames = names.slice(1);
+  // 제목은 "ex"를 빼고 쓰는 경우가 많아서(예: "메가레쿠쟈 MUR") 포켓몬 이름만으로도 본다
+  const baseNames = names.map((n) => String(n).replace(/\s*(ex|gx|v|vmax|vstar)$/i, '').trim()).filter((n) => n.length >= 2);
+  for (const [pi, t] of parts.entries()) {
+    // 경매 양식의 "박스 시리즈" 칸
+    const box = (t.match(/박스\s*시리즈[^:：]*[:：]\s*(.{0,30}?)\s*포켓몬카드/) || [])[1] || '';
+    const hits = names.flatMap((n) => findName(t, n));
+    if (aliasNames.some((n) => findName(t, n).length)) agg.alias = true;
+    if (pi === 0 && !hits.length) baseNames.forEach((n) => hits.push(...findName(t, n)));
+    for (const h of hits) {
+      // 이름 뒤(희귀도·세트), 이름 앞(세트)을 쉼표·슬래시 같은 구분자 전까지만 본다
+      const after = t.slice(h.end, h.end + 22).split(/[,/|·•【】\n]|\s-\s|원/)[0];
+      const before = t.slice(Math.max(0, h.start - 22), h.start).split(/[,/|·•【】\n]|\s-\s|원/).pop();
+      // 희귀도는 이름 바로 뒤에서 찾고, 없으면 바로 앞(예: "xy sr 가디안ex")에서 찾는다
+      let rar = raritiesIn(after);
+      if (!rar.size) rar = raritiesIn(before.slice(-10));
+      // 별명에 희귀도가 들어 있으면(예: "블래키 sar") 그것도 이 글의 희귀도로 본다
+      raritiesIn(t.slice(h.start, h.end)).forEach((r) => rar.add(r));
+      const near = nospace(`${before} ${t.slice(h.start, h.end)} ${after} ${box}`);
+      const nearRaw = `${before} ${after} ${box}`;
+      const mySet = info.setWords.some((w) => near.includes(w)) || (info.code && codeRe(info.code).test(nearRaw));
+      const otherSets = setIndex
+        .filter((s) => s.code !== info.code)
+        .filter((s) => codeRe(s.code).test(nearRaw) || s.words.some((w) => w.length >= 3 && near.includes(w) && !info.setWords.some((m) => m.includes(w))))
+        .map((s) => s.code);
+      const rawAround = `${t.slice(Math.max(0, h.start - 22), h.start)} ${t.slice(h.end, h.end + 22)} ${box}`;
+      const numOk = info.number && new RegExp(`(?<!\\d)0*${info.number}\\s*/\\s*\\d{2,3}`).test(rawAround);
+      const rarOk = [...rar].some((r) => want.has(r));
+      agg.hits += 1;
+      if (rarOk) agg.rarOk = true;
+      else if (info.rarity) rar.forEach((r) => agg.rarBad.add(r));
+      if (mySet) agg.mySet = true;
+      otherSets.forEach((c) => { if (!(c === 'promo' && rar.has('promo'))) agg.otherSets.add(c); });
+      if (numOk) agg.numOk = true;
+    }
+  }
+  const why = [agg.rarOk && info.rarity.toUpperCase(), agg.mySet && '세트', agg.numOk && '번호', agg.alias && '별명'].filter(Boolean);
+  // 같은 카드라는 희귀도·세트가 한 번도 안 나오고, 다른 희귀도·다른 세트만 나오면 다른 카드
+  const conflict = [
+    ...(!agg.rarOk && agg.rarBad.size ? [...agg.rarBad].map((r) => r.toUpperCase()) : []),
+    ...(!agg.mySet && !agg.numOk && agg.otherSets.size ? [...agg.otherSets] : []),
+  ];
+  const match = conflict.length ? 'no' : why.length ? 'yes' : 'unknown';
+  return { match, why: match === 'no' ? [] : why, conflict };
+}
