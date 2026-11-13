@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { deleteField, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 // MVP 카페 시세 후보
@@ -76,16 +76,30 @@ export async function loadCafeDecisions(force = false) {
   }
   return decisionsCache;
 }
+// 같은 카드 판단 기준이 바뀌기 전(2026-11-13)에 "버리기"한 기록은 날짜만 적혀 있다("dismissed@2026-11-12").
+// 그 글들은 새 기준으로 다시 판단해서 보여주려고 무시한다. 새 기록은 시각까지 적는다("dismissed@2026-11-13T05:12:00.000Z").
+const isOldDismiss = (v) => /^dismissed@\d{4}-\d{2}-\d{2}$/.test(String(v || ''));
+
 export async function setCafeDecisions(map) {
   // map: { 후보id: 'dismissed' | 'restored' | null }
-  const at = new Date().toISOString().slice(0, 10);
+  const at = new Date().toISOString();
   const d = {};
   Object.entries(map).forEach(([id, v]) => { d[id] = v ? `${v}@${at}` : null; });
-  await setDoc(DECISIONS_REF(), { d }, { merge: true });
-  decisionsCache = { ...(decisionsCache || {}), ...d };
+  // 예전 기준으로 버린 기록은 이참에 지워서 문서가 커지지 않게 한다
+  const stale = Object.entries(decisionsCache || {}).filter(([id, v]) => isOldDismiss(v) && !(id in d)).map(([id]) => id);
+  const write = { ...d };
+  stale.forEach((id) => { write[id] = deleteField(); });
+  await setDoc(DECISIONS_REF(), { d: write }, { merge: true });
+  const next = { ...(decisionsCache || {}), ...d };
+  stale.forEach((id) => { delete next[id]; });
+  decisionsCache = next;
   return decisionsCache;
 }
-export const decisionOf = (decisions, id) => String(decisions?.[id] || '').split('@')[0] || null;
+export const decisionOf = (decisions, id) => {
+  const v = decisions?.[id];
+  if (!v || isOldDismiss(v)) return null;
+  return String(v).split('@')[0] || null;
+};
 
 // ── 후보 고르기 ──
 export function ageDays(iso, now = Date.now()) {
