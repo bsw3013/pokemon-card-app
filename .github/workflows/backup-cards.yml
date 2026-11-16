@@ -39,8 +39,9 @@ jobs:
       - name: 백업이 바뀌었으면 커밋
         id: backup
         run: |
+          git add -A public/card-images 2>/dev/null || true
           git add -N database_backups/catalog.json public/data/cards.json 2>/dev/null || true
-          if git diff --quiet -- database_backups/main_dataset.csv database_backups/catalog.json public/data/cards.json; then
+          if git diff --quiet -- database_backups/main_dataset.csv database_backups/catalog.json public/data/cards.json && git diff --cached --quiet -- public/card-images; then
             echo "바뀐 카드가 없어서 커밋하지 않습니다."
             exit 0
           fi
@@ -48,6 +49,7 @@ jobs:
           cp database_backups/main_dataset.csv "database_backups/backup_${STAMP}.csv"
           COUNT=$(($(grep -c '' database_backups/main_dataset.csv) - 1))
           git add database_backups public/data/cards.json
+          git add -A public/card-images 2>/dev/null || true
           git commit -m "카드 DB 자동 백업: ${STAMP} (총 ${COUNT}건)"
           git pull --rebase origin main
           git push

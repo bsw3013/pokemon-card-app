@@ -10,6 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import Papa from 'papaparse';
+import { extractCardImages } from './lib/cardImages.mjs';
 
 const PROJECT_ID = 'pokemoncard-0319';
 const COLLECTION = 'pokemon_cards';
@@ -72,6 +73,10 @@ if (rows.length === 0) {
   console.error('카드를 한 장도 읽지 못했습니다. 백업을 중단합니다.');
   process.exit(1);
 }
+
+// 직접 올린 카드 사진(data: 주소)은 public/card-images 파일로 빼고 주소만 남긴다 (목록 파일·CSV가 커지지 않게)
+const images = extractCardImages(rows, 'public/card-images');
+if (images.kept || images.removed) console.log(`직접 올린 사진: ${images.kept}장 (새 파일 ${images.written}, 지운 파일 ${images.removed})`);
 
 // 마스터 설정의 예전 "깃허브 백업" 버튼과 같은 정렬·열 순서
 rows.sort((a, b) => (Number(a.displayOrder) || 0) - (Number(b.displayOrder) || 0));

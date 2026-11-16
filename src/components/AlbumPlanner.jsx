@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { addDoc, collection, deleteDoc, doc, getDocs, query, setDoc, updateDoc, where } from 'firebase/firestore';
-import { db, storage } from '../firebase';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db } from '../firebase';
 import AlbumLibrary from './album/AlbumLibrary';
 import AlbumEditor from './album/AlbumEditor';
-import { shrinkImage } from './album/albumUtils';
+import { shrinkToDataUrl } from '../utils/imageShrink';
 import { normalizeStatus } from '../utils/statusUtils';
 import { formatCardPayload } from '../utils/cardUtils';
 import { useOwnedCards } from '../hooks/useOwnedCards';
@@ -491,13 +490,10 @@ export default function AlbumPlanner({ appConfig }) {
     }
   };
 
-  // 표지 사진 올리기: 작게 줄여서 albumCovers/{내 uid}/ 에 저장하고 주소를 돌려준다
-  const uploadAlbumCover = async (albumId, file) => {
+  // 표지 사진 올리기: 사진 저장소 없이, 작게 줄인 사진(data: 주소)을 앨범 정보에 바로 저장한다
+  const uploadAlbumCover = async (_albumId, file) => {
     if (!user) throw new Error('로그인이 필요해요');
-    const blob = await shrinkImage(file, 1200, 0.85);
-    const fileRef = storageRef(storage, `albumCovers/${user.uid}/${albumId}_${Date.now()}.jpg`);
-    const snap = await uploadBytes(fileRef, blob, { contentType: 'image/jpeg', cacheControl: 'public, max-age=31536000' });
-    return getDownloadURL(snap.ref);
+    return shrinkToDataUrl(file, { maxW: 900, maxH: 900, quality: 0.8, maxBytes: 250 * 1024 });
   };
 
   const handleDeleteAlbum = async (albumId) => {

@@ -83,29 +83,6 @@ export function relativeTime(iso) {
   return `${sameYear ? '' : `${date.getFullYear()}년 `}${date.getMonth() + 1}월 ${date.getDate()}일`;
 }
 
-// 올릴 사진을 가로·세로 최대 maxSize로 줄여 JPEG로 만든다 (빠르게 뜨고 저장 용량도 적게)
-export async function shrinkImage(file, maxSize = 1200, quality = 0.85) {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise((resolve, reject) => {
-      const el = new Image();
-      el.onload = () => resolve(el);
-      el.onerror = () => reject(new Error('사진을 읽지 못했어요'));
-      el.src = url;
-    });
-    const scale = Math.min(1, maxSize / Math.max(img.naturalWidth, img.naturalHeight));
-    const w = Math.max(1, Math.round(img.naturalWidth * scale));
-    const h = Math.max(1, Math.round(img.naturalHeight * scale));
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-    return await new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('사진 변환 실패'))), 'image/jpeg', quality));
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
-
 // 도감 카드 → 앨범 칸에 저장하는 최소 정보
 export function cardToSlot(card) {
   return {
