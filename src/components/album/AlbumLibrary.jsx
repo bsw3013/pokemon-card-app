@@ -78,9 +78,7 @@ function CoverDialog({ album, cardsById, onClose, onSave, uploadCover }) {
       setCover({ type: 'photo', imageUrl: url, position: cover.position || 'center' });
     } catch (err) {
       console.error('표지 사진 올리기 실패', err);
-      setError(err?.code === 'storage/unauthorized'
-        ? '사진 저장소 권한이 없어 올리지 못했어요. Firebase 저장소 규칙에서 앨범 사진 폴더를 허용해야 해요.'
-        : `사진을 올리지 못했어요. (${err.message || err})`);
+      setError(err?.message || '사진을 올리지 못했어요.');
     } finally {
       setBusy(false);
     }

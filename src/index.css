@@ -4715,3 +4715,4 @@ body:has(.ae) .scroll-to-top-btn { display: none !important; }
 .cafe-group-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.6rem; margin: 0.4rem 0 0.5rem; }
 .cafe-group-head small { color: var(--text-muted); }
 .cafe-group-check { margin-top: 1.2rem; padding-top: 0.8rem; border-top: 1px dashed var(--border-color); }
+.upload-note { margin: 0.35rem 0 0; font-size: 0.78rem; color: var(--text-muted); }

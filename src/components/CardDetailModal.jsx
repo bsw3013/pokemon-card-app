@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '../firebase';
+import { dataUrlBytes, shrinkToDataUrl } from '../utils/imageShrink';
 import pokemonMapAll from '../utils/pokemonMapAll.json';
 import { useAuth } from '../AuthContext';
 import CardThumbnail from './CardThumbnail';
@@ -44,6 +43,7 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
 
   // 📷 직접 업로드 및 URL 입력 상태
   const [uploading, setUploading] = useState(false);
+  const [uploadNote, setUploadNote] = useState('');
   const [urlInput, setUrlInput] = useState('');
 
   useEffect(() => {
@@ -135,19 +135,22 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
     }
   };
 
+  // 기기 사진: 원본은 저장하지 않고, 브라우저에서 작게 줄인 사진(data: 주소)을 카드 정보에 바로 넣는다.
+  // (사진 저장소 없이 동작. 매일 백업 작업이 이 사진을 public/card-images 파일로 빼서 목록 파일을 가볍게 유지한다)
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
+    e.target.value = '';
     if (!file) return;
     setUploading(true);
+    setUploadNote('');
     try {
-      const fileName = `cards/${Date.now()}_${file.name}`;
-      const storageRef = ref(storage, fileName);
-      const snapshot = await uploadBytes(storageRef, file);
-      const downloadUrl = await getDownloadURL(snapshot.ref);
-      setEditData((prev) => ({ ...prev, imageUrl: downloadUrl }));
+      const dataUrl = await shrinkToDataUrl(file);
+      setEditData((prev) => ({ ...prev, imageUrl: dataUrl }));
+      setUploadNote(`사진을 작게 줄여서 넣었어요 (${Math.max(1, Math.round(dataUrlBytes(dataUrl) / 1024))}KB). 저장을 눌러야 반영돼요.`);
     } catch (err) {
       console.error(err);
-      alert("이미지 업로드에 실패했습니다.");
+      setUploadNote('');
+      alert(err?.message || '사진을 넣지 못했어요.');
     } finally {
       setUploading(false);
     }
@@ -317,9 +320,10 @@ export default function CardDetailModal({ isOpen, card, appConfig, isAdmin = fal
 
                 <div className="upload-option">
                   <label className={`btn btn-secondary file-upload-btn ${!isAdmin ? 'disabled' : ''}`}>
-                    {uploading ? "업로드 중..." : "기기에서 파일 선택"}
+                    {uploading ? "사진 줄이는 중..." : "기기에서 파일 선택"}
                     <input type="file" accept="image/*" onChange={handleFileUpload} disabled={uploading || !isAdmin} />
                   </label>
+                  {uploadNote && <p className="upload-note">{uploadNote}</p>}
                 </div>
 
                 <div className="upload-option url-input-group">
