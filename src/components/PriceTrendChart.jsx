@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { GRADE_COLORS } from '../utils/gradeKey';
 
 const KNOWN_MARKETPLACE_COLORS = {
   번개장터: '#f97316',
@@ -6,6 +7,7 @@ const KNOWN_MARKETPLACE_COLORS = {
   직접입력: '#3b82f6',
 };
 const FALLBACK_PALETTE = ['#a855f7', '#ec4899', '#eab308', '#14b8a6', '#f43f5e', '#6366f1', '#84cc16', '#0ea5e9'];
+
 
 function marketplaceLabelFor(point) {
   if (point.marketplace) return point.marketplace;
@@ -24,7 +26,23 @@ function formatDate(iso) {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-export default function PriceTrendChart({ history }) {
+// 같은 날짜에 기록이 여러 건 있으면 평균가로 묶는다
+function dailyAveragesOf(points) {
+  const map = new Map(); // dayKey -> { sum, count, date }
+  points.forEach((p) => {
+    const dayKey = p.recordedAt.slice(0, 10);
+    const entry = map.get(dayKey) || { sum: 0, count: 0, date: p.recordedAt };
+    entry.sum += p.price;
+    entry.count += 1;
+    map.set(dayKey, entry);
+  });
+  return Array.from(map.values())
+    .map(({ sum, count, date }) => ({ date, price: Math.round(sum / count) }))
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+}
+
+// seriesOf(기록) → 묶음 이름을 주면(등급카드: "BRG 10") 묶음마다 따로 선을 그린다. 서로 섞어서 평균 내지 않는다.
+export default function PriceTrendChart({ history, seriesOf = null, seriesOrder = [] }) {
   const points = useMemo(
     () => (history || []).filter((h) => typeof h.price === 'number').slice().sort((a, b) => new Date(a.recordedAt) - new Date(b.recordedAt)),
     [history]
@@ -41,19 +59,27 @@ export default function PriceTrendChart({ history }) {
   }, [points]);
 
   // 같은 날짜에 매물이 여러 건 있으면 평균가로 묶어서 하나의 선으로 이어준다.
-  const dailyAverages = useMemo(() => {
-    const map = new Map(); // dayKey -> { sum, count, date }
+  const dailyAverages = useMemo(() => dailyAveragesOf(points), [points]);
+
+  // 등급카드: 등급마다 { key, color, points, line }
+  const series = useMemo(() => {
+    if (!seriesOf) return null;
+    const map = new Map();
     points.forEach((p) => {
-      const dayKey = p.recordedAt.slice(0, 10);
-      const entry = map.get(dayKey) || { sum: 0, count: 0, date: p.recordedAt };
-      entry.sum += p.price;
-      entry.count += 1;
-      map.set(dayKey, entry);
+      const k = seriesOf(p);
+      if (!map.has(k)) map.set(k, []);
+      map.get(k).push(p);
     });
-    return Array.from(map.values())
-      .map(({ sum, count, date }) => ({ date, price: Math.round(sum / count) }))
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
-  }, [points]);
+    const keys = [...map.keys()].sort((a, b) => {
+      const ia = seriesOrder.indexOf(a); const ib = seriesOrder.indexOf(b);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b);
+    });
+    // 색은 고른 순서(등급 칩과 같은 색)를 따른다
+    return keys.map((key, i) => {
+      const idx = seriesOrder.indexOf(key);
+      return { key, color: GRADE_COLORS[(idx === -1 ? i : idx) % GRADE_COLORS.length], points: map.get(key), line: dailyAveragesOf(map.get(key)) };
+    });
+  }, [points, seriesOf, seriesOrder]);
 
   const colorByLabel = useMemo(() => {
     const colors = {};
@@ -104,38 +130,69 @@ export default function PriceTrendChart({ history }) {
         <text x={PAD.left} y={HEIGHT - 6} className="market-chart-axis-label">{formatDate(points[0].recordedAt)}</text>
         <text x={WIDTH - PAD.right - 28} y={HEIGHT - 6} className="market-chart-axis-label">{formatDate(points[points.length - 1].recordedAt)}</text>
 
-        {dailyAverages.length > 1 && (
-          <path
-            d={dailyAverages.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xFor(p.date)} ${yFor(p.price)}`).join(' ')}
-            fill="none"
-            stroke="var(--accent-color)"
-            strokeWidth="2.5"
-          />
+        {series ? series.map((s) => (
+          <g key={s.key}>
+            {s.line.length > 1 && (
+              <path
+                d={s.line.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xFor(p.date)} ${yFor(p.price)}`).join(' ')}
+                fill="none"
+                stroke={s.color}
+                strokeWidth="2.5"
+              />
+            )}
+            {s.points.map((p, i) => (
+              <circle key={i} cx={xFor(p.recordedAt)} cy={yFor(p.price)} r="3.5" fill={s.color}>
+                <title>{`${s.key} · ${p.price.toLocaleString()}원 · ${formatDate(p.recordedAt)} · ${marketplaceLabelFor(p)}${p.saleType === 'auction' ? ' 경매' : ''}`}</title>
+              </circle>
+            ))}
+          </g>
+        )) : (
+          <>
+            {dailyAverages.length > 1 && (
+              <path
+                d={dailyAverages.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xFor(p.date)} ${yFor(p.price)}`).join(' ')}
+                fill="none"
+                stroke="var(--accent-color)"
+                strokeWidth="2.5"
+              />
+            )}
+            {Object.entries(byMarketplace).map(([label, pts]) => {
+              const color = colorByLabel[label] || '#94a3b8';
+              return (
+                <g key={label}>
+                  {pts.map((p, i) => (
+                    <circle key={i} cx={xFor(p.recordedAt)} cy={yFor(p.price)} r="3" fill={color}>
+                      <title>{`${p.price.toLocaleString()}원 · ${formatDate(p.recordedAt)} · ${label}`}</title>
+                    </circle>
+                  ))}
+                </g>
+              );
+            })}
+          </>
         )}
-
-        {Object.entries(byMarketplace).map(([label, pts]) => {
-          const color = colorByLabel[label] || '#94a3b8';
-          return (
-            <g key={label}>
-              {pts.map((p, i) => (
-                <circle key={i} cx={xFor(p.recordedAt)} cy={yFor(p.price)} r="3" fill={color} />
-              ))}
-            </g>
-          );
-        })}
       </svg>
       <div className="market-chart-legend">
-        <span className="market-chart-legend-item">
-          <i style={{ background: 'var(--accent-color)' }} />
-          날짜별 평균
-        </span>
-        {Object.keys(byMarketplace).map((label) => (
-          <span key={label} className="market-chart-legend-item">
-            <i style={{ background: colorByLabel[label] || '#94a3b8' }} />
-            {label}
+        {series ? series.map((s) => (
+          <span key={s.key} className="market-chart-legend-item">
+            <i style={{ background: s.color }} />
+            {s.key} <small>({s.points.length}건)</small>
           </span>
-        ))}
+        )) : (
+          <>
+            <span className="market-chart-legend-item">
+              <i style={{ background: 'var(--accent-color)' }} />
+              날짜별 평균
+            </span>
+            {Object.keys(byMarketplace).map((label) => (
+              <span key={label} className="market-chart-legend-item">
+                <i style={{ background: colorByLabel[label] || '#94a3b8' }} />
+                {label}
+              </span>
+            ))}
+          </>
+        )}
       </div>
+      {series && <p className="market-chart-note">등급마다 따로 선을 그려요. 점에 마우스를 올리면 판매처·날짜가 보여요.</p>}
     </div>
   );
 }
