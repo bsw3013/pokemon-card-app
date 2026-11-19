@@ -840,7 +840,25 @@
       "name": "울트라썬",
       "printedTotal": null,
       "releaseDate": ""
+    },
+    {
+      "code": "XY",
+      "era": "XY",
+      "kind": "확장팩",
+      "label": "XY -「마그마단vs아쿠아단 더블크라이시스」",
+      "name": "마그마단vs아쿠아단 더블크라이시스",
+      "printedTotal": null,
+      "releaseDate": ""
+    },
+    {
+      "code": "xy2",
+      "era": "XY",
+      "kind": "확장팩",
+      "label": "xy2 -「와일드 블레이즈」",
+      "name": "와일드 블레이즈",
+      "printedTotal": null,
+      "releaseDate": ""
     }
   ],
-  "updatedAt": "2026-11-12T15:56:36.433Z"
+  "updatedAt": "2026-11-18T23:59:17.836Z"
 }
