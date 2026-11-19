@@ -21,6 +21,7 @@ import PriceTrendChart from './PriceTrendChart';
 import { invalidateMarketIndex } from '../hooks/useMarketIndex';
 import { invalidateWatchlist } from '../hooks/useWatchlist';
 import { normalizeImageUrl } from '../utils/thumbKey';
+import { GRADE_COLORS, gradeKeyOf } from '../utils/gradeKey';
 import CafeCandidates from './market/CafeCandidates';
 import AuctionSection from './market/AuctionSection';
 import MarketUpdateButton from './market/MarketUpdateButton';
@@ -29,7 +30,6 @@ import {
 } from '../utils/cafeMarket';
 
 const SOURCE_LABELS = { bunjang: '번개장터', danggeun: '당근마켓', manual: '직접입력', cafe: 'MVP 카페' };
-const TOP_GRADES = ['10', '9'];
 const MARKET_SERVER_URL = 'http://localhost:5175';
 const LANGUAGE_OPTIONS = ['한국', '일본', '미국', '중국'];
 const FALLBACK_GRADING_COMPANIES = ['PSA', 'BGS', 'CGC', '기타'];
@@ -82,6 +82,7 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
   const [chartRange, setChartRange] = useState('all'); // 'all' | '30' | '7'
   const [langFilter, setLangFilter] = useState('한국'); // '한국' | '일본' | '미국' | '중국'
   const [conditionFilter, setConditionFilter] = useState('raw'); // 'raw' | 'graded'
+  const [gradeSel, setGradeSel] = useState(null); // 등급카드에서 고른 등급들 (예: ['BRG 10', 'PSA 10'])
 
   const [manualFormOpen, setManualFormOpen] = useState(false);
   const [manualForm, setManualForm] = useState({
@@ -276,13 +277,39 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
     return l.status === 'sold_estimated' ? l.firstSeen : (l.lastSeen || l.firstSeen);
   }
 
+  // 등급카드: 이 언어에 기록이 있는 등급(등급사+등급)들과 건수. 많은 순.
+  const gradeOptions = useMemo(() => {
+    if (conditionFilter !== 'graded') return [];
+    const counts = new Map();
+    listings.forEach((l) => {
+      if ((l.language || '한국') !== langFilter || l.conditionType !== 'graded' || l.classification !== 'normal') return;
+      if (!['active', 'unconfirmed', 'manual', 'sold_estimated'].includes(l.status)) return;
+      const k = gradeKeyOf(l);
+      counts.set(k, (counts.get(k) || 0) + 1);
+    });
+    return [...counts.entries()]
+      .map(([key, count]) => ({ key, count }))
+      .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key, 'ko', { numeric: true }));
+  }, [listings, langFilter, conditionFilter]);
+  // 고른 등급 (아무것도 안 골랐거나 고른 등급이 사라졌으면 기록이 가장 많은 등급 하나)
+  const selectedGrades = useMemo(() => {
+    const valid = (gradeSel || []).filter((k) => gradeOptions.some((o) => o.key === k));
+    return valid.length ? valid : gradeOptions.slice(0, 1).map((o) => o.key);
+  }, [gradeSel, gradeOptions]);
+  function toggleGrade(key) {
+    const cur = selectedGrades;
+    if (cur.includes(key)) { if (cur.length > 1) setGradeSel(cur.filter((k) => k !== key)); }
+    else setGradeSel([...cur, key]);
+  }
+  const gradeOk = (e) => conditionFilter !== 'graded' || selectedGrades.includes(gradeKeyOf(e));
+
   const filteredListings = useMemo(
-    () => listings.filter((l) => matchesLangAndCondition(l) && withinChartRange(listingDateForRange(l))),
-    [listings, langFilter, conditionFilter, chartRange]
+    () => listings.filter((l) => matchesLangAndCondition(l) && gradeOk(l) && withinChartRange(listingDateForRange(l))),
+    [listings, langFilter, conditionFilter, chartRange, selectedGrades]
   );
   const filteredHistory = useMemo(
-    () => history.filter((h) => matchesLangAndCondition(h) && withinChartRange(h.recordedAt)),
-    [history, langFilter, conditionFilter, chartRange]
+    () => history.filter((h) => matchesLangAndCondition(h) && gradeOk(h) && withinChartRange(h.recordedAt)),
+    [history, langFilter, conditionFilter, chartRange, selectedGrades]
   );
 
   const activeNormal = useMemo(
@@ -305,24 +332,18 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
     return { count: sorted.length, min: sorted[0], max: sorted[sorted.length - 1], avg };
   }
 
-  // 등급카드는 등급사+등급(10/9만)별로 묶어서 각각 따로 통계를 낸다.
+  // 등급카드는 고른 등급(등급사+등급)별로 묶어서 각각 따로 통계를 낸다.
   function groupGradedStats(list) {
     const groups = new Map();
     list.forEach((l) => {
-      const grade = String(l.grade || '');
-      if (!TOP_GRADES.includes(grade)) return;
-      const company = l.gradingCompany || '기타';
-      const key = `${company}__${grade}`;
+      const key = gradeKeyOf(l);
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(l);
     });
     return Array.from(groups.entries())
-      .map(([key, items]) => {
-        const [company, grade] = key.split('__');
-        return { company, grade, stats: computeStats(items) };
-      })
+      .map(([key, items]) => ({ key, stats: computeStats(items) }))
       .filter((g) => g.stats)
-      .sort((a, b) => (a.company !== b.company ? a.company.localeCompare(b.company) : Number(b.grade) - Number(a.grade)));
+      .sort((a, b) => selectedGrades.indexOf(a.key) - selectedGrades.indexOf(b.key));
   }
 
   const rawActiveStats = useMemo(() => (conditionFilter === 'raw' ? computeStats(activeNormal) : null), [conditionFilter, activeNormal]);
@@ -734,10 +755,10 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
               {!loading && conditionFilter === 'raw' && !rawActiveStats && <span className="market-hint">아직 판매중인 정상 매물이 없습니다.</span>}
               {!loading && conditionFilter === 'graded' && gradedActiveGroups.length > 0 && (
                 <span className="market-preview-range">
-                  10/9등급 판매중 매물 {gradedActiveGroups.reduce((s, g) => s + g.stats.count, 0)}건
+                  {selectedGrades.join(' · ')} 판매중 매물 {gradedActiveGroups.reduce((s, g) => s + g.stats.count, 0)}건
                 </span>
               )}
-              {!loading && conditionFilter === 'graded' && gradedActiveGroups.length === 0 && <span className="market-hint">아직 10등급/9등급 판매중 매물이 없습니다.</span>}
+              {!loading && conditionFilter === 'graded' && gradedActiveGroups.length === 0 && <span className="market-hint">{selectedGrades.length ? `${selectedGrades.join(' · ')} 판매중 매물이 없습니다.` : '아직 등급카드 기록이 없습니다.'}</span>}
               {!loading && isAdmin && (newCafeCount > 0 || auctionsEnded > 0) && (
                 <button type="button" className="market-cafe-alert" onClick={() => { setCafeOpen(true); setTimeout(() => document.getElementById(newCafeCount ? 'cafe-candidates' : 'cafe-auctions')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); }}>
                   {newCafeCount > 0 && <span>MVP 카페 새 후보 <b>{newCafeCount}</b>건</span>}
@@ -772,6 +793,21 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
                     <button type="button" className={`btn-toggle ${conditionFilter === 'graded' ? 'active' : ''}`} onClick={() => setConditionFilter('graded')}>등급카드</button>
                   </div>
                 </div>
+                {conditionFilter === 'graded' && gradeOptions.length > 0 && (
+                  <div className="market-filter-group market-grade-filter">
+                    <span className="market-filter-label">등급</span>
+                    <div className="view-toggle">
+                      {gradeOptions.map((o) => (
+                        <button type="button" key={o.key} className={`btn-toggle ${selectedGrades.includes(o.key) ? 'active' : ''}`} onClick={() => toggleGrade(o.key)} title="여러 개 고를 수 있어요. 그래프는 등급마다 따로 선을 그려요">
+                          {selectedGrades.includes(o.key) && selectedGrades.length > 1 && (
+                            <i className="grade-dot" style={{ background: GRADE_COLORS[selectedGrades.indexOf(o.key) % GRADE_COLORS.length] }} />
+                          )}
+                          {o.key} <small>{o.count}</small>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="market-filter-group">
                   <span className="market-filter-label">기간</span>
                   <div className="view-toggle">
@@ -810,7 +846,7 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
               ) : (
                 <div className="market-summary-groups">
                   <div className="market-summary-group">
-                    <h5>판매중 기준 (10등급/9등급)</h5>
+                    <h5>판매중 기준 <small className="sale-type-split">({selectedGrades.join(' · ')})</small></h5>
                     {gradedActiveGroups.length > 0 ? (
                       <div className="market-grade-stat-table-wrap">
                       <table className="market-grade-stat-table">
@@ -819,8 +855,8 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
                         </thead>
                         <tbody>
                           {gradedActiveGroups.map((g) => (
-                            <tr key={`${g.company}-${g.grade}-active`}>
-                              <td className="market-grade-label">{g.company} {g.grade}</td>
+                            <tr key={`${g.key}-active`}>
+                              <td className="market-grade-label">{g.key}</td>
                               <td>{g.stats.count}건</td>
                               <td>{fmtPrice(g.stats.min.price)}</td>
                               <td>{fmtPrice(g.stats.avg)}</td>
@@ -830,10 +866,10 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
                         </tbody>
                       </table>
                       </div>
-                    ) : <p className="market-hint">10등급/9등급 판매중 매물이 없습니다.</p>}
+                    ) : <p className="market-hint">고른 등급의 판매중 매물이 없습니다.</p>}
                   </div>
                   <div className="market-summary-group">
-                    <h5>판매완료 기준 (10등급/9등급)<small className="sale-type-split">{saleTypeCount(soldEstimated)}</small></h5>
+                    <h5>판매완료 기준 <small className="sale-type-split">({selectedGrades.join(' · ')}){saleTypeCount(soldEstimated)}</small></h5>
                     {gradedSoldGroups.length > 0 ? (
                       <div className="market-grade-stat-table-wrap">
                       <table className="market-grade-stat-table">
@@ -842,8 +878,8 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
                         </thead>
                         <tbody>
                           {gradedSoldGroups.map((g) => (
-                            <tr key={`${g.company}-${g.grade}-sold`}>
-                              <td className="market-grade-label">{g.company} {g.grade}</td>
+                            <tr key={`${g.key}-sold`}>
+                              <td className="market-grade-label">{g.key}</td>
                               <td>{g.stats.count}건</td>
                               <td>{fmtPrice(g.stats.min.price)}</td>
                               <td>{fmtPrice(g.stats.avg)}</td>
@@ -853,12 +889,12 @@ export default function MarketDrawer({ card, appConfig, onClose, onChanged, onOp
                         </tbody>
                       </table>
                       </div>
-                    ) : <p className="market-hint">10등급/9등급 판매완료 매물이 없습니다.</p>}
+                    ) : <p className="market-hint">고른 등급의 판매완료 매물이 없습니다.</p>}
                   </div>
                 </div>
               )}
 
-              <PriceTrendChart history={filteredHistory} />
+              <PriceTrendChart history={filteredHistory} seriesOf={conditionFilter === 'graded' ? gradeKeyOf : null} seriesOrder={selectedGrades} />
 
               <div className="market-add-row">
                 {isAdmin && (
