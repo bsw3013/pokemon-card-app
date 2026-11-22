@@ -28,87 +28,87 @@
     {
       "code": "S",
       "group": "힛카드",
-      "order": 10
+      "order": 6
     },
     {
       "code": "A",
       "group": "힛카드",
-      "order": 11
+      "order": 7
     },
     {
       "code": "MA",
       "group": "힛카드",
-      "order": 12
+      "order": 8
     },
     {
       "code": "AR",
       "group": "힛카드",
-      "order": 13
+      "order": 9
     },
     {
       "code": "CHR",
       "group": "힛카드",
-      "order": 14
+      "order": 10
     },
     {
       "code": "CSR",
       "group": "힛카드",
-      "order": 15
+      "order": 11
     },
     {
       "code": "SR",
       "group": "힛카드",
-      "order": 16
+      "order": 12
     },
     {
       "code": "SSR",
       "group": "힛카드",
-      "order": 17
+      "order": 13
     },
     {
       "code": "SAR",
       "group": "힛카드",
-      "order": 18
+      "order": 14
     },
     {
       "code": "HR",
       "group": "힛카드",
-      "order": 19
+      "order": 15
     },
     {
       "code": "UR",
       "group": "힛카드",
-      "order": 20
+      "order": 16
     },
     {
       "code": "BWR",
       "group": "힛카드",
-      "order": 21
+      "order": 17
     },
     {
       "code": "MUR",
       "group": "힛카드",
-      "order": 22
-    },
-    {
-      "code": "PROMO",
-      "group": "기타",
-      "order": 30
-    },
-    {
-      "code": "기타 AR",
-      "group": "기타",
-      "order": 31
-    },
-    {
-      "code": "없음",
-      "group": "기타",
-      "order": 32
+      "order": 18
     },
     {
       "code": "FUR",
       "group": "힛카드",
-      "order": 23
+      "order": 19
+    },
+    {
+      "code": "PROMO",
+      "group": "기타",
+      "order": 20
+    },
+    {
+      "code": "기타 AR",
+      "group": "기타",
+      "order": 21
+    },
+    {
+      "code": "없음",
+      "group": "기타",
+      "order": 22
     }
   ],
   "sets": [
@@ -248,6 +248,15 @@
       "releaseDate": "2019-12-06"
     },
     {
+      "code": "s4a",
+      "era": "소드&실드",
+      "kind": "하이클래스팩",
+      "label": "s4a -「샤이니스타 V」",
+      "name": "샤이니스타 V",
+      "printedTotal": null,
+      "releaseDate": "2020-12-18"
+    },
+    {
       "code": "s5I",
       "era": "소드&실드",
       "kind": "확장팩",
@@ -336,6 +345,15 @@
       "name": "배틀리전",
       "printedTotal": 67,
       "releaseDate": "2022-04-27"
+    },
+    {
+      "code": "s10D",
+      "era": "소드&실드",
+      "kind": "확장팩",
+      "label": "s10D -「타임게이저」",
+      "name": "타임게이저",
+      "printedTotal": null,
+      "releaseDate": "2022-05-20"
     },
     {
       "code": "s10P",
@@ -689,15 +707,6 @@
       "releaseDate": "2026-03-13"
     },
     {
-      "code": "promo",
-      "era": "기타",
-      "kind": "프로모",
-      "label": "PROMO",
-      "name": "프로모 카드",
-      "printedTotal": null,
-      "releaseDate": ""
-    },
-    {
       "code": "m4",
       "era": "메가",
       "kind": "확장팩",
@@ -734,11 +743,11 @@
       "releaseDate": "2026-09-16"
     },
     {
-      "code": "s6K",
-      "era": "소드&실드",
-      "kind": "확장팩",
-      "label": "s6K -「칠흑의 가이스트」",
-      "name": "칠흑의 가이스트",
+      "code": "promo",
+      "era": "기타",
+      "kind": "프로모",
+      "label": "PROMO",
+      "name": "프로모 카드",
       "printedTotal": null,
       "releaseDate": ""
     },
@@ -752,29 +761,11 @@
       "releaseDate": ""
     },
     {
-      "code": "s4a",
-      "era": "소드&실드",
-      "kind": "하이클래스팩",
-      "label": "s4a -「샤이니스타 V」",
-      "name": "샤이니스타 V",
-      "printedTotal": null,
-      "releaseDate": ""
-    },
-    {
-      "code": "s10D",
+      "code": "s6K",
       "era": "소드&실드",
       "kind": "확장팩",
-      "label": "s10D -「타임게이저」",
-      "name": "타임게이저",
-      "printedTotal": null,
-      "releaseDate": ""
-    },
-    {
-      "code": "sm12",
-      "era": "썬&문",
-      "kind": "확장팩",
-      "label": "sm12 -「얼터제네시스」",
-      "name": "얼터제네시스",
+      "label": "s6K -「칠흑의 가이스트」",
+      "name": "칠흑의 가이스트",
       "printedTotal": null,
       "releaseDate": ""
     },
@@ -788,38 +779,20 @@
       "releaseDate": ""
     },
     {
-      "code": "sm9a",
-      "era": "썬&문",
-      "kind": "강화 확장팩",
-      "label": "sm9a -「나이트유니슨」",
-      "name": "나이트유니슨",
-      "printedTotal": null,
-      "releaseDate": ""
-    },
-    {
-      "code": "sm9",
+      "code": "sm12",
       "era": "썬&문",
       "kind": "확장팩",
-      "label": "sm9 -「태그볼트」",
-      "name": "태그볼트",
+      "label": "sm12 -「얼터제네시스」",
+      "name": "얼터제네시스",
       "printedTotal": null,
       "releaseDate": ""
     },
     {
-      "code": "sm8",
+      "code": "sm5S",
       "era": "썬&문",
       "kind": "확장팩",
-      "label": "sm8 -「버스트임팩트」",
-      "name": "버스트임팩트",
-      "printedTotal": null,
-      "releaseDate": ""
-    },
-    {
-      "code": "sm7B",
-      "era": "썬&문",
-      "kind": "강화 확장팩",
-      "label": "sm7B -「페어리라이즈」",
-      "name": "페어리라이즈",
+      "label": "sm5S -「울트라썬」",
+      "name": "울트라썬",
       "printedTotal": null,
       "releaseDate": ""
     },
@@ -833,11 +806,38 @@
       "releaseDate": ""
     },
     {
-      "code": "sm5S",
+      "code": "sm7B",
+      "era": "썬&문",
+      "kind": "강화 확장팩",
+      "label": "sm7B -「페어리라이즈」",
+      "name": "페어리라이즈",
+      "printedTotal": null,
+      "releaseDate": ""
+    },
+    {
+      "code": "sm8",
       "era": "썬&문",
       "kind": "확장팩",
-      "label": "sm5S -「울트라썬」",
-      "name": "울트라썬",
+      "label": "sm8 -「버스트임팩트」",
+      "name": "버스트임팩트",
+      "printedTotal": null,
+      "releaseDate": ""
+    },
+    {
+      "code": "sm9",
+      "era": "썬&문",
+      "kind": "확장팩",
+      "label": "sm9 -「태그볼트」",
+      "name": "태그볼트",
+      "printedTotal": null,
+      "releaseDate": ""
+    },
+    {
+      "code": "sm9a",
+      "era": "썬&문",
+      "kind": "강화 확장팩",
+      "label": "sm9a -「나이트유니슨」",
+      "name": "나이트유니슨",
       "printedTotal": null,
       "releaseDate": ""
     },
@@ -860,5 +860,5 @@
       "releaseDate": ""
     }
   ],
-  "updatedAt": "2026-11-18T23:59:17.836Z"
+  "updatedAt": "2026-11-22T12:16:36.934Z"
 }
